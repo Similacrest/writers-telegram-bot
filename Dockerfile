@@ -11,4 +11,4 @@ ADD . /app/
 RUN poetry update
 
 EXPOSE 8080
-CMD ["python", "/app/bot.py"]
+CMD ["poetry", "run", "./bot.py"]
