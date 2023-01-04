@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Bot to generate Reitentschil prompts
+Bot to generate writing prompts
 """
 
 import logging, random, os, sys, re
