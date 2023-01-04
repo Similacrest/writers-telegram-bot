@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Bot to generate Reitentschil prompts
+Bot to generate prompts
 """
 
 import logging, random, os, sys, re
@@ -16,8 +16,7 @@ from telegraph import Telegraph
 from parsel import Selector
 import string
 
-import prompts_store, smash
-from roller import Roller
+import prompts_store
 
 import requests
 
@@ -51,8 +50,6 @@ class PromptsBot:
         self.prompts = prompts_store.PromptsStore()
         self.super_admins = [int(userid) for userid in os.environ.get('BOT_SUPERADMINS').split(',')]
         self.help_text = "\n".join(self.prompts.config['help_message'])
-        self.imafan_texts = list(self.prompts.config['imafan_message'].values())
-        self.welcome_texts = {int(k): '\n'.join(v) if type(v) is list else v for k, v in self.prompts.config['welcome_message'].items()}
         self.telegraph = Telegraph()
         self.app = app
         self.me = None
@@ -80,7 +77,7 @@ class PromptsBot:
             return None
 
     def check_if_chat_whitelisted(self, chat):
-        return chat.type == 'private' or (chat.type in ['group', 'supergroup'] and chat.id in self.welcome_texts.keys())
+        return True
 
     @staticmethod
     def whitelisted(show_error_message=False):
@@ -90,7 +87,7 @@ class PromptsBot:
                 try:
                     if not self.check_if_chat_whitelisted(update.message.chat):
                         if show_error_message:
-                            await update.message.reply_text("Цей бот доступний лише для деяких чатів. Зверніться до автора боту.")
+                            await update.message.reply_text(self.prompts.config['whitelisted_message'])
                         return
                 except AttributeError:
                     pass 
@@ -111,22 +108,12 @@ class PromptsBot:
     @whitelisted(show_error_message=True)
     async def start(self, update, context):
         """Send a message when the command /start is issued."""
-        await update.message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text, disable_web_page_preview=True)
+        await update.message.reply_html(self.help_text, disable_web_page_preview=True)
 
 
     async def help_command(self, update, context):
         """Send a message when the command /help is issued."""
         await update.message.reply_html(self.help_text, disable_web_page_preview=True)
-
-    @whitelisted()
-    async def imafan_command(self, update, context):
-        """Send a message when the command /imafan is issued."""
-        if not self.imafan_texts: 
-            return
-        response = random.choice(self.imafan_texts)
-        if "{name}" in response:
-            response = response.format(name=f"<b>{update.message.from_user.first_name}</b>")
-        await update.message.reply_html(response)
 
     @whitelisted()
     async def prompt_command(self, update, context):
@@ -143,11 +130,6 @@ class PromptsBot:
 
         image_prompt = self.prompts.random_image(cat)
         await update.message.reply_html(f"{image_prompt['cat']} #<a href=\'{image_prompt['webContentLink']}\'>{image_prompt['num']}</a>")
-
-    @whitelisted()
-    async def stats_command(self, update, context):
-        await update.message.reply_html("\n".join([f"<b>{stat}:</b> {value}"
-                                             for stat, value in self.prompts.get_stats().items()]))
 
     @whitelisted()
     async def wordcount_command(self, update, context):
@@ -201,49 +183,10 @@ class PromptsBot:
                 res += " (адмін чату)"
         await update.message.reply_text(res)
 
-    @whitelisted()
-    async def other_command(self, update, context):
-        if not self.bot_username:
-            await self.get_me()
-        """Send a message when the command /help is issued."""
-        txt = PromptsBot.text_or_caption(update.message)
-        txt.replace(self.bot_username, "")
-        roller = Roller(txt)
-        if roller.is_valid_command:
-            await update.message.reply_html(roller.execute_roll())
-
-    @whitelisted()
-    async def smash_command(self, update, context):
-        await update.message.reply_html(f"<code>{smash.smash()}</code>")
-
-    @whitelisted()
-    async def process_message(self, update, context):
-        if 'слава україні' in PromptsBot.text_or_caption(update.message).lower():
-            await update.message.reply_html("<i>Героям Слава!</i>")
-        if 'слава нації' in PromptsBot.text_or_caption(update.message).lower():
-            await update.message.reply_html(random.choices(["<i>Смерть ворогам!</i>", "Пизда ᵖосійській ᶲедерації!"], weights=[0.8, 0.2])[0])
-
-    @whitelisted()
-    async def welcome(self, update, context):
-        if update.message.new_chat_members:
-            if update.message.chat.id in self.welcome_texts.keys():
-                welcome_text = self.welcome_texts[update.message.chat.id]
-            else:
-                welcome_text = self.welcome_texts[1]
-            names = ""
-            for user in update.message.new_chat_members:
-                if not user.is_bot:
-                    if names:
-                        names += ', '
-                    names += f"<b><a href='tg://user?id={user.id}'>{user.first_name}</a></b>"
-            if names and "{name}" in welcome_text:
-                welcome_text = welcome_text.format(name=names)
-            await update.message.reply_html(welcome_text)
 
     @whitelisted(show_error_message=True)
     async def reload_command(self, update, context):
-        if update.message.from_user.id in [self.super_admins] or (update.message.chat.type in ['group', 'supergroup'] 
-        and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]):
+        if update.message.from_user.id in [self.super_admins]:
            del self.prompts
            del self.telegraph
            self.__init__(self.app)
@@ -261,22 +204,14 @@ def bot_main():
     # on different commands - answer in Telegram
     app.add_handler(CommandHandler('start', bot_logic.start))
     app.add_handler(CommandHandler('help', bot_logic.help_command))
-    app.add_handler(CommandHandler('imafan', bot_logic.imafan_command))
     app.add_handler(CommandHandler(['prompt', 'prompt_ua'], bot_logic.prompt_command))
     app.add_handler(CommandHandler('wc', bot_logic.wordcount_command))
-    app.add_handler(CommandHandler('smash', bot_logic.smash_command))
-    app.add_handler(CommandHandler('stats', bot_logic.stats_command))
     app.add_handler(CommandHandler('reload', bot_logic.reload_command))
     app.add_handler(CommandHandler('debuginfo', bot_logic.debuginfo_command))
     app.add_handler(
         CommandHandler(
             ['image', 'image_character', 'image_location', 'image_other'],
             bot_logic.image_command))
-    app.add_handler(MessageHandler(filters.COMMAND, bot_logic.other_command))
-
-    app.add_handler(
-        MessageHandler(filters.TEXT, bot_logic.process_message))
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_logic.welcome))
     # Start the Bot
     app.run_polling()
 
