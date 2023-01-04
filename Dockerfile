@@ -11,4 +11,5 @@ ADD . /app/
 RUN poetry update
 RUN mkdir srv
 EXPOSE 8080
+EXPOSE 443
 CMD poetry run ./bot.py &; cd srv && python -m http.server 443
