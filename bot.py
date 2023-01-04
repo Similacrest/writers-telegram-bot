@@ -246,7 +246,7 @@ class PromptsBot:
         and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]):
            del self.prompts
            del self.telegraph
-           self.__init__()
+           self.__init__(self.app)
            await update.message.reply_text('Перезавантажено!')
 
 def bot_main():
