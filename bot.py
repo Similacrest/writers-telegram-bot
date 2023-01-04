@@ -253,7 +253,7 @@ def bot_main():
     """Start the bot."""
     persistence = PicklePersistence(filepath='db.pickle')
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
-.persistence(persistence).concurrent_updates(True).build()
+.persistence(persistence).build()
     
     bot_logic = PromptsBot(app)
     updater = app.updater
