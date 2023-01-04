@@ -6,6 +6,8 @@ Bot to generate Reitentschil prompts
 
 import logging, random, os, sys, re
 import time
+import subprocess
+
 from functools import wraps
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, PicklePersistence
@@ -234,6 +236,9 @@ class PromptsBot:
 
 def main():
     """Start the bot."""
+
+    # Run a dummy http server in background to match web app requirements
+    subprocess.Popen(["python", "-m", "http.server", "443", "--directory", "/app/srv/"])
 
     persistence = PicklePersistence(filepath='db.pickle')
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
