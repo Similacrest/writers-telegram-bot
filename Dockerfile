@@ -11,5 +11,5 @@ ADD . /app/
 RUN poetry update
 RUN mkdir srv
 EXPOSE 8080
-EXPOSE 443
-CMD poetry run ./bot.py
+EXPOSE 80
+CMD ["poetry", "run", "./bot.py"]

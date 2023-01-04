@@ -28,7 +28,23 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+class DummyServer:
+    server = None
 
+    @classmethod
+    def init(cls):
+        if DummyServer.server is not None:
+            DummyServer.server.kill()
+            time.sleep(5)
+        DummyServer.server = subprocess.Popen(["python", "-m", "http.server", "80", "--directory", "/app/srv/"])
+        time.sleep(5)
+    
+    @classmethod
+    def kill(cls):
+        if DummyServer.server is not None:
+            DummyServer.server.kill()
+            DummyServer.server = None
+            time.sleep(5)
 
 class PromptsBot:
     def __init__(self, app):
@@ -95,12 +111,12 @@ class PromptsBot:
     @whitelisted(show_error_message=True)
     async def start(self, update, context):
         """Send a message when the command /start is issued."""
-        await update.message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text)
+        await update.message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text, disable_web_page_preview=True)
 
 
     async def help_command(self, update, context):
         """Send a message when the command /help is issued."""
-        await update.message.reply_html(self.help_text)
+        await update.message.reply_html(self.help_text, disable_web_page_preview=True)
 
     @whitelisted()
     async def imafan_command(self, update, context):
@@ -233,13 +249,8 @@ class PromptsBot:
            self.__init__()
            await update.message.reply_text('Перезавантажено!')
 
-
-def main():
+def bot_main():
     """Start the bot."""
-
-    # Run a dummy http server in background to match web app requirements
-    subprocess.Popen(["python", "-m", "http.server", "443", "--directory", "/app/srv/"])
-
     persistence = PicklePersistence(filepath='db.pickle')
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
 .persistence(persistence).concurrent_updates(True).build()
@@ -247,8 +258,6 @@ def main():
     bot_logic = PromptsBot(app)
     updater = app.updater
     
-
-
     # on different commands - answer in Telegram
     app.add_handler(CommandHandler('start', bot_logic.start))
     app.add_handler(CommandHandler('help', bot_logic.help_command))
@@ -270,6 +279,15 @@ def main():
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_logic.welcome))
     # Start the Bot
     app.run_polling()
+
+
+def main():
+    """Run a dummy http server in background to match web app requirements"""
+    DummyServer.init()
+    try:
+        bot_main()
+    finally:
+        DummyServer.kill()
 
 if __name__ == '__main__':
     main()
