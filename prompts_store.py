@@ -45,7 +45,7 @@ class PromptsStore:
         self.config = defaultdict(str)
         sheet = self.sheets_service.spreadsheets()
 
-        configs = sheet.values().get(spreadsheetId=self.spreadsheet_id, range=f"{os.environ.get("SPREADSHEET_ID")}!A2:Z", majorDimension='ROWS').execute().get('values', [])
+        configs = sheet.values().get(spreadsheetId=self.spreadsheet_id, range=f"{os.environ.get("CONFIG_SHEET_NAME")}!A2:Z", majorDimension='ROWS').execute().get('values', [])
         for conf in configs:
             key, subkey, val = _row_to_key_val(conf)
             if key in self.config.keys():
