@@ -168,7 +168,7 @@ class PromptsBot:
         res += f"\nВаш юзер id: {update.message.from_user.id}"
         if update.message.from_user.id in self.super_admins:
             res += " (адмін бота)"
-        if update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
+        if update.message.chat.type in ['group', 'supergroup'] and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
             res += " (адмін чату)"
 
         if update.message.reply_to_message:
@@ -179,7 +179,7 @@ class PromptsBot:
                 res += " (інший бот)"
             if update.message.reply_to_message.from_user.id in self.super_admins:
                 res += " (адмін бота)"
-            if update.message.reply_to_message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
+            if update.message.chat.type in ['group', 'supergroup'] and update.message.reply_to_message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
                 res += " (адмін чату)"
         await update.message.reply_text(res)
 
