@@ -9,6 +9,6 @@ ENV PATH="/root/.local/bin:$PATH"
 
 ADD . /app/
 RUN poetry update
-
+RUN mkdir srv
 EXPOSE 8080
-CMD ["poetry", "run", "./bot.py"]
+CMD poetry run ./bot.py &; cd srv && python -m http.server 443
