@@ -4,21 +4,18 @@
 Bot to generate prompts
 """
 
-import logging, random, os, sys, re
-import time
-import subprocess
+import logging, random, os, re
+import asyncio
 
 from functools import wraps
 
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, PicklePersistence
+from telegram.ext import Application, AIORateLimiter, CommandHandler, MessageHandler, filters, PicklePersistence
 from telegram import Bot, MessageEntity
 from telegraph import Telegraph
 from parsel import Selector
 import string
 
 import prompts_store
-
-import requests
 
 # Enable logging
 logging.basicConfig(
@@ -27,35 +24,18 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-class DummyServer:
-    server = None
-
-    @classmethod
-    def init(cls):
-        if DummyServer.server is not None:
-            DummyServer.server.kill()
-            time.sleep(5)
-        DummyServer.server = subprocess.Popen(["python", "-m", "http.server", "80", "--directory", "/app/srv/"])
-        time.sleep(5)
-    
-    @classmethod
-    def kill(cls):
-        if DummyServer.server is not None:
-            DummyServer.server.kill()
-            DummyServer.server = None
-            time.sleep(5)
-
 class PromptsBot:
-    def __init__(self, app):
+    def __init__(self):
         self.prompts = prompts_store.PromptsStore()
         self.super_admins = [int(userid) for userid in os.environ.get('BOT_SUPERADMINS').split(',')]
         self.help_text = "\n".join(self.prompts.config['help_message'])
         self.telegraph = Telegraph()
-        self.app = app
+        self.app = None
         self.me = None
         self.bot_username = None
 
-    async def get_me(self):
+    async def set_app(self, app):
+        self.app = app
         self.me = await self.app.bot.get_me()
         self.bot_username = '@' + self.me.username
 
@@ -68,8 +48,6 @@ class PromptsBot:
             return ''
 
     async def get_command_suffix(self, message, prefix=''):
-        if not self.bot_username:
-            await self.get_me()
         commands = [s.lower().replace(self.bot_username, '') for s in list(message.parse_entities([MessageEntity.BOT_COMMAND]).values()) + list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values()) if s.lower().startswith(prefix)]
         if len(commands):
             return commands[0][len(prefix):]
@@ -133,8 +111,6 @@ class PromptsBot:
 
     @whitelisted()
     async def wordcount_command(self, update, context):
-        if not self.bot_username:
-            await self.get_me()
         if update.message.reply_to_message:
             txt = PromptsBot.text_or_caption(update.message.reply_to_message)
         else:
@@ -158,8 +134,6 @@ class PromptsBot:
         await update.message.reply_html(result)
 
     async def debuginfo_command(self, update, context):
-        if not self.me:
-            await self.get_me()
         res = f"Чат id: {update.message.chat.id}"
         if self.check_if_chat_whitelisted(update.message.chat):
             res += " (авторизований)"
@@ -192,15 +166,16 @@ class PromptsBot:
            self.__init__(self.app)
            await update.message.reply_text('Перезавантажено!')
 
-def bot_main():
+def main():
     """Start the bot."""
     persistence = PicklePersistence(filepath='db.pickle')
+
+    bot_logic = PromptsBot()
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
-.persistence(persistence).build()
-    
-    bot_logic = PromptsBot(app)
-    updater = app.updater
-    
+.persistence(persistence).rate_limiter(AIORateLimiter())\
+.post_init(bot_logic.set_app).build()    
+
+
     # on different commands - answer in Telegram
     app.add_handler(CommandHandler('start', bot_logic.start))
     app.add_handler(CommandHandler('help', bot_logic.help_command))
@@ -213,16 +188,8 @@ def bot_main():
             ['image', 'image_character', 'image_location', 'image_other'],
             bot_logic.image_command))
     # Start the Bot
-    app.run_polling()
+    app.run_webhook(listen="0.0.0.0", port=80, webhook_url=f"https://{os.environ.get('HOSTNAME')}/", secret_token=os.environ.get('TELEGRAM_WEBHOOK_TOKEN'))
 
-
-def main():
-    """Run a dummy http server in background to match web app requirements"""
-    DummyServer.init()
-    try:
-        bot_main()
-    finally:
-        DummyServer.kill()
 
 if __name__ == '__main__':
     main()

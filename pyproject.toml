@@ -8,7 +8,7 @@ packages = [{include = "spirit_of_rnc"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-python-telegram-bot = "^20"
+python-telegram-bot = {extras = ["job-queue", "rate-limiter", "webhooks"], version = "^20.0"}
 telegraph = "^2.2.0"
 google-api-python-client = "^2.70.0"
 google-auth-oauthlib = "^0.8.0"

@@ -3,8 +3,6 @@
 import pickle, logging, random
 import os, os.path
 import base64
-import time
-import subprocess
 from collections import defaultdict
 
 from googleapiclient.discovery import build
@@ -12,8 +10,6 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from apiclient.discovery import build
 from oauth2client.service_account import ServiceAccountCredentials
-
-from bot import DummyServer
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
@@ -99,14 +95,10 @@ class PromptsStore:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                DummyServer.kill()
                 flow = InstalledAppFlow.from_client_config(CLIENT_CONFIG, SCOPES)
-                time.sleep(5)
                 host = os.environ.get["HOSTNAME"]
                 port = 80
                 creds = flow.run_local_server(host=host, port=port)
-                time.sleep(5)
-                DummyServer.init()
 
             with open('token.pickle.b64', 'wb') as token_file:
                 token_file.write(base64.b64encode(pickle.dumps(creds)))
