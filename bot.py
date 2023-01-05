@@ -161,9 +161,9 @@ class PromptsBot:
     @whitelisted(show_error_message=True)
     async def reload_command(self, update, context):
         if update.message.from_user.id in [self.super_admins]:
-           del self.prompts
-           del self.telegraph
-           self.__init__(self.app)
+           app = self.app
+           self.__init__()
+           self.get_me(app)
            await update.message.reply_text('Перезавантажено!')
 
 def main():
