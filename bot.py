@@ -216,9 +216,9 @@ class PromptsBot:
     async def reload_command(self, update, context):
         if update.message.from_user.id in [self.super_admins] or (update.message.chat.type in ['group', 'supergroup'] 
         and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]):
-           del self.prompts
-           del self.telegraph
-           self.__init__(self.app)
+           app = self.app
+           self.__init__()
+           await self.get_me(app)
            await update.message.reply_text('Перезавантажено!')
 
 def main():
