@@ -163,7 +163,7 @@ class PromptsBot:
         if update.message.from_user.id in [self.super_admins]:
            app = self.app
            self.__init__()
-           self.get_me(app)
+           await self.get_me(app)
            await update.message.reply_text('Перезавантажено!')
 
 def main():
