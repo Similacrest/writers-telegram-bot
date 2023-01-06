@@ -16,6 +16,7 @@ class SprintStatus(StrEnum):
     Initialized = "створено"
     Planned = "почнеться за "
     Running = "розпочався"
+    Ending = "завершено"
     Finished = "завершено"
     Cancelled = "скасовано"
     CancelledWhilePlanned = "скасовано до його початку"
@@ -26,6 +27,7 @@ TENSES_FOR_WRITE_VERB = {
     SprintStatus.Initialized: "Писатимемо",
     SprintStatus.Planned: "Писатимемо",
     SprintStatus.Running: "Пишемо",
+    SprintStatus.Ending: "Писали",
     SprintStatus.Finished: "Писали",
     SprintStatus.Cancelled: "Писали всього",
     SprintStatus.CancelledWhilePlanned: "Не писали"
@@ -51,6 +53,10 @@ class Sprint:
                 self.end_date = self.start_date + timedelta(minutes=self.duration)
                 self.users = [user]
                 self.message = await start_command_message.reply_html(**self.render_message())
+                try:
+                    await self.message.pin(disable_notification=True)
+                except BadRequest:
+                    pass
 
     async def start_sprint(self):
         if self.status == SprintStatus.Planned:
@@ -59,7 +65,7 @@ class Sprint:
             self.message = await old_message.reply_html(**self.render_message())
             await old_message.delete()
             try:
-                await self.message.pin(disable_notification=True)
+                await self.message.pin(disable_notification=True)           
             except BadRequest:
                 pass
     async def add_user(self, callback_query):
@@ -103,15 +109,20 @@ class Sprint:
             reply_markup = InlineKeyboardMarkup(keyboard)
         elif self.status in (SprintStatus.Cancelled, SprintStatus.CancelledWhilePlanned):
             keyboard = [[
-                InlineKeyboardButton("Повторити", callback_data=f'repeat_last_sprint_{self.original_duration}'),
+                InlineKeyboardButton("Повторити", callback_data=f'repeat_last_sprint_{self.original_duration}_{self.delay}'),
+            ]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+        elif self.status == SprintStatus.Finished:
+            keyboard = [[
+                InlineKeyboardButton("Повторити негайно", callback_data=f'repeat_last_sprint_{self.original_duration}_0'),
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
         else:
             reply_markup = None
 
-        formatted_duration = utils.format_numeral_nouns(self.duration, ('хвилина', 'хвилини', 'хвилин'))
+        formatted_duration = utils.format_numeral_nouns(self.duration, ('хвилину', 'хвилини', 'хвилин'))
         if self.status == SprintStatus.Planned:
-            planned_start = utils.format_numeral_nouns(self.delay, ('хвилина', 'хвилини', 'хвилин'))
+            planned_start = utils.format_numeral_nouns(self.delay, ('хвилину', 'хвилини', 'хвилин'))
         else:
             planned_start = ""
 
@@ -136,6 +147,7 @@ class Sprint:
 
     async def end_sprint(self):
         if self.status == SprintStatus.Running:
+            self.status = SprintStatus.Ending
             await self.edit_message()
             self.status = SprintStatus.Finished
             try:

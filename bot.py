@@ -184,15 +184,26 @@ class PromptsBot:
 
     async def repeat_last_sprint(self, update, context):
         jobs = context.job_queue.get_jobs_by_name(f"sprint_{update.callback_query.message.chat_id}")
+        data_match = re.match(r"^repeat_last_sprint_(\d+)(_\d+)?$", update.callback_query.data)
         try:
-            duration = int(re.match("^repeat_last_sprint_(\d+)$", update.callback_query.data)[1])
+            duration = int(data_match[1])
         except (IndexError, ValueError, TypeError):
             duration = DEFAULT_SPRINT
+        try:
+            delay = int(data_match[2][1:])
+        except (IndexError, ValueError, TypeError):
+            delay = DEFAULT_SPRINT_DELAY
+
         if len(jobs):
             await update.callback_query.answer("Спринт вже запущено!")
             return
         elif MIN_SPRINT <= duration <= MAX_SPRINT:
-            await self.start_sprint(update.callback_query.message, update.callback_query.from_user, duration, delay=0, context=context)
+                if 0 <= delay <= MAX_SPRINT:
+                    await self.start_sprint(update.callback_query.message, update.callback_query.from_user, duration, delay, context)
+                    await update.callback_query.answer()
+                else:
+                    await update.callback_query.answer("Затримка до початку спринта має бути цілим числом від 0 до {MAX_SPRINT} хвилин!")
+
         else:
             await update.callback_query.answer(f"Довжина спринта має бути цілим числом від {MIN_SPRINT} до {MAX_SPRINT} хвилин!")
             return
@@ -268,9 +279,9 @@ def main():
     app.add_handler(CommandHandler('reload', bot_logic.reload_command))
     app.add_handler(CommandHandler('debuginfo', bot_logic.debuginfo_command))
     app.add_handler(CommandHandler('sprint', bot_logic.sprint_command))
-    app.add_handler(CallbackQueryHandler(bot_logic.add_user_to_sprint, pattern="^join_sprint$"))
-    app.add_handler(CallbackQueryHandler(bot_logic.leave_or_cancel_sprint, pattern="^leave_or_cancel_sprint$"))
-    app.add_handler(CallbackQueryHandler(bot_logic.repeat_last_sprint, pattern="^repeat_last_sprint_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(bot_logic.add_user_to_sprint, pattern=r"^join_sprint$"))
+    app.add_handler(CallbackQueryHandler(bot_logic.leave_or_cancel_sprint, pattern=r"^leave_or_cancel_sprint$"))
+    app.add_handler(CallbackQueryHandler(bot_logic.repeat_last_sprint, pattern=r"^repeat_last_sprint_(\d+)(_\d+)?$"))
     app.add_handler(
         CommandHandler(
             ['image', 'image_character', 'image_location', 'image_other'],
