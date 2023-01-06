@@ -7,16 +7,20 @@ Bot to generate writing prompts
 import logging, random, os, re
 import asyncio
 
-from functools import wraps
-
-from telegram.ext import Application, AIORateLimiter, CommandHandler, MessageHandler, filters, PicklePersistence
+from telegram.ext import Application, AIORateLimiter, CallbackQueryHandler, CommandHandler, Defaults, MessageHandler, filters, PicklePersistence
 from telegram import Bot, MessageEntity
+from telegram.constants import ParseMode
 from telegraph import Telegraph
 from parsel import Selector
+import pytz
 import string
 
 import prompts_store, smash
 from roller import Roller
+from sprint import *
+import utils
+from utils import whitelisted
+
 
 # Enable logging
 logging.basicConfig(
@@ -42,59 +46,18 @@ class PromptsBot:
         self.me = await self.app.bot.get_me()
         self.bot_username = '@' + self.me.username
 
-
-    @staticmethod
-    def text_or_caption(message):
-        if message:
-            return message.caption if message.caption else message.text
-        else:
-            return ''
-
-    async def get_command_suffix(self, message, prefix=''):
-        commands = [s.lower().replace(self.bot_username, '') for s in list(message.parse_entities([MessageEntity.BOT_COMMAND]).values()) + list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values()) if s.lower().startswith(prefix)]
-        if len(commands):
-            return commands[0][len(prefix):]
-        else:
-            return None
-
     def check_if_chat_whitelisted(self, chat):
         return chat.type == 'private' or (chat.type in ['group', 'supergroup'] and chat.id in self.welcome_texts.keys())
-
-    @staticmethod
-    def whitelisted(show_error_message=False):
-        def _whitelisted_decorator(method):
-            @wraps(method)
-            async def _whitelisted(self, update, *args, **kwargs):
-                try:
-                    if not self.check_if_chat_whitelisted(update.message.chat):
-                        if show_error_message:
-                            await update.message.reply_text("Цей бот доступний лише для деяких чатів. Зверніться до автора боту.")
-                        return
-                except AttributeError:
-                    pass 
-                return await method(self, update, *args, **kwargs)
-
-            return _whitelisted
-        return _whitelisted_decorator
-
-    @staticmethod
-    def _format_numeral_nouns(num, word):
-        if num % 10 == 1 and num // 10 % 10 != 1:
-            return f"{num} {word[0]}"
-        elif num % 10 >= 2 and num % 10 <= 4 and num // 10 %10 != 1:
-            return f"{num} {word[1]}"
-        else:
-            return f"{num} {word[2]}"
 
     @whitelisted(show_error_message=True)
     async def start(self, update, context):
         """Send a message when the command /start is issued."""
-        await update.message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text, disable_web_page_preview=True)
+        await update.effective_message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text)
 
 
     async def help_command(self, update, context):
         """Send a message when the command /help is issued."""
-        await update.message.reply_html(self.help_text, disable_web_page_preview=True)
+        await update.effective_message.reply_html(self.help_text)
 
     @whitelisted()
     async def imafan_command(self, update, context):
@@ -103,36 +66,36 @@ class PromptsBot:
             return
         response = random.choice(self.imafan_texts)
         if "{name}" in response:
-            response = response.format(name=f"<b>{update.message.from_user.first_name}</b>")
-        await update.message.reply_html(response)
+            response = response.format(name=f"<b>{update.effective_message.from_user.first_name}</b>")
+        await update.effective_message.reply_html(response)
 
     @whitelisted()
     async def prompt_command(self, update, context):
         """Send a message when the command /help is issued."""
         prompt_string = '\n'.join([f"<b>{k}:</b> {v}" for k, v in self.prompts.random_text("ua").items()])
 
-        await update.message.reply_html(prompt_string)
+        await update.effective_message.reply_html(prompt_string)
 
     @whitelisted()
     async def image_command(self, update, context):
         """Send a message when the command /help is issued."""
-        cat = await self.get_command_suffix(update.message, '/image')
+        cat = utils.get_command_suffix(update.effective_message, '/image', self.bot_username)
         cat = cat[1:] if cat else 'all'
 
         image_prompt = self.prompts.random_image(cat)
-        await update.message.reply_html(f"{image_prompt['cat']} #<a href=\'{image_prompt['webContentLink']}\'>{image_prompt['num']}</a>")
+        await update.effective_message.reply_html(f"{image_prompt['cat']} #<a href=\'{image_prompt['webContentLink']}\'>{image_prompt['num']}</a>")
 
     @whitelisted()
     async def stats_command(self, update, context):
-        await update.message.reply_html("\n".join([f"<b>{stat}:</b> {value}"
+        await update.effective_message.reply_html("\n".join([f"<b>{stat}:</b> {value}"
                                              for stat, value in self.prompts.get_stats().items()]))
 
     @whitelisted()
     async def wordcount_command(self, update, context):
-        if update.message.reply_to_message:
-            txt = PromptsBot.text_or_caption(update.message.reply_to_message)
+        if update.effective_message.reply_to_message:
+            txt = utils.text_or_caption(update.effective_message.reply_to_message)
         else:
-            txt = PromptsBot.text_or_caption(update.message)
+            txt = utils.text_or_caption(update.effective_message)
         txt = txt.replace('/wc', '').replace(self.bot_username, '').strip()
         result = ""
         linked_text = re.search(r':\/\/telegra\.ph\/([\w-]+)', txt)
@@ -145,81 +108,143 @@ class PromptsBot:
 
             result = "У Телеграфі:\n"
 
-        words = PromptsBot._format_numeral_nouns(sum(len(word.strip(string.punctuation)) > 0 for word in txt.split()), ['слово', 'слова', 'слів'])
-        characters = PromptsBot._format_numeral_nouns(len(txt), ['символ', 'символа', 'символів'])
-        letters = PromptsBot._format_numeral_nouns(len(re.sub('[{}]'.format(re.escape(string.whitespace + string.punctuation + string.digits)), '', txt)), ['літера', 'літери', 'літер'])
+        words = utils.format_numeral_nouns(sum(len(word.strip(string.punctuation)) > 0 for word in txt.split()), ['слово', 'слова', 'слів'])
+        characters = utils.format_numeral_nouns(len(txt), ['символ', 'символа', 'символів'])
+        letters = utils.format_numeral_nouns(len(re.sub('[{}]'.format(re.escape(string.whitespace + string.punctuation + string.digits)), '', txt)), ['літера', 'літери', 'літер'])
         result += f"{words}\n{characters}\n{letters}" 
-        await update.message.reply_html(result)
+        await update.effective_message.reply_html(result)
 
     async def debuginfo_command(self, update, context):
-        res = f"Чат id: {update.message.chat.id}"
-        if self.check_if_chat_whitelisted(update.message.chat):
+        res = f"Чат id: {update.effective_message.chat.id}"
+        if self.check_if_chat_whitelisted(update.effective_message.chat):
             res += " (авторизований)"
         else:
             res += " (не авторизований)"
-        res += f"\nВаш юзер id: {update.message.from_user.id}"
-        if update.message.from_user.id in self.super_admins:
+        res += f"\nВаш юзер id: {update.effective_message.from_user.id}"
+        if update.effective_message.from_user.id in self.super_admins:
             res += " (адмін бота)"
-        if update.message.chat.type in ['group', 'supergroup'] and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
+        if update.effective_message.chat.type in ['group', 'supergroup'] and update.effective_message.from_user.id in [admin.user.id for admin in await update.effective_message.chat.get_administrators()]:
             res += " (адмін чату)"
 
-        if update.message.reply_to_message:
-            res += f"\nВідповідаєте юзеру з id: {update.message.reply_to_message.from_user.id}"
-            if update.message.reply_to_message.from_user.id == self.me.id:
+        if update.effective_message.reply_to_message:
+            res += f"\nВідповідаєте юзеру з id: {update.effective_message.reply_to_message.from_user.id}"
+            if update.effective_message.reply_to_message.from_user.id == self.me.id:
                 res += " (цей бот)"            
-            elif update.message.reply_to_message.from_user.is_bot:
+            elif update.effective_message.reply_to_message.from_user.is_bot:
                 res += " (інший бот)"
-            if update.message.reply_to_message.from_user.id in self.super_admins:
+            if update.effective_message.reply_to_message.from_user.id in self.super_admins:
                 res += " (адмін бота)"
-            if update.message.chat.type in ['group', 'supergroup'] and update.message.reply_to_message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]:
+            if update.effective_message.chat.type in ['group', 'supergroup'] and update.effective_message.reply_to_message.from_user.id in [admin.user.id for admin in await update.effective_message.chat.get_administrators()]:
                 res += " (адмін чату)"
-        await update.message.reply_text(res)
+        await update.effective_message.reply_text(res)
 
     @whitelisted()
     async def other_command(self, update, context):
         """Send a message when the command /help is issued."""
-        txt = PromptsBot.text_or_caption(update.message)
+        txt = utils.text_or_caption(update.effective_message)
         txt.replace(self.bot_username, "")
         roller = Roller(txt)
         if roller.is_valid_command:
-            await update.message.reply_html(roller.execute_roll())
+            await update.effective_message.reply_html(roller.execute_roll())
 
     @whitelisted()
     async def smash_command(self, update, context):
-        await update.message.reply_html(f"<code>{smash.smash()}</code>")
+        await update.effective_message.reply_html(f"<code>{smash.smash()}</code>")
+
+    async def start_sprint(self, message, user, duration, delay, context):
+        data = Sprint(duration, delay)
+        await data.plan_sprint(message, user)
+        job = context.job_queue.run_repeating(data.tick, interval=60, first=delay * 60 + 1, chat_id=message.chat_id, name=f"sprint_{message.chat_id}", data=data)
+        data.job = job
+
+    @whitelisted()
+    async def sprint_command(self, update, context):
+        jobs = context.job_queue.get_jobs_by_name(f"sprint_{update.effective_message.chat_id}")
+        try:
+            arg = context.args[0]
+            duration = int(arg)
+        except (IndexError, ValueError):
+            duration = DEFAULT_SPRINT
+        try:
+            arg = context.args[1]
+            delay = int(arg)
+        except (IndexError, ValueError):
+            delay = DEFAULT_SPRINT_DELAY
+        if len(jobs):
+            await update.effective_message.reply_text("Спринт вже запущено!")
+            return
+        elif MIN_SPRINT <= duration <= MAX_SPRINT:
+            if 0 <= delay <= MAX_SPRINT:
+                await self.start_sprint(update.effective_message, update.effective_message.from_user, duration, delay, context)
+            else:
+                await update.effective_message.reply_text(f"Затримка до початку спринта має бути цілим числом від 0 до {MAX_SPRINT} хвилин!")
+        else:
+            await update.effective_message.reply_text(f"Довжина спринта має бути цілим числом від {MIN_SPRINT} до {MAX_SPRINT} хвилин!")
+            return
+
+    async def repeat_last_sprint(self, update, context):
+        jobs = context.job_queue.get_jobs_by_name(f"sprint_{update.callback_query.message.chat_id}")
+        try:
+            duration = int(re.match("^repeat_last_sprint_(\d+)$", update.callback_query.data)[1])
+        except (IndexError, ValueError, TypeError):
+            duration = DEFAULT_SPRINT
+        if len(jobs):
+            await update.callback_query.answer("Спринт вже запущено!")
+            return
+        elif MIN_SPRINT <= duration <= MAX_SPRINT:
+            await self.start_sprint(update.callback_query.message, update.callback_query.from_user, duration, delay=0, context=context)
+        else:
+            await update.callback_query.answer(f"Довжина спринта має бути цілим числом від {MIN_SPRINT} до {MAX_SPRINT} хвилин!")
+            return
+
+    async def add_user_to_sprint(self, update, context):
+        chat_id = update.callback_query.message.chat_id
+        jobs = context.job_queue.get_jobs_by_name(f"sprint_{chat_id}")
+        if len(jobs):
+            await jobs[0].data.add_user(update.callback_query)
+        else:
+            await update.callback_query.answer("Не можна додатися до цього спринту!")
+
+    async def leave_or_cancel_sprint(self, update, context):
+        chat_id = update.callback_query.message.chat_id
+        jobs = context.job_queue.get_jobs_by_name(f"sprint_{chat_id}")
+        if len(jobs):
+            await jobs[0].data.leave_or_cancel_sprint(update.callback_query)
+        else:
+            await update.callback_query.answer("Не можна вийти з цього спринту!")
 
     @whitelisted()
     async def process_message(self, update, context):
-        if 'слава україні' in PromptsBot.text_or_caption(update.message).lower():
-            await update.message.reply_html("<i>Героям Слава!</i>")
-        if 'слава нації' in PromptsBot.text_or_caption(update.message).lower():
-            await update.message.reply_html(random.choices(["<i>Смерть ворогам!</i>", "Пизда ᵖосійській ᶲедерації!"], weights=[0.8, 0.2])[0])
+        if 'слава україні' in utils.text_or_caption(update.effective_message).lower():
+            await update.effective_message.reply_html("<i>Героям Слава!</i>")
+        elif 'слава нації' in utils.text_or_caption(update.effective_message).lower():
+            await update.effective_message.reply_html(random.choices(["<i>Смерть ворогам!</i>", "Пизда ᵖосійській ᶲедерації!"], weights=[0.8, 0.2])[0])
 
     @whitelisted()
     async def welcome(self, update, context):
-        if update.message.new_chat_members:
-            if update.message.chat.id in self.welcome_texts.keys():
-                welcome_text = self.welcome_texts[update.message.chat.id]
+        if update.effective_message.new_chat_members:
+            if update.effective_message.chat.id in self.welcome_texts.keys():
+                welcome_text = self.welcome_texts[update.effective_message.chat.id]
             else:
                 welcome_text = self.welcome_texts[1]
             names = ""
-            for user in update.message.new_chat_members:
+            for user in update.effective_message.new_chat_members:
                 if not user.is_bot:
                     if names:
                         names += ', '
-                    names += f"<b><a href='tg://user?id={user.id}'>{user.first_name}</a></b>"
+                    names += f"<b>{user.mention_html()}</b>"
             if names and "{name}" in welcome_text:
                 welcome_text = welcome_text.format(name=names)
-            await update.message.reply_html(welcome_text)
+            await update.effective_message.reply_html(welcome_text)
 
     @whitelisted(show_error_message=True)
     async def reload_command(self, update, context):
-        if update.message.from_user.id in [self.super_admins] or (update.message.chat.type in ['group', 'supergroup'] 
-        and update.message.from_user.id in [admin.user.id for admin in await update.message.chat.get_administrators()]):
+        if update.effective_message.from_user.id in [self.super_admins] or (update.effective_message.chat.type in ['group', 'supergroup'] 
+        and update.effective_message.from_user.id in [admin.user.id for admin in await update.effective_message.chat.get_administrators()]):
            app = self.app
            self.__init__()
            await self.get_me(app)
-           await update.message.reply_text('Перезавантажено!')
+           await update.effective_message.reply_text('Перезавантажено!')
 
 def main():
     """Start the bot."""
@@ -228,6 +253,7 @@ def main():
     bot_logic = PromptsBot()
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
 .persistence(persistence).rate_limiter(AIORateLimiter())\
+.defaults(Defaults(parse_mode=ParseMode.HTML, disable_web_page_preview=True, allow_sending_without_reply=True, tzinfo=pytz.timezone('Europe/Kiev')))\
 .post_init(bot_logic.set_app).build()    
 
 
@@ -241,6 +267,10 @@ def main():
     app.add_handler(CommandHandler('stats', bot_logic.stats_command))
     app.add_handler(CommandHandler('reload', bot_logic.reload_command))
     app.add_handler(CommandHandler('debuginfo', bot_logic.debuginfo_command))
+    app.add_handler(CommandHandler('sprint', bot_logic.sprint_command))
+    app.add_handler(CallbackQueryHandler(bot_logic.add_user_to_sprint, pattern="^join_sprint$"))
+    app.add_handler(CallbackQueryHandler(bot_logic.leave_or_cancel_sprint, pattern="^leave_or_cancel_sprint$"))
+    app.add_handler(CallbackQueryHandler(bot_logic.repeat_last_sprint, pattern="^repeat_last_sprint_(\d+)$"))
     app.add_handler(
         CommandHandler(
             ['image', 'image_character', 'image_location', 'image_other'],
@@ -251,7 +281,11 @@ def main():
         MessageHandler(filters.TEXT, bot_logic.process_message))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, bot_logic.welcome))
     # Start the Bot
-    app.run_webhook(listen="0.0.0.0", port=80, webhook_url=f"https://{os.environ.get('HOSTNAME')}/", secret_token=os.environ.get('TELEGRAM_WEBHOOK_TOKEN'))
+    
+    if os.environ.get("TEST_ENV"):
+        app.run_polling()
+    else:
+        app.run_webhook(listen="0.0.0.0", port=80, webhook_url=f"https://{os.environ.get('HOSTNAME')}/", secret_token=os.environ.get('TELEGRAM_WEBHOOK_TOKEN'))
 
 
 if __name__ == '__main__':
