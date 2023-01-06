@@ -130,4 +130,4 @@ class PromptsStore:
                 stats[f"{lang}-{header}"] = len(self.prompts[lang][header])
         for folder in self.folders:
             stats[f'image-{folder}'] = len(self.folders[folder])
-        return {**self.config, **stats}
+        return {**stats}
