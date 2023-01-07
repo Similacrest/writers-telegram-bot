@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 import random
+import os
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest
@@ -189,7 +190,8 @@ class Sprint:
         if (self.status == SprintStatus.Running) and ((self.end_date - datetime.now()).total_seconds() < 30):
             await self.end_sprint()
         elif self.ticks_without_activity >= 14:
-            await temp_msg = self.message.reply_html(f"Як прогрес<a href='https://{os.environ['HOSTNAME']}/?{random.randint(0,1000000)}'>?</a>", disable_notification=True, disable_web_page_preview=False)
+            temp_msg_text = f"Як прогрес<a href='https://{os.environ['HOSTNAME']}/{str(random.randint(0,1000000))}'>?</a>"
+            temp_msg = await self.message.reply_html(temp_msg_text, disable_notification=True, disable_web_page_preview=False)
             sleep(5)
             await temp_msg.delete()
             self.ticks_without_activity = 0
