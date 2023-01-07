@@ -83,7 +83,7 @@ class PromptsBot:
         cat = cat[1:] if cat else 'all'
 
         image_prompt = self.prompts.random_image(cat)
-        await update.effective_message.reply_html(f"{image_prompt['cat']} #<a href=\'{image_prompt['webContentLink']}\'>{image_prompt['num']}</a>")
+        await update.effective_message.reply_html(f"{image_prompt['cat']} #<a href=\'{image_prompt['webContentLink']}\'>{image_prompt['num']}</a>", disable_web_page_preview=False)
 
     @whitelisted()
     async def stats_command(self, update, context):

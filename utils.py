@@ -9,7 +9,7 @@ def text_or_caption(message):
     else:
         return ''
 
-def get_command_suffix(self, message, bot_username, prefix=''):
+def get_command_suffix(message, bot_username, prefix=''):
     commands = [s.lower().replace(bot_username, '') for s in list(message.parse_entities([MessageEntity.BOT_COMMAND]).values()) + list(message.parse_caption_entities([MessageEntity.BOT_COMMAND]).values()) if s.lower().startswith(prefix)]
     if len(commands):
         return commands[0][len(prefix):]

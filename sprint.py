@@ -107,14 +107,14 @@ class Sprint:
                 InlineKeyboardButton("Вийти/скасувати", callback_data='leave_or_cancel_sprint'),
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-        elif self.status in (SprintStatus.Cancelled, SprintStatus.CancelledWhilePlanned):
+        elif self.status in (SprintStatus.CancelledWhilePlanned):
             keyboard = [[
                 InlineKeyboardButton("Повторити", callback_data=f'repeat_last_sprint_{self.original_duration}_{self.delay}'),
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-        elif self.status == SprintStatus.Finished:
+        elif self.status in (SprintStatus.Cancelled, SprintStatus.Finished):
             keyboard = [[
-                InlineKeyboardButton("Повторити негайно", callback_data=f'repeat_last_sprint_{self.original_duration}_0'),
+                InlineKeyboardButton("Повторити зараз", callback_data=f'repeat_last_sprint_{self.original_duration}_0'),
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
         else:
