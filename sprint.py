@@ -52,6 +52,8 @@ class Sprint:
                 self.start_date = datetime.now() + timedelta(minutes=self.delay)
                 self.end_date = self.start_date + timedelta(minutes=self.duration)
                 self.users = [user]
+                if self.delay == 0:
+                    self.status = SprintStatus.Running
                 self.message = await start_command_message.reply_html(**self.render_message())
                 try:
                     await self.message.pin(disable_notification=True)
@@ -68,6 +70,7 @@ class Sprint:
                 await self.message.pin(disable_notification=True)           
             except BadRequest:
                 pass
+                
     async def add_user(self, callback_query):
         if (self.status in (SprintStatus.Planned, SprintStatus.Running)):
             if callback_query.from_user in self.users:
@@ -98,6 +101,7 @@ class Sprint:
                 await self.message.unpin()
             except BadRequest:
                 pass
+            self.job.schedule_removal()
 
 
     def render_message(self):
