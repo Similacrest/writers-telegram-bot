@@ -181,4 +181,7 @@ class Sprint:
             await self.start_sprint()
         if (self.status == SprintStatus.Running) and ((self.end_date - datetime.now()).total_seconds() < 30):
             await self.end_sprint()
+        else:
+            # Do something to keep the bot awake.
+            _ = await self.message.chat.get_administrators()
         await self.edit_message()
