@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import time
 from enum import StrEnum
 import random
 import os
@@ -192,7 +193,7 @@ class Sprint:
         elif self.ticks_without_activity >= 14:
             temp_msg_text = f"Як прогрес<a href='https://{os.environ['HOSTNAME']}/{str(random.randint(0,1000000))}'>?</a>"
             temp_msg = await self.message.reply_html(temp_msg_text, disable_notification=True, disable_web_page_preview=False)
-            sleep(5)
+            time.sleep(5)
             await temp_msg.delete()
             self.ticks_without_activity = 0
         self.ticks_without_activity += 1

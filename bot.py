@@ -52,12 +52,12 @@ class PromptsBot:
     @whitelisted(show_error_message=True)
     async def start(self, update, context):
         """Send a message when the command /start is issued."""
-        await update.effective_message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text)
+        await update.effective_message.reply_html("Я переродився, Райтенчіле!\n\n" + self.help_text,  disable_web_page_preview=True)
 
 
     async def help_command(self, update, context):
         """Send a message when the command /help is issued."""
-        await update.effective_message.reply_html(self.help_text)
+        await update.effective_message.reply_html(self.help_text,  disable_web_page_preview=True)
 
     @whitelisted()
     async def imafan_command(self, update, context):
@@ -264,7 +264,7 @@ def main():
     bot_logic = PromptsBot()
     app = Application.builder().token(os.environ['TELEGRAM_TOKEN'])\
 .persistence(persistence).rate_limiter(AIORateLimiter())\
-.defaults(Defaults(parse_mode=ParseMode.HTML, disable_web_page_preview=True, allow_sending_without_reply=True, tzinfo=pytz.timezone('Europe/Kiev')))\
+.defaults(Defaults(parse_mode=ParseMode.HTML, allow_sending_without_reply=True, tzinfo=pytz.timezone('Europe/Kiev')))\
 .post_init(bot_logic.set_app).build()    
 
 
