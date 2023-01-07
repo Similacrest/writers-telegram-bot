@@ -89,10 +89,9 @@ class Sprint:
             await self.edit_message()
     
     async def cancel_sprint(self):
-            self.job.schedule_removal()
             if self.status == SprintStatus.Planned:
                 self.status = SprintStatus.CancelledWhilePlanned
-            if self.status == SprintStatus.Running:
+            elif self.status in (SprintStatus.Running, SprintStatus.Ending):
                 self.end_date = datetime.now()
                 self.duration = max(0, int((self.end_date - self.start_date).total_seconds() // 60))
                 self.status = SprintStatus.Cancelled
@@ -111,7 +110,7 @@ class Sprint:
                 InlineKeyboardButton("Вийти/скасувати", callback_data='leave_or_cancel_sprint'),
             ]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-        elif self.status in (SprintStatus.CancelledWhilePlanned):
+        elif self.status == SprintStatus.CancelledWhilePlanned:
             keyboard = [[
                 InlineKeyboardButton("Повторити", callback_data=f'repeat_last_sprint_{self.original_duration}_{self.delay}'),
             ]]
