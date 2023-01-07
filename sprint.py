@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
+import random
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import BadRequest
@@ -7,10 +8,13 @@ from tqdm import tqdm
 
 import utils
 
+
 MIN_SPRINT = 1
 DEFAULT_SPRINT = 30
 MAX_SPRINT = 120
+MIN_SPRINT_DELAY = 0
 DEFAULT_SPRINT_DELAY = 2
+MAX_SPRINT_DELAY = 14
 
 class SprintStatus(StrEnum):
     Initialized = "створено"
@@ -43,6 +47,7 @@ class Sprint:
         self.start_date = None
         self.end_date = None
         self.users = []
+        self.ticks_without_activity = 0
 
     async def plan_sprint(self, start_command_message, user=None):
             if user is None:
@@ -72,6 +77,7 @@ class Sprint:
                 pass
                 
     async def add_user(self, callback_query):
+        self.ticks_without_activity = 0
         if (self.status in (SprintStatus.Planned, SprintStatus.Running)):
             if callback_query.from_user in self.users:
                 await callback_query.answer("Ви вже у спринті!")
@@ -84,6 +90,7 @@ class Sprint:
             callback_query.answer("Ви не можете додатися до цього спринту.")
 
     async def remove_user(self, user):
+        self.ticks_without_activity = 0
         if self.status in (SprintStatus.Planned, SprintStatus.Running):
             self.users.remove(user)
             await self.edit_message()
@@ -181,4 +188,10 @@ class Sprint:
             await self.start_sprint()
         if (self.status == SprintStatus.Running) and ((self.end_date - datetime.now()).total_seconds() < 30):
             await self.end_sprint()
+        elif self.ticks_without_activity >= 14:
+            await temp_msg = self.message.reply_html(f"Як прогрес<a href='https://{os.environ['HOSTNAME']}/?{random.randint(0,1000000)}'>?</a>}", disable_notification=True, disable_web_page_preview=False)
+            sleep(5)
+            await temp_msg.delete()
+            self.ticks_without_activity = 0
+        self.ticks_without_activity += 1
         await self.edit_message()

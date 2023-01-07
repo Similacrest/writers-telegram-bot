@@ -174,10 +174,10 @@ class PromptsBot:
             await update.effective_message.reply_text("Спринт вже запущено!")
             return
         elif MIN_SPRINT <= duration <= MAX_SPRINT:
-            if 0 <= delay <= MAX_SPRINT:
+            if MIN_SPRINT_DELAY <= delay <= MAX_SPRINT_DELAY:
                 await self.start_sprint(update.effective_message, update.effective_message.from_user, duration, delay, context)
             else:
-                await update.effective_message.reply_text(f"Затримка до початку спринта має бути цілим числом від 0 до {MAX_SPRINT} хвилин!")
+                await update.effective_message.reply_text(f"Затримка до початку спринта має бути цілим числом від {MIN_SPRINT_DELAY} до {MAX_SPRINT_DELAY} хвилин!")
         else:
             await update.effective_message.reply_text(f"Довжина спринта має бути цілим числом від {MIN_SPRINT} до {MAX_SPRINT} хвилин!")
             return
@@ -198,11 +198,11 @@ class PromptsBot:
             await update.callback_query.answer("Спринт вже запущено!")
             return
         elif MIN_SPRINT <= duration <= MAX_SPRINT:
-                if 0 <= delay <= MAX_SPRINT:
+                if MIN_SPRINT_DELAY <= delay <= MAX_SPRINT_DELAY:
                     await self.start_sprint(update.callback_query.message, update.callback_query.from_user, duration, delay, context)
                     await update.callback_query.answer()
                 else:
-                    await update.callback_query.answer("Затримка до початку спринта має бути цілим числом від 0 до {MAX_SPRINT} хвилин!")
+                    await update.callback_query.answer(f"Затримка до початку спринта має бути цілим числом від {MIN_SPRINT_DELAY} до {MAX_SPRINT_DELAY} хвилин!")
 
         else:
             await update.callback_query.answer(f"Довжина спринта має бути цілим числом від {MIN_SPRINT} до {MAX_SPRINT} хвилин!")
