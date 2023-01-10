@@ -254,7 +254,7 @@ class PromptsBot:
         and update.effective_message.from_user.id in [admin.user.id for admin in await update.effective_message.chat.get_administrators()]):
            app = self.app
            self.__init__()
-           await self.get_me(app)
+           await self.set_app(app)
            await update.effective_message.reply_text('Перезавантажено!')
 
 def main():
