@@ -15,7 +15,7 @@ DEFAULT_SPRINT = 30
 MAX_SPRINT = 120
 MIN_SPRINT_DELAY = 0
 DEFAULT_SPRINT_DELAY = 2
-MAX_SPRINT_DELAY = 14
+MAX_SPRINT_DELAY = 10
 
 
 class SprintStatus(StrEnum):
@@ -204,7 +204,7 @@ class Sprint:
             await self.start_sprint()
         if (self.status == SprintStatus.Running) and ((self.end_date - datetime.now()).total_seconds() < 30):
             await self.end_sprint()
-        elif self.ticks_without_activity >= 14:
+        elif self.ticks_without_activity >= MAX_SPRINT_DELAY:
             temp_msg_text = (
                 f"Як прогрес<a href='https://{os.environ['HOSTNAME']}/{str(random.randint(0,1000000))}'>?</a>"
             )
