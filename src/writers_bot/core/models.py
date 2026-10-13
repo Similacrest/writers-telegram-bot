@@ -100,6 +100,7 @@ class ChatRecord:
     status: ChatStatus = ChatStatus.MEMBER
     first_seen: datetime | None = None
     last_seen: datetime | None = None
+    broadcast_excluded: bool = False
 
     @property
     def is_private(self) -> bool:

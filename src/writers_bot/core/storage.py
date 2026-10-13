@@ -60,8 +60,15 @@ CREATE TABLE IF NOT EXISTS chats (
     last_seen TEXT NOT NULL,
     PRIMARY KEY (platform, chat_id)
 );
-PRAGMA user_version = 2;
 """
+
+# Schema changes after the first release, applied in order to existing databases. Each key is the
+# user_version the database has after that step.
+BASE_VERSION = 2
+MIGRATIONS: dict[int, list[str]] = {
+    3: ["ALTER TABLE chats ADD COLUMN broadcast_excluded INTEGER NOT NULL DEFAULT 0"],
+}
+SCHEMA_VERSION = max(MIGRATIONS)
 
 
 REACHABLE = [ChatStatus.MEMBER.value, ChatStatus.UNKNOWN.value]
@@ -92,7 +99,16 @@ class Storage:
         await self._db.execute("PRAGMA foreign_keys = ON")
         await self._db.execute("PRAGMA journal_mode = WAL")
         await self._db.executescript(SCHEMA)
+        await self._migrate()
         await self._db.commit()
+
+    async def _migrate(self) -> None:
+        async with self._db.execute("PRAGMA user_version") as cur:
+            version = max(BASE_VERSION, (await cur.fetchone())[0])
+        for target in sorted(v for v in MIGRATIONS if v > version):
+            for statement in MIGRATIONS[target]:
+                await self._db.execute(statement)
+            await self._db.execute(f"PRAGMA user_version = {target}")
 
     async def close(self) -> None:
         if self._db is not None:
@@ -273,6 +289,15 @@ class Storage:
         )
         await self.db.commit()
 
+    async def set_broadcast_excluded(self, platform: str, chat_ids: list[str], excluded: bool) -> int:
+        """Returns how many of ``chat_ids`` are known chats."""
+        cur = await self.db.executemany(
+            "UPDATE chats SET broadcast_excluded = ? WHERE platform = ? AND chat_id = ?",
+            [(int(excluded), platform, chat_id) for chat_id in chat_ids],
+        )
+        await self.db.commit()
+        return cur.rowcount
+
     async def list_chats(
         self, platform: str, *, private: bool | None = None, reachable_only: bool = False
     ) -> list[ChatRecord]:
@@ -297,6 +322,7 @@ class Storage:
                     status=ChatStatus(r["status"]),
                     first_seen=_dt(r["first_seen"]),
                     last_seen=_dt(r["last_seen"]),
+                    broadcast_excluded=bool(r["broadcast_excluded"]),
                 )
                 for r in await cur.fetchall()
             ]

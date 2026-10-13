@@ -38,13 +38,13 @@ LIST_AS_FILE_OVER = 60
 TARGETS = {"groups": False, "private": True, "all": None}
 TARGET_NAMES = {"groups": "у всі групи й канали", "private": "в усі особисті чати", "all": "в усі чати"}
 
-TYPE_ICONS = {"private": "👤", "group": "👥", "supergroup": "👥", "channel": "📢"}
+TYPE_LABELS = {"private": "особистий", "group": "група", "supergroup": "група", "channel": "канал"}
 STATUS_LABELS = {
     ChatStatus.MEMBER: "",
-    ChatStatus.UNKNOWN: " · не перевірено",
-    ChatStatus.LEFT: " · бота немає",
-    ChatStatus.KICKED: " · заблоковано",
-    ChatStatus.MIGRATED: " · перенесено",
+    ChatStatus.UNKNOWN: ", не перевірено",
+    ChatStatus.LEFT: ", бота немає",
+    ChatStatus.KICKED: ", заблоковано",
+    ChatStatus.MIGRATED: ", перенесено",
 }
 
 
@@ -180,13 +180,19 @@ class AdminTools:
         if c.username:
             name += f" (@{self._escape(c.username)})"
         seen = c.last_seen.strftime("%Y-%m-%d") if c.last_seen else "?"
-        return f"{TYPE_ICONS.get(c.type, '❔')} {name} — <code>{c.chat_id}</code> · {seen}{STATUS_LABELS[c.status]}"
+        excluded = ", без розсилок" if c.broadcast_excluded else ""
+        return (
+            f"{name} ({TYPE_LABELS.get(c.type, c.type)}) <code>{c.chat_id}</code>, {seen}"
+            f"{STATUS_LABELS[c.status]}{excluded}"
+        )
 
     @staticmethod
     def _csv(chats: list[ChatRecord]) -> bytes:
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["chat_id", "type", "title", "username", "status", "first_seen", "last_seen"])
+        writer.writerow(
+            ["chat_id", "type", "title", "username", "status", "first_seen", "last_seen", "broadcast_excluded"]
+        )
         for c in chats:
             writer.writerow(
                 [
@@ -197,6 +203,7 @@ class AdminTools:
                     c.status.value,
                     c.first_seen.isoformat() if c.first_seen else "",
                     c.last_seen.isoformat() if c.last_seen else "",
+                    int(c.broadcast_excluded),
                 ]
             )
         return buf.getvalue().encode("utf-8-sig")  # BOM so spreadsheet apps detect UTF-8
@@ -227,7 +234,8 @@ class AdminTools:
                 "<code>/broadcast private</code> — в особисті чати\n"
                 "<code>/broadcast all</code> — усюди\n\n"
                 "Або текстом: <code>/broadcast all Текст оголошення</code>. "
-                "Перед надсиланням бот покаже попередній перегляд і попросить підтвердження."
+                "Перед надсиланням бот покаже попередній перегляд і попросить підтвердження.\n\n"
+                "Чати, позначені через <code>/bcexclude</code>, розсилку не отримують."
             )
             return
 
@@ -242,21 +250,23 @@ class AdminTools:
             preview = await context.bot.send_message(chat_id, text[2], parse_mode=None)
 
         recipients = await self._recipients(target, exclude=chat_id)
+        skipped = await self._excluded_count(target)
         token = secrets.token_hex(6)
         self._expire_pending()
         self._pending[token] = PendingBroadcast(message.from_user.id, target, chat_id, preview.message_id)
+        note = f" Без розсилок: {skipped}." if skipped else ""
         await context.bot.send_message(
             chat_id,
-            f"Надіслати це повідомлення {TARGET_NAMES[target]}? Отримувачів: <b>{len(recipients)}</b>.",
+            f"Надіслати це повідомлення {TARGET_NAMES[target]}? Отримувачів: <b>{len(recipients)}</b>.{note}",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
-                            f"✅ Надіслати ({len(recipients)})",
+                            f"Надіслати ({len(recipients)})",
                             callback_data=f"bc:go:{token}",
                             style=KeyboardButtonStyle.SUCCESS,
                         ),
-                        InlineKeyboardButton("✖️ Скасувати", callback_data=f"bc:no:{token}"),
+                        InlineKeyboardButton("Скасувати", callback_data=f"bc:no:{token}"),
                     ]
                 ]
             ),
@@ -264,7 +274,42 @@ class AdminTools:
 
     async def _recipients(self, target: str, exclude: int | None = None) -> list[ChatRecord]:
         chats = await self.storage.list_chats(PLATFORM, private=TARGETS[target], reachable_only=True)
-        return [c for c in chats if c.chat_id != str(exclude)]
+        return [c for c in chats if c.chat_id != str(exclude) and not c.broadcast_excluded]
+
+    async def _excluded_count(self, target: str) -> int:
+        chats = await self.storage.list_chats(PLATFORM, private=TARGETS[target], reachable_only=True)
+        return sum(c.broadcast_excluded for c in chats)
+
+    # --- /bcexclude, /bcinclude ------------------------------------------------------------------
+
+    async def exclude(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self._set_excluded(update, context, excluded=True)
+
+    async def include(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self._set_excluded(update, context, excluded=False)
+
+    async def _set_excluded(self, update: Update, context: ContextTypes.DEFAULT_TYPE, *, excluded: bool) -> None:
+        if not await self._check_admin(update):
+            return
+        message = update.effective_message
+        ids = [a for a in context.args or [] if a.lstrip("-").isdigit()]
+        if not ids:
+            listed = [c for c in await self.storage.list_chats(PLATFORM) if c.broadcast_excluded]
+            usage = (
+                "Використання: <code>/bcexclude &lt;id чату&gt; ...</code> прибирає чати з розсилок, "
+                "<code>/bcinclude &lt;id чату&gt; ...</code> повертає. Id видно в /chats."
+            )
+            if not listed:
+                await message.reply_html(usage + "\n\nЗараз виключених чатів немає.")
+                return
+            await self._send_chunks(message, usage + "\n\n<b>Без розсилок:</b>", [self._line(c) for c in listed])
+            return
+        known = await self.storage.set_broadcast_excluded(PLATFORM, ids, excluded)
+        verb = "Виключено з розсилок" if excluded else "Повернуто до розсилок"
+        text = f"{verb}: {known}."
+        if known < len(ids):
+            text += f" Невідомих id: {len(ids) - known} (бот їх ще не бачив)."
+        await message.reply_text(text)
 
     def _expire_pending(self) -> None:
         now = time.monotonic()
