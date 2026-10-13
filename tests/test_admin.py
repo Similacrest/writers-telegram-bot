@@ -219,3 +219,99 @@ async def test_broadcast_buttons_only_for_the_admin_who_asked(storage):
 
 def test_result_defaults():
     assert BroadcastResult().sent == 0
+
+
+async def test_excluded_chats_get_no_broadcast(storage):
+    for chat in [rec(-1), rec(-2), rec(7, "private")]:
+        await storage.upsert_chat(chat)
+    assert await storage.set_broadcast_excluded("telegram", ["-2", "-999"], True) == 1
+    tools = AdminTools(storage, frozenset({ADMIN}))
+    assert {c.chat_id for c in await tools._recipients("all")} == {"-1", "7"}
+    assert await tools._excluded_count("groups") == 1
+    # a later sighting of the chat keeps the exclusion
+    await storage.upsert_chat(rec(-2, title="Renamed"))
+    assert await tools._excluded_count("all") == 1
+    await storage.set_broadcast_excluded("telegram", ["-2"], False)
+    assert len(await tools._recipients("all")) == 3
+
+
+async def test_migrates_a_v3_0_database(tmp_path):
+    import sqlite3
+
+    from writers_bot.core.storage import SCHEMA, SCHEMA_VERSION, Storage
+
+    path = tmp_path / "old.sqlite3"
+    old = sqlite3.connect(path)
+    old.executescript(SCHEMA + "PRAGMA user_version = 2;")
+    old.execute(
+        "INSERT INTO chats VALUES ('telegram', '-1', 'group', 'G', NULL, 'member', '2026-01-01', '2026-01-01')"
+    )
+    old.commit()
+    old.close()
+    s = Storage(path)
+    await s.open()
+    try:
+        [chat] = await s.list_chats("telegram")
+        assert chat.title == "G" and not chat.broadcast_excluded
+        async with s.db.execute("PRAGMA user_version") as cur:
+            assert (await cur.fetchone())[0] == SCHEMA_VERSION
+    finally:
+        await s.close()
+    await s.open()  # opening again is a no-op
+    await s.close()
+
+
+def test_private_chats_and_allowlist(monkeypatch):
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import WritersTelegramBot
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "x")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    monkeypatch.setenv("ALLOWED_CHATS", "-100")
+    monkeypatch.setenv("BOT_SUPERADMINS", str(ADMIN))
+    group = SimpleNamespace(id=-200, type="supergroup")
+    private = SimpleNamespace(id=5, type="private")
+    user = SimpleNamespace(id=5)
+
+    bot = WritersTelegramBot(TelegramSettings.from_env())
+    assert bot.is_allowed(SimpleNamespace(id=-100, type="supergroup"), user)
+    assert not bot.is_allowed(group, user)
+    assert bot.is_allowed(private, user)  # like the v2 "extended" bot
+
+    monkeypatch.setenv("ALLOW_PRIVATE_CHATS", "0")
+    bot = WritersTelegramBot(TelegramSettings.from_env())
+    assert not bot.is_allowed(private, user)
+    assert bot.is_allowed(SimpleNamespace(id=ADMIN, type="private"), SimpleNamespace(id=ADMIN))
+
+
+def test_catch_all_command_handler_is_registered_last(monkeypatch):
+    from telegram.ext import CommandHandler, MessageHandler
+
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import build_application
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    app = build_application(TelegramSettings.from_env())
+    group = app.handlers[0]
+    last_command = max(i for i, h in enumerate(group) if isinstance(h, CommandHandler))
+    assert isinstance(group[-1], MessageHandler) and group[-1].callback.__name__ == "other_command"
+    assert last_command < len(group) - 1
+
+
+def test_backup_script(tmp_path, monkeypatch, capsys):
+    import runpy
+    import sqlite3
+
+    source = tmp_path / "bot.sqlite3"
+    db = sqlite3.connect(source)
+    db.execute("PRAGMA journal_mode = WAL")
+    db.execute("CREATE TABLE chats (title TEXT)")
+    db.execute("INSERT INTO chats VALUES ('Backed up')")
+    db.commit()  # left open, like the running bot
+    target = tmp_path / "copy.sqlite3"
+    monkeypatch.setattr(sys, "argv", ["backup_db.py", str(target), "--db", str(source)])
+    runpy.run_path("scripts/backup_db.py", run_name="__main__")
+    db.close()
+    assert "integrity ok" in capsys.readouterr().out
+    assert sqlite3.connect(target).execute("SELECT title FROM chats").fetchone() == ("Backed up",)

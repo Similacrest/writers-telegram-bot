@@ -98,6 +98,10 @@ class PromptsStore:
         values = self.data.config.get(key, {}).get(subkey)
         return "\n".join(values) if values else None
 
+    def config_texts(self, key: str) -> dict[str, str]:
+        """Every non-empty value of a config key, by subkey (rows ``key | subkey | value...``)."""
+        return {sub: "\n".join(v) for sub, v in self.data.config.get(key, {}).items() if any(v)}
+
     def text_categories(self, lang: str) -> list[str]:
         return list(self.data.texts.get(lang, {}))
 

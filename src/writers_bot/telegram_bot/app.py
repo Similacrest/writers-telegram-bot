@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import random
 import re
 from datetime import timedelta
 from functools import wraps
@@ -34,6 +35,7 @@ from telegram.ext import (
 )
 
 from ..config import ConfigError, TelegramSettings
+from ..core import extras
 from ..core import sprint as sp
 from ..core.models import ChatKey, Sprint, SprintStatus
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
@@ -57,22 +59,23 @@ DEFAULT_HELP = """<b>Бот для письменників</b>
 /image — випадковий промпт-зображення (/image &lt;категорія&gt;)
 /wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф, WriteFreely чи Ellipsus)
 /sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
-/sprinthelp — як працюють спринти та звіти про слова"""
+/sprinthelp — як працюють спринти та звіти про слова
+/d20, /2d6+1, /r 4к6 — кинути кубики"""
 
 SPRINT_HELP = f"""<b>Спринти</b>
-/sprint [хвилин] [затримка] — запустити спринт ({sp.MIN_SPRINT}–{sp.MAX_SPRINT} хв., затримка {sp.MIN_SPRINT_DELAY}–{sp.MAX_SPRINT_DELAY} хв.; типово {sp.DEFAULT_SPRINT} і {sp.DEFAULT_SPRINT_DELAY}).
-Кнопки під спринтом: долучитися, вийти. Останній учасник або адмін чату скасовує спринт.
+/sprint [хвилин] [затримка] [посилання] запускає спринт: {sp.MIN_SPRINT}–{sp.MAX_SPRINT} хв., затримка {sp.MIN_SPRINT_DELAY}–{sp.MAX_SPRINT_DELAY} хв., типово {sp.DEFAULT_SPRINT} і {sp.DEFAULT_SPRINT_DELAY}.
+Під спринтом є кнопки, щоб долучитися чи вийти. Останній учасник або адмін чату може його скасувати.
 У форумах кожна тема має свій спринт.
 
 <b>Звіти про слова</b>
-Після спринту відповідайте на повідомлення з результатами або надішліть:
-• /words 500 — написали 500 слів;
-• /words &lt;посилання&gt; — бот сам порахує слова в тексті;
-• /words =12500 — загальна кількість слів у рукописі зараз (якщо ви задали стартову).
-До або під час спринту можна задати стартову кількість: /words 12000 (до старту), /words =12000 або /words &lt;посилання&gt;. Тоді після спринту /words без числа перерахує той самий текст.
+Якщо дати посилання на текст до чи під час спринту (/words &lt;посилання&gt; або одразу в /sprint), бот запам'ятає, скільки там слів, і після спринту сам порахує, скільки додалося.
 
-/mystats — ваша статистика в цьому чаті
-/top [днів] — найпродуктивніші за період (типово 30 днів)"""
+Інакше після спринту відповідайте на повідомлення з результатами або надішліть:
+/words 500, якщо написали 500 слів;
+/words &lt;посилання&gt;, щоб бот порахував слова в тексті;
+/words =12500, загальну кількість слів у рукописі (якщо до спринту задали стартову, напр. /words =12000).
+
+/mystats показує вашу статистику в цьому чаті, /top [днів] — хто найбільше написав за період (типово 30 днів)."""
 
 COMMANDS = [
     BotCommand("prompt", "Випадковий текстовий промпт"),
@@ -90,6 +93,8 @@ ADMIN_COMMANDS = [
     *COMMANDS,
     BotCommand("chats", "Адмін: усі чати з ботом"),
     BotCommand("broadcast", "Адмін: розсилка (groups / private / all)"),
+    BotCommand("bcexclude", "Адмін: прибрати чати з розсилок"),
+    BotCommand("bcinclude", "Адмін: повернути чати до розсилок"),
     BotCommand("stats", "Адмін: кількість промптів"),
     BotCommand("reload", "Адмін: перезавантажити промпти"),
 ]
@@ -148,9 +153,13 @@ class WritersTelegramBot:
         self.storage = Storage(common.db_path)
         self.prompts = PromptsStore(common.google)
         self.fetcher: SafeFetcher | None = None
-        self.presenter = TelegramSprintPresenter(self.fmt, settings.webhook_host if settings.keepalive else None)
+        self.presenter = TelegramSprintPresenter(self.fmt)
         self.sprints = sp.SprintManager(
-            self.storage, self.presenter, platform=PLATFORM, report_window=common.report_window
+            self.storage,
+            self.presenter,
+            platform=PLATFORM,
+            report_window=common.report_window,
+            count_link=self.count_link,
         )
         self.me = None
         self.admin = AdminTools(self.storage, settings.super_admins)
@@ -194,7 +203,9 @@ class WritersTelegramBot:
         allowed = self.settings.allowed_chats
         if allowed is None or chat.id in allowed:
             return True
-        return chat.type == ChatType.PRIVATE and user is not None and user.id in self.settings.super_admins
+        if chat.type != ChatType.PRIVATE:
+            return False
+        return self.settings.allow_private or (user is not None and user.id in self.settings.super_admins)
 
     async def is_chat_admin(self, chat: Chat, user_id: int) -> bool:
         if user_id in self.settings.super_admins:
@@ -219,7 +230,8 @@ class WritersTelegramBot:
 
     @allowed_chat(show_error=True)
     async def start(self, update: Update, _context) -> None:
-        await self.help(update, _context)
+        text = self.prompts.config_text("help_message") or DEFAULT_HELP
+        await self._reply_html_safe(update.effective_message, "Я переродився, Райтенчіле!\n\n" + text)
 
     async def help(self, update: Update, _context) -> None:
         text = self.prompts.config_text("help_message") or DEFAULT_HELP
@@ -308,6 +320,48 @@ class WritersTelegramBot:
             roles += " (адмін чату)"
         return roles
 
+    # --- extras from the v2 "extended" branch ------------------------------------------------------
+
+    @allowed_chat()
+    async def imafan(self, update: Update, _context) -> None:
+        texts = list(self.prompts.config_texts("imafan_message").values())
+        if not texts:
+            return
+        message = update.effective_message
+        name = self.fmt.bold(message.from_user.first_name)
+        await self._reply_html_safe(message, random.choice(texts).replace("{name}", name))
+
+    @allowed_chat()
+    async def smash(self, update: Update, _context) -> None:
+        await update.effective_message.reply_html(self.fmt.code(extras.smash()))
+
+    @allowed_chat()
+    async def other_command(self, update: Update, _context) -> None:
+        """Commands no other handler took: dice rolls like /d20, /2d6+1, /r 4к6."""
+        message = update.effective_message
+        roll = extras.parse_roll(message.text or message.caption or "")
+        if roll is not None:
+            await message.reply_html(extras.roll_html(roll))
+
+    @allowed_chat()
+    async def on_text(self, update: Update, _context) -> None:
+        if not self.settings.slogan_replies:
+            return
+        message = update.effective_message
+        if reply := extras.slogan_reply(message.text or message.caption or ""):
+            await message.reply_html(reply)
+
+    @allowed_chat()
+    async def welcome(self, update: Update, _context) -> None:
+        """Greets new members in chats that have their own ``welcome_message`` row in the config sheet."""
+        message = update.effective_message
+        text = self.prompts.config_texts("welcome_message").get(str(message.chat_id))
+        people = [u for u in message.new_chat_members or () if not u.is_bot]
+        if not text or not people:
+            return
+        names = ", ".join(f"<b>{u.mention_html()}</b>" for u in people)
+        await self._reply_html_safe(message, text.replace("{name}", names))
+
     # --- word count ------------------------------------------------------------------------------
 
     async def count_link(self, url: str) -> int:
@@ -355,19 +409,24 @@ class WritersTelegramBot:
         try:
             await self.sprints.start(chat_key(message), user_ref(user), duration, delay, origin=message)
         except sp.SprintAlreadyRunningError:
-            return "Спринт вже запущено!"
+            return "Спринт вже запущено."
         except sp.InvalidSprintParamsError as e:
             return str(e)
         return None
 
     @allowed_chat()
     async def sprint(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """/sprint [minutes] [delay] [link]: a link is counted now and again when the sprint ends."""
         message = update.effective_message
-        args = context.args or []
+        url = find_url(command_args_text(message))
+        args = [a for a in context.args or [] if a != url]
         duration = self._int_arg(args, 0, sp.DEFAULT_SPRINT)
         delay = self._int_arg(args, 1, sp.DEFAULT_SPRINT_DELAY)
         if error := await self._start_sprint(message, message.from_user, duration, delay):
             await message.reply_text(error)
+            return
+        if url:
+            await self._handle_report(message, url, None, explicit=True)
 
     def _sprint_from_callback(self, data: str) -> int | None:
         try:
@@ -493,7 +552,7 @@ class WritersTelegramBot:
             sp.ReportStatus.NO_SPRINT: "Немає спринту, до якого можна звітувати. Звіти приймаються після спринту.",
             sp.ReportStatus.NEED_BASELINE: "Спершу задайте стартову кількість (до чи під час спринту) або надішліть просто число написаних слів.",
             sp.ReportStatus.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як /words =12000.",
-            sp.ReportStatus.TOO_MANY: "Це забагато слів для одного спринту 🙂",
+            sp.ReportStatus.TOO_MANY: "Це забагато слів для одного спринту.",
         }
         if status in texts:
             await message.reply_text(texts[status])
@@ -503,9 +562,8 @@ class WritersTelegramBot:
             extra = f", записано {outcome.participant.words}" if status == sp.ReportStatus.REPORTED else ""
             await message.reply_text(f"{prefix}: {outcome.counted} сл.{extra}")
             return
-        emoji = "✍" if status == sp.ReportStatus.REPORTED else "👌"
         try:
-            await message.set_reaction(ReactionTypeEmoji(emoji))
+            await message.set_reaction(ReactionTypeEmoji("👍"))
         except TelegramError:
             await message.reply_text("Записано!")
 
@@ -544,20 +602,29 @@ class WritersTelegramBot:
             CommandHandler("words", self.words),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
+            CommandHandler("imafan", self.imafan),
+            CommandHandler("smash", self.smash),
             CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"),
             CallbackQueryHandler(self.on_leave, pattern=r"^(sp:leave:\d+|leave_or_cancel_sprint)$"),
             CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"),
             CallbackQueryHandler(self.on_repeat, pattern=r"^(sp:repeat:\d+:\d+|repeat_last_sprint_\d+(_\d+)?)$"),
             MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
+            MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome),
         ]
         for handler in handlers:
             app.add_handler(handler)
+        # Slogan replies in their own group, so a reply that is also a word report gets both.
+        app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, self.on_text), group=2)
         # Chat registry: runs before everything else and never stops other handlers.
         app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
         app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
         app.add_handler(CommandHandler("chats", self.admin.chats))
         app.add_handler(CommandHandler("broadcast", self.admin.broadcast))
+        app.add_handler(CommandHandler("bcexclude", self.admin.exclude))
+        app.add_handler(CommandHandler("bcinclude", self.admin.include))
         app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
+        # Last in group 0: only commands that no handler above took (dice rolls).
+        app.add_handler(MessageHandler(filters.COMMAND, self.other_command))
         app.add_error_handler(self.on_error)
 
 
