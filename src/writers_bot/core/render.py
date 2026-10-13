@@ -70,7 +70,12 @@ def sprint_text(f: Formatter, sprint: Sprint, now: datetime) -> str:
     return "\n".join(lines)
 
 
-def report_text(f: Formatter, sprint: Sprint, now: datetime) -> str:
+TELEGRAM_REPORT_HINT = (
+    "Відповідайте на це повідомлення числом слів (або посиланням на текст), або надішліть /words 500."
+)
+
+
+def report_text(f: Formatter, sprint: Sprint, now: datetime, hint: str = TELEGRAM_REPORT_HINT) -> str:
     final = sprint.status == SprintStatus.CLOSED
     title = "🏆 Підсумки спринту" if final else "📝 Скільки написали?"
     span = f"{plural(sprint.duration, MINUTES)}, {f.time(sprint.start_at)}–{f.time(sprint.end_at)}"
@@ -93,9 +98,7 @@ def report_text(f: Formatter, sprint: Sprint, now: datetime) -> str:
             lines += ["", "Чекаємо на звіт: " + ", ".join(f.mention(p.user_id, p.name) for p in waiting)]
         lines += [
             "",
-            "Відповідайте на це повідомлення числом слів (або посиланням на текст), "
-            "або надішліть /words 500. "
-            f"Звіти приймаються до {f.time(sprint.report_until or now)}.",
+            f"{hint} Звіти приймаються до {f.time(sprint.report_until or now)}.",
         ]
     elif not board:
         lines.append("Ніхто не прозвітував.")
