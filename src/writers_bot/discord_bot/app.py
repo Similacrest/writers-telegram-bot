@@ -272,6 +272,26 @@ class WritersDiscordBot:
                     text += f" У тексті зараз {outcome.counted} сл., після спринту порахую ще раз."
         await self.reply(interaction, text, ephemeral=True)
 
+    async def join_sprint(self, interaction: discord.Interaction, link: str = "") -> None:
+        await self.defer(interaction)
+        key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
+        result, _ = await self.sprints.join(key, user)
+        if result == sp.JoinResult.CLOSED:
+            await self.reply(interaction, "Зараз немає спринту, до якого можна долучитися.", ephemeral=True)
+            return
+        text = "Додано до спринту." if result == sp.JoinResult.JOINED else "Ви вже у спринті."
+        if url := find_url(link):
+            try:
+                outcome = await self.sprints.report(
+                    key, user, sp.ReportInput(sp.ReportKind.LINK, url=url), self.count_link
+                )
+            except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
+                text += f" Не вдалося прочитати посилання: {e}"
+            else:
+                if outcome.counted is not None:
+                    text += f" У тексті зараз {outcome.counted} сл., після спринту порахую ще раз."
+        await self.reply(interaction, text, ephemeral=True)
+
     async def on_button(self, interaction: discord.Interaction, action: str, a: int, b: int | None) -> None:
         if not self.allowed(interaction):
             await self.reply(interaction, "Бот недоступний на цьому сервері.", ephemeral=True)
@@ -423,6 +443,11 @@ class WritersDiscordBot:
             link: str = "",
         ):
             await bot.start_sprint(interaction, duration, delay, link)
+
+        @tree.command(name="join", description="Долучитися до спринту")
+        @app_commands.describe(link="Посилання на текст: бот порахує, скільки слів додалося")
+        async def join_cmd(interaction: discord.Interaction, link: str = ""):
+            await bot.join_sprint(interaction, link)
 
         @tree.command(name="words", description="Звіт про слова: 500, =12500 або посилання")
         @app_commands.describe(

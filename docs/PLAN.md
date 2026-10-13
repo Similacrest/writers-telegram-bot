@@ -48,7 +48,7 @@
 11. **Keep-awake removed**: the "Як прогрес?" posts (`SPRINT_KEEPALIVE`) only existed to wake a sleeping
     Render instance.
 12. **Links remembered for the sprint**: a link given before or during a sprint (`/words <link>`, or
-    `/sprint 30 2 <link>`) is counted again when the sprint ends and the added words are recorded without
+    `/sprint 30 2 <link>` to start, `/join <link>` for everyone else) is counted again when the sprint ends and the added words are recorded without
     a manual report.
 13. **Fewer emoji**: plain headings, numbered leaderboard, text-only buttons; one 👍 reaction to confirm a
     report.

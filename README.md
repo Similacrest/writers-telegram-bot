@@ -18,6 +18,7 @@ A bot for writing communities, on Telegram and Discord.
 | `/image [category]`, `/image_<category>` | `/image [category]` | Random image prompt; categories are Drive sub-folders |
 | `/wc` (reply, text or link) | `/wc text` | Words, characters, letters |
 | `/sprint [minutes] [delay] [link]` | `/sprint` | Start a sprint (1–120 min, delay 0–10, defaults 30 / 2); a link is counted at the start and again at the end |
+| `/join [link]` (or `/sprint <link>` while a sprint is on) | `/join [link]` | Join the current sprint, optionally with the text to count |
 | `/words …` or reply to the results | `/words` or the report button | Report words (see below) |
 | `/mystats`, `/top [days]` | `/mystats`, `/top` | Statistics |
 | `/sprinthelp`, `/help`, `/start` | | Help (`help_message` from the config sheet, or a built-in text) |
@@ -53,7 +54,8 @@ When a sprint ends, the bot posts a results message and accepts reports for `SPR
 - `=12500`: the manuscript total now, if a starting count was given.
 
 Before or during the sprint a participant can set a starting count: `/words 12000` (before the start),
-`/words =12000` or `/words <link>` (or `/sprint 30 2 <link>` when starting it). A link is counted again
+`/words =12000` or `/words <link>`; or give the link when starting (`/sprint 30 2 <link>`) or joining
+(`/join <link>`). A link is counted again
 automatically when the sprint ends and the difference is recorded; if that fails (site down), `/words` with
 no argument tries again.
 

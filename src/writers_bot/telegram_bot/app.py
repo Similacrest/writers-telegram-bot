@@ -64,7 +64,7 @@ DEFAULT_HELP = """<b>Бот для письменників</b>
 
 SPRINT_HELP = f"""<b>Спринти</b>
 /sprint [хвилин] [затримка] [посилання] запускає спринт: {sp.MIN_SPRINT}–{sp.MAX_SPRINT} хв., затримка {sp.MIN_SPRINT_DELAY}–{sp.MAX_SPRINT_DELAY} хв., типово {sp.DEFAULT_SPRINT} і {sp.DEFAULT_SPRINT_DELAY}.
-Під спринтом є кнопки, щоб долучитися чи вийти. Останній учасник або адмін чату може його скасувати.
+Під спринтом є кнопки, щоб долучитися чи вийти. Долучитися з текстом: /join &lt;посилання&gt; (або /sprint &lt;посилання&gt;, коли спринт уже є). Останній учасник або адмін чату може його скасувати.
 У форумах кожна тема має свій спринт.
 
 <b>Звіти про слова</b>
@@ -82,6 +82,7 @@ COMMANDS = [
     BotCommand("image", "Випадковий промпт-зображення"),
     BotCommand("wc", "Порахувати слова в тексті чи за посиланням"),
     BotCommand("sprint", "Почати спринт: /sprint 30 2"),
+    BotCommand("join", "Долучитися до спринту: /join [посилання]"),
     BotCommand("words", "Звіт про слова за спринт"),
     BotCommand("mystats", "Моя статистика спринтів"),
     BotCommand("top", "Топ за словами"),
@@ -420,6 +421,9 @@ class WritersTelegramBot:
         message = update.effective_message
         url = find_url(command_args_text(message))
         args = [a for a in context.args or [] if a != url]
+        if url and self.sprints.active(chat_key(message)) is not None:
+            await self._join_with_link(message, url)  # "/sprint <link>" in a running sprint = join with it
+            return
         duration = self._int_arg(args, 0, sp.DEFAULT_SPRINT)
         delay = self._int_arg(args, 1, sp.DEFAULT_SPRINT_DELAY)
         if error := await self._start_sprint(message, message.from_user, duration, delay):
@@ -427,6 +431,28 @@ class WritersTelegramBot:
             return
         if url:
             await self._handle_report(message, url, None, explicit=True)
+
+    @allowed_chat()
+    async def join(self, update: Update, _context) -> None:
+        """/join [link]: join the current sprint, optionally with the text to count."""
+        message = update.effective_message
+        url = find_url(command_args_text(message))
+        if url:
+            await self._join_with_link(message, url)
+            return
+        result, _ = await self.sprints.join(chat_key(message), user_ref(message.from_user))
+        if result == sp.JoinResult.CLOSED:
+            await message.reply_text("Зараз немає спринту, до якого можна долучитися.")
+            return
+        with contextlib.suppress(TelegramError):
+            await message.set_reaction(ReactionTypeEmoji("👍"))
+
+    async def _join_with_link(self, message: Message, url: str) -> None:
+        result, _ = await self.sprints.join(chat_key(message), user_ref(message.from_user))
+        if result == sp.JoinResult.CLOSED:
+            await message.reply_text("Зараз немає спринту, до якого можна долучитися.")
+            return
+        await self._handle_report(message, url, None, explicit=True)
 
     def _sprint_from_callback(self, data: str) -> int | None:
         try:
@@ -600,6 +626,7 @@ class WritersTelegramBot:
             CommandHandler("debuginfo", self.debuginfo),
             CommandHandler("sprint", self.sprint),
             CommandHandler("words", self.words),
+            CommandHandler("join", self.join),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
             CommandHandler("imafan", self.imafan),
