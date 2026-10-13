@@ -17,11 +17,17 @@ A bot for writing communities, on Telegram and Discord.
 | `/prompt [category]`, `/prompt_ua` | `/prompt [category]` | Random prompt; every sheet column is a category |
 | `/image [category]`, `/image_<category>` | `/image [category]` | Random image prompt; categories are Drive sub-folders |
 | `/wc` (reply, text or link) | `/wc text` | Words, characters, letters |
-| `/sprint [minutes] [delay]` | `/sprint` | Start a sprint (1–120 min, delay 0–10, defaults 30 / 2) |
+| `/sprint [minutes] [delay] [link]` | `/sprint` | Start a sprint (1–120 min, delay 0–10, defaults 30 / 2); a link is counted at the start and again at the end |
 | `/words …` or reply to the results | `/words` or the report button | Report words (see below) |
 | `/mystats`, `/top [days]` | `/mystats`, `/top` | Statistics |
 | `/sprinthelp`, `/help`, `/start` | | Help (`help_message` from the config sheet, or a built-in text) |
+| `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` | | Dice rolls |
+| `/smash`, `/imafan` | | Keyboard smash; a random `imafan_message` from the config sheet |
 | `/stats`, `/reload`, `/debuginfo` | `/reload` | Prompt counts, reload prompts (admins), ids |
+
+The bot also greets new members in groups that have a `welcome_message` row for their chat id in the config
+sheet (`{name}` is replaced by the new members), and answers "Слава Україні" / "Слава нації"
+(`SLOGAN_REPLIES`). These come from the v2 `extended` branch.
 
 ### Admin: chats and broadcasts (Telegram, `BOT_SUPERADMINS` only, in a private chat with the bot)
 
@@ -29,7 +35,9 @@ A bot for writing communities, on Telegram and Discord.
   with ids and last activity; more than 60 entries come as a CSV file.
 - `/broadcast groups|private|all`: send it **as a reply** to the message to broadcast (any type: text,
   photo, formatting are kept), or `/broadcast all Текст`. The bot shows a preview and the recipient count
-  and sends only after you press ✅. Chats that removed or blocked the bot are marked and skipped afterwards.
+  and sends only after you confirm. Chats that removed or blocked the bot are marked and skipped afterwards.
+- `/bcexclude <chat id> ...` keeps chats out of every broadcast, `/bcinclude <chat id> ...` takes them back;
+  `/bcexclude` alone lists the excluded chats. `/chats` marks them too.
 
 Telegram has no method that lists a bot's chats, so the bot records chats as it receives updates from them
 and when it is added or removed. Chats from before this version are imported once from the old
@@ -45,10 +53,11 @@ When a sprint ends, the bot posts a results message and accepts reports for `SPR
 - `=12500`: the manuscript total now, if a starting count was given.
 
 Before or during the sprint a participant can set a starting count: `/words 12000` (before the start),
-`/words =12000` or `/words <link>`. After the sprint, `/words` with no argument recounts the same link and
-records the difference.
+`/words =12000` or `/words <link>` (or `/sprint 30 2 <link>` when starting it). A link is counted again
+automatically when the sprint ends and the difference is recorded; if that fails (site down), `/words` with
+no argument tries again.
 
-On Telegram, replies to the results message (or to the "📝 Звітувати слова" prompt) count as reports.
+On Telegram, replies to the results message (or to the "Звітувати" prompt) count as reports.
 Discord uses `/words` or the button's form.
 
 ## Configuration (environment variables)
@@ -64,8 +73,9 @@ Discord uses `/words` or the button's form.
 | `WEBHOOK_LISTEN` / `PORT` | `0.0.0.0` / `80` | Listen address and port |
 | `TEST_ENV` or `TELEGRAM_POLLING` | off | Use long polling instead of a webhook |
 | `BOT_SUPERADMINS` | empty | Comma-separated user ids with admin rights everywhere |
-| `ALLOWED_CHATS` | empty = all chats | Comma-separated chat ids the bot answers in (super-admins can always use it in private) |
-| `SPRINT_KEEPALIVE` | off | Every 10 minutes of a sprint, briefly post a link to `WEBHOOK_HOST` so a sleeping host is woken by Telegram's link preview |
+| `ALLOWED_CHATS` | empty = all chats | Comma-separated group/channel ids the bot answers in |
+| `ALLOW_PRIVATE_CHATS` | on | Private chats work even when `ALLOWED_CHATS` is set (off: only super-admins) |
+| `SLOGAN_REPLIES` | on | Answer "Слава Україні" / "Слава нації" |
 
 ### Discord
 
@@ -82,7 +92,7 @@ Invite the bot with the `bot` and `applications.commands` scopes and the Send Me
 
 | Variable | Default | |
 |---|---|---|
-| `DB_PATH` | `data/bot.sqlite3` | SQLite database (sprints, reports) |
+| `DB_PATH` | `data/bot.sqlite3` | SQLite database (sprints, reports, chats); back it up with `scripts/backup_db.py` |
 | `BOT_TIMEZONE` | `Europe/Kyiv` | Fallback time zone for times in messages (clients show local time where supported) |
 | `SPRINT_REPORT_WINDOW` | `30` | Minutes to accept reports after a sprint |
 | `SPREADSHEET_ID` | empty = prompts disabled | Google Sheet with the prompts and config |
@@ -119,4 +129,5 @@ Layout: `src/writers_bot/core` holds the platform-independent parts (sprint engi
 link fetching, prompts, message texts); `telegram_bot` and `discord_bot` are thin adapters. Link fetching
 goes through `core/netguard.py`, which only connects to public addresses over https.
 
-See [docs/PLAN.md](docs/PLAN.md) for the roadmap.
+See [docs/PLAN.md](docs/PLAN.md) for the roadmap and [docs/MIGRATION.md](docs/MIGRATION.md) for moving
+from Render to self-hosting.

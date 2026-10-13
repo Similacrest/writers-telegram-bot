@@ -40,7 +40,9 @@ async def main() -> None:
     finally:
         await storage.close()
     groups = sum(1 for i in ids if i < 0)
-    print(f"found {len(ids)} chats ({groups} groups/channels, {len(ids) - groups} private); new ones added to {args.db}")
+    print(
+        f"found {len(ids)} chats ({groups} groups/channels, {len(ids) - groups} private); new ones added to {args.db}"
+    )
     if not args.include_users and user_ids:
         print(f"{len(user_ids)} user ids not imported as private chats (use --include-users)")
 

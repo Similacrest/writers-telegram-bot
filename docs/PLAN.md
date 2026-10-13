@@ -1,6 +1,6 @@
-# Refactor plan (v3)
+# Plan
 
-## In scope for this refactor
+## Done in v3.0
 
 1. **Dependencies & tooling**: PEP 621 `pyproject.toml` managed by `uv` (replaces Poetry); Python 3.13;
    python-telegram-bot 22.8 (Bot API 10.0), discord.py 2.7 (optional extra), httpx, aiosqlite, google-auth.
@@ -40,32 +40,118 @@
    Telegram cannot list a bot's chats, so the bot records them as updates arrive; older chats are imported
    once from the v2 `db.pickle`.
 
-## 20 further improvements (not in this refactor, for prioritisation)
+## Done in v3.1
 
-These come from comparable writing bots (Sprinto, Writer-Bot, Salsa Chip/Winnie, WriterStats,
-IRC word-war bots) and from what Bot API 9.x–10.x now allows.
+10. **Self-hosting**: plan and scripts for moving from Render to the homelab ([MIGRATION.md](MIGRATION.md)):
+    polling instead of a webhook, schema versioning with in-place upgrades, online SQLite backups
+    (`scripts/backup_db.py`).
+11. **Keep-awake removed**: the "Як прогрес?" posts (`SPRINT_KEEPALIVE`) only existed to wake a sleeping
+    Render instance.
+12. **Links remembered for the sprint**: a link given before or during a sprint (`/words <link>`, or
+    `/sprint 30 2 <link>`) is counted again when the sprint ends and the added words are recorded without
+    a manual report.
+13. **Fewer emoji**: plain headings, numbered leaderboard, text-only buttons; one 👍 reaction to confirm a
+    report.
+14. **`extended` branch features kept**: dice rolls (`/d20`, `/2d6+1`, `/r 4к6`, `adv`/`dis`), `/smash`,
+    `/imafan`, per-chat welcome messages, slogan replies, private chats open to everyone when
+    `ALLOWED_CHATS` is set, the "Я переродився" `/start` greeting.
+15. **Broadcast exclusions**: `/bcexclude` / `/bcinclude` keep chosen chats out of every broadcast.
 
-| # | Idea | Inspired by | Effort |
-|---|------|-------------|--------|
-| 1 | ~~Ellipsus Reader links~~ **done in v3**; still open: count an uploaded `.docx` export (private docs) | user request | S |
-| 2 | **Daily / monthly / project goals** (`/goal daily 1000`) with progress shown after every report, resetting in the writer's timezone | Writer-Bot | M |
-| 3 | **Writing streaks**: consecutive days with a report, streak shown in `/mystats`, gentle reminder when a streak is at risk | Duolingo-style, Writer-Bot | S |
-| 4 | **Projects**: named works with a target word count (`/project new "Novel" 80000`), sprint reports credited to a project, % complete | Writer-Bot | M |
-| 5 | ~~WPM in the scoreboard~~ **done in v3**; still open: personal bests (fastest WPM) | Sprinto | S |
-| 6 | **Scheduled & recurring sprints** ("every weekday at 20:00", `/sprint at 21:30`) | Sprinto | M |
-| 7 | **Chained sprints / Pomodoro mode**: 25 on / 5 off × N with one join | Salsa Chip `/chain`, Pomodoro | M |
-| 8 | ~~Starting word count / link and end total~~ **done in v3** (`/words =12034`, `/words <link>`) | Sprinto, Salsa Chip | – |
-| 9 | **Achievements / XP / levels** (first sprint, 10k words, 7-day streak), with a small random award per sprint as a fun touch | Writer-Bot XP, Salsa Chip raptors | M |
-| 10 | Per-chat `/top [days]` **done in v3**; still open: cross-chat/global boards, opt-in for privacy | Salsa Chip | S |
-| 11 | **NaNoWriMo-style events**: time-boxed chat challenge with a shared goal and a progress bar for the whole group | NaNoWriMo / community events | M |
-| 12 | **Team word wars**: split participants into teams, team totals at the end | IRC word-war bots | S |
-| 13 | **Random generators** beyond prompts: character names, places, plot twists, dice rolls (the README already promises dice) | Writer-Bot generators | S |
-| 14 | **Welcome flow for new members** (README promises it): greeting + quick-start, using Telegram join-request queries (Bot API 10.1) | existing README | S |
-| 15 | **Per-user timezone** (`/tz Europe/Kyiv`) so goals, streaks and scheduled sprints line up for everyone; Telegram `date_time` entities (Bot API 9.5) for local times | Winnie, Bot API 9.5 | S |
-| 16 | **Ephemeral replies** (Bot API 10.2) on Telegram for "report saved" etc. (Discord already uses ephemeral replies; Telegram uses reactions for now); needs a PTB release with 10.2 or raw `do_api_request` | Bot API 10.2 | S |
-| 17 | **Mini App dashboard**: charts of words over time, goals, projects, inside Telegram | Telegram Mini Apps, WriterStats | L |
-| 18 | **Google Docs / Drive word count** for shared links (the bot already has Google credentials), plus AO3 and plain `.txt`/`.docx` uploads | general demand | M |
-| 19 | **i18n**: English UI alongside Ukrainian, chosen per chat; prompts already support per-language sheets | multi-language bots | M |
-| 20 | **Ops quality**: `/health` endpoint, structured logs, Sentry-style error reporting, CSV export of a user's history (`/export`), data deletion (`/forgetme`) | GDPR / ops hygiene | S |
+## Discord: three ways to use it
 
-S = up to a day, M = a few days, L = a week or more.
+**E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
+rows in the database (`platform = discord`) and its own boards. Missing: per-server settings, which
+today come from environment variables and the shared Google Sheet. They arrive with the settings store in
+phase 3.
+
+**E2. One community on a Telegram group (or several) and a Discord server, with shared boards.**
+- A *community* groups chats across platforms: `communities(id, name)` and
+  `community_chats(community_id, platform, chat_id)`. Super-admins link chats; later chat admins do it
+  in the dashboard.
+- *People* are linked across platforms by the users themselves: `/link` on one side gives a short-lived
+  code, `/link <code>` on the other side joins both accounts to one `person_id`. Nobody is merged by
+  matching names.
+- `/top` and `/mystats` in a linked chat count every chat of the community and add up a person's
+  accounts. Goals, streaks and achievements (phases 2 and 4) are kept per person.
+- Shared sprints (one sprint posted on both sides, people joining from either) need both adapters to share
+  one sprint engine. Simplest: run both clients in one process, with one `SprintManager` and a presenter that
+  fans out to every chat of the community. Until then each side runs its own sprints, and only the boards
+  are shared.
+
+**E3. As E2, with Matterbridge relaying messages between Telegram and Discord.**
+- Commands don't fire twice. On Telegram, bots don't receive other bots' messages, so text relayed from
+  Discord by the bridge bot never reaches our bot. On Discord, our bot only uses slash commands and has no
+  message-content intent, so relayed text is ignored there too.
+- What breaks is the bot's own output. The bridge copies sprint messages and boards to the other side as
+  plain text with no buttons, and the copies go stale as the originals are edited. Fix: configure the
+  bridge to skip our bot's messages (Matterbridge `IgnoreNicks` on both sides) and let the bot post
+  natively on both sides, which is the shared sprints from E2.
+- Relayed messages only carry a display name, which anyone can change, so a relayed reply is never
+  accepted as a word report. People report on their own platform, or link their accounts (E2).
+- If message reading is ever added on Discord, the bot must ignore messages posted by the bridge's webhooks
+  (they have a `webhook_id`).
+
+E3 therefore needs nothing beyond E2 except bridge configuration and a short setup note.
+
+## Roadmap
+
+From the earlier list of 20 ideas, these go ahead: goals (2), streaks (3), personal bests (5),
+achievements managed by chat admins (9), per-user time zone (15), ephemeral replies (16), a dashboard (17,
+reworked as below), Google Docs word count (18) and ops quality (20). The rest are dropped: `.docx`
+uploads, projects, scheduled and chained sprints, cross-chat boards (replaced by communities in E2),
+NaNoWriMo events, team word wars, generators beyond dice, the welcome flow beyond the existing welcome
+messages, and an English interface.
+
+Phases are in order of dependency. Each ends in a tagged release.
+
+### Phase 1: run well on the homelab (v3.2)
+- Cut over from Render ([MIGRATION.md](MIGRATION.md)).
+- `/health` endpoint (or a heartbeat file for polling mode) for the homelab's monitoring; structured logs.
+- Errors reported to super-admins in a private chat (rate-limited), instead of only to the log.
+- Scheduled backups via `scripts/backup_db.py` (the job itself runs on the ops side).
+- `/export` (a CSV of your own sprints and reports) and `/forgetme` (delete your reports and stats, with a
+  confirmation step).
+
+### Phase 2: personal progress (v3.3)
+- **Per-user time zone** (15): `/tz Europe/Kyiv`, defaulting to `BOT_TIMEZONE`. Comes first, because
+  "today" for goals and streaks depends on it.
+- **Goals** (2): `/goal daily 500`, `/goal monthly 20000`; progress shown after each report and in
+  `/mystats`.
+- **Streaks** (3): consecutive days with at least one report, in the writer's time zone. Shown in
+  `/mystats`. No reminders (they would be noise in group chats).
+- **Personal bests** (5): most words and best words per minute in one sprint, mentioned in the results when
+  beaten.
+- **Ephemeral replies** (16) for "report saved", "you're already in the sprint" and similar, so group chats
+  stay quiet. Needs a PTB release with Bot API 10.2 (or a raw `do_api_request` call); reactions remain the
+  fallback.
+- **Google Docs word count** (18): `docs.google.com/document/d/<id>` links that are shared as "anyone with
+  the link", exported as plain text through the Drive API with the bot's existing credentials. Works for
+  `/wc`, `/words` and links remembered for a sprint.
+
+### Phase 3: settings store and dashboard (v4.0)
+- **Settings in the database** instead of environment variables and the config sheet: per chat (welcome
+  text, slogan replies on/off, report window, default sprint length, broadcast opt-out, achievements on/off)
+  and per user (time zone, goals, visibility on boards). The sheet stays as a one-time import source.
+- **Prompt database**: prompts and categories in SQLite, imported from the current sheet. Chats use the
+  shared set or their own. Image prompts can stay on Drive.
+- **Dashboard** (17), a Telegram Mini App served by the bot:
+  - for everyone: your sprints, reports and stats with charts; time zone and goals; export and delete
+    your data;
+  - for chat admins: the chat's options, its prompt set (add, edit, delete, import from a sheet), and
+    its achievements.
+  - Telegram users sign in through Mini App `initData`, validated on the server. Admin rights are checked
+    with `getChatMember` on every change. Discord users get the same pages later through Discord OAuth.
+  - Needs public HTTPS into the homelab (a reverse proxy or a tunnel); that's an ops decision before this
+    phase starts.
+
+### Phase 4: achievements (v4.1)
+- **Achievements** (9), defined by chat admins in the dashboard: a name and a rule from a fixed set (total
+  words, words in one sprint, streak length, number of sprints, a goal reached). A few defaults per chat,
+  which admins can switch off. Earned achievements are listed in `/mystats` and announced once in the chat.
+  No XP and no random awards.
+
+### Phase 5: one community across Telegram and Discord (v4.2)
+- E1 per-server settings come with phase 3.
+- E2: communities, `/link` for accounts, shared boards, then shared sprints with both adapters in one
+  process.
+- E3: Matterbridge configuration and setup notes on top of E2.
