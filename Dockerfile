@@ -1,15 +1,31 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.23 /uv /uvx /bin/
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update -y
-RUN apt-get install -y gcc curl sed git
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
+# Dependencies first for layer caching.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --locked --no-dev --no-install-project --extra discord
 
-ADD . /app/
-RUN poetry update
-RUN mkdir srv
-EXPOSE 8080
+COPY src ./src
+COPY scripts ./scripts
+RUN uv sync --locked --no-dev --extra discord
+
+RUN useradd --system --uid 10001 --home-dir /app bot && mkdir -p /app/data && chown bot /app/data
+USER bot
+
+# Persistent state (SQLite, Google token) lives in /app/data: mount a volume there.
+ENV PATH="/app/.venv/bin:$PATH" \
+    DB_PATH=/app/data/bot.sqlite3 \
+    GOOGLE_TOKEN_FILE=/app/data/token.json
+VOLUME ["/app/data"]
+
 EXPOSE 80
-CMD ["poetry", "run", "./bot.py"]
+# Telegram by default; run the Discord bot from the same image with `writers-bot-discord`.
+CMD ["writers-bot-telegram"]
