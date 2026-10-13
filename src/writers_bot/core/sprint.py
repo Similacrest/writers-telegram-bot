@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum, auto
 from typing import Any, Protocol
 
-from .models import OPEN_STATUSES, ChatKey, Participant, Sprint, SprintStatus
+from .models import OPEN_STATUSES, ChatKey, Participant, Sprint, SprintStatus, SprintUnit
 from .storage import Storage
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ class ReportInput:
     url: str | None = None
 
 
-_NUMBER_RE = re.compile(r"^([+=])?\s*(\d[\d\s  '’,.]*)$")
+_NUMBER_RE = re.compile(r"^([+=])?\s*(\d[\d\s  '’,.]*?)\s*(%)?$")
 
 
 def parse_report(text: str, find_url: Callable[[str], str | None]) -> ReportInput | None:
@@ -125,6 +125,7 @@ class ReportStatus(StrEnum):
     NEED_BASELINE = auto()  # "=N" or recount without a starting count
     TOO_EARLY = auto()  # "+N" while the sprint is still running
     TOO_MANY = auto()
+    PERCENT_ONLY = auto()  # a link, "=N" or a starting count in a percent sprint
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,7 +320,15 @@ class SprintManager:
 
     # --- commands --------------------------------------------------------------------------------
 
-    async def start(self, key: ChatKey, creator: UserRef, duration: int, delay: int, origin: Any = None) -> Sprint:
+    async def start(
+        self,
+        key: ChatKey,
+        creator: UserRef,
+        duration: int,
+        delay: int,
+        origin: Any = None,
+        unit: SprintUnit = SprintUnit.WORDS,
+    ) -> Sprint:
         validate_params(duration, delay)
         async with self.lock(key):
             if (existing := self.active(key)) is not None:
@@ -338,6 +347,7 @@ class SprintManager:
                 start_at=start_at,
                 end_at=start_at + timedelta(minutes=duration),
                 participants={creator.user_id: Participant(creator.user_id, creator.name, now)},
+                unit=unit,
             )
             await self.storage.create_sprint(sprint)
             self._sprints[sprint.id] = sprint
@@ -437,6 +447,9 @@ class SprintManager:
         if target is None:
             return ReportOutcome(ReportStatus.NO_SPRINT)
 
+        if target.unit == SprintUnit.PERCENT:
+            return await self._report_percent(target, user, report)
+
         # Network I/O happens before taking the lock.
         counted = None
         if report.kind == ReportKind.LINK:
@@ -468,6 +481,25 @@ class SprintManager:
                 await self._present(target, event)
                 await self.storage.save_sprint(target)
             return outcome
+
+    async def _report_percent(self, target: Sprint, user: UserRef, report: ReportInput) -> ReportOutcome:
+        if report.kind != ReportKind.WRITTEN:
+            return ReportOutcome(ReportStatus.PERCENT_ONLY, target)
+        async with self.lock(target.key):
+            if target.status not in OPEN_STATUSES:
+                return ReportOutcome(ReportStatus.NO_SPRINT)
+            if target.is_active:
+                return ReportOutcome(ReportStatus.TOO_EARLY, target)
+            if report.value > 100:
+                return ReportOutcome(ReportStatus.TOO_MANY, target)
+            p = target.participants.get(user.user_id) or Participant(user.user_id, user.name, self.now())
+            p.name = user.name
+            p.words = report.value
+            p.reported_at = self.now()
+            target.participants[p.user_id] = p
+            await self._present(target, SprintEvent.REPORT_UPDATED)
+            await self.storage.save_sprint(target)
+            return ReportOutcome(ReportStatus.REPORTED, target, p)
 
     def _apply_baseline(self, sprint, p, report, counted) -> ReportOutcome:
         if report.kind == ReportKind.LINK:

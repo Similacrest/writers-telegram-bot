@@ -84,3 +84,19 @@ def test_chat_key_only_uses_topic_threads():
     assert chat_key(topic).thread_id == "5"
     assert chat_key(reply_thread).thread_id is None
     assert chat_key(inaccessible) == chat_key(reply_thread)
+
+
+def test_percent_report_text():
+    from datetime import UTC, datetime
+    from zoneinfo import ZoneInfo
+
+    from writers_bot.core.models import ChatKey, Participant, Sprint, SprintStatus, SprintUnit
+    from writers_bot.core.render import report_text
+    from writers_bot.telegram_bot.presenter import HtmlFormatter
+
+    now = datetime(2026, 10, 13, 12, tzinfo=UTC)
+    sprint = Sprint(1, ChatKey("t", "-1"), SprintStatus.REPORTING, 10, 10, 0, "1", now, now, now,
+                    report_until=now, unit=SprintUnit.PERCENT,
+                    participants={"1": Participant("1", "Ann", now, words=40, reported_at=now)})  # fmt: skip
+    text = report_text(HtmlFormatter(ZoneInfo("Europe/Kyiv")), sprint, now)
+    assert "<b>40%</b>" in text and "сл/хв" not in text and "Разом" not in text and "відсотків" in text

@@ -37,7 +37,7 @@ from telegram.ext import (
 from ..config import ConfigError, TelegramSettings
 from ..core import extras
 from ..core import sprint as sp
-from ..core.models import ChatKey, Sprint, SprintStatus
+from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
 from ..core.prompts import PromptsStore, PromptsUnavailableError
 from ..core.render import text_stats_text, top_text, user_stats_text
@@ -75,6 +75,8 @@ SPRINT_HELP = f"""<b>Спринти</b>
 /words &lt;посилання&gt;, щоб бот порахував слова в тексті;
 /words =12500, загальну кількість слів у рукописі (якщо до спринту задали стартову, напр. /words =12000).
 
+Чат може звітувати не словами, а відсотком зробленого завдання (40%): /sprintmode percent (адміни чату), назад: /sprintmode words.
+
 /mystats показує вашу статистику в цьому чаті, /top [днів] — хто найбільше написав за період (типово 30 днів)."""
 
 COMMANDS = [
@@ -85,6 +87,7 @@ COMMANDS = [
     BotCommand("join", "Долучитися до спринту: /join [посилання]"),
     BotCommand("words", "Звіт про слова за спринт"),
     BotCommand("mystats", "Моя статистика спринтів"),
+    BotCommand("sprintmode", "Звіти словами чи відсотками"),
     BotCommand("top", "Топ за словами"),
     BotCommand("sprinthelp", "Як працюють спринти"),
     BotCommand("help", "Допомога"),
@@ -407,8 +410,10 @@ class WritersTelegramBot:
 
     async def _start_sprint(self, message: Message, user, duration: int, delay: int) -> str | None:
         """Start a sprint; returns an error text or None."""
+        key = chat_key(message)
+        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id)
         try:
-            await self.sprints.start(chat_key(message), user_ref(user), duration, delay, origin=message)
+            await self.sprints.start(key, user_ref(user), duration, delay, origin=message, unit=unit)
         except sp.SprintAlreadyRunningError:
             return "Спринт вже запущено."
         except sp.InvalidSprintParamsError as e:
@@ -578,7 +583,10 @@ class WritersTelegramBot:
             sp.ReportStatus.NO_SPRINT: "Немає спринту, до якого можна звітувати. Звіти приймаються після спринту.",
             sp.ReportStatus.NEED_BASELINE: "Спершу задайте стартову кількість (до чи під час спринту) або надішліть просто число написаних слів.",
             sp.ReportStatus.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як /words =12000.",
-            sp.ReportStatus.TOO_MANY: "Це забагато слів для одного спринту.",
+            sp.ReportStatus.TOO_MANY: "Забагато для одного спринту."
+            if (outcome.sprint is None or outcome.sprint.unit == SprintUnit.WORDS)
+            else "Відсотки мають бути від 0 до 100.",
+            sp.ReportStatus.PERCENT_ONLY: "У цьому чаті звітують відсотком зробленого, напр. 40%.",
         }
         if status in texts:
             await message.reply_text(texts[status])
@@ -592,6 +600,33 @@ class WritersTelegramBot:
             await message.set_reaction(ReactionTypeEmoji("👍"))
         except TelegramError:
             await message.reply_text("Записано!")
+
+    @allowed_chat()
+    async def sprint_mode(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """/sprintmode [words|percent]: what people report after sprints in this chat (chat admins)."""
+        message = update.effective_message
+        chat_id = str(message.chat_id)
+        current = await self.storage.sprint_unit(PLATFORM, chat_id)
+        arg = (context.args[0].lower() if context.args else "").strip()
+        modes = {
+            "words": SprintUnit.WORDS,
+            "слова": SprintUnit.WORDS,
+            "percent": SprintUnit.PERCENT,
+            "%": SprintUnit.PERCENT,
+            "відсотки": SprintUnit.PERCENT,
+        }
+        names = {SprintUnit.WORDS: "кількість слів", SprintUnit.PERCENT: "відсоток зробленого"}
+        if arg not in modes:
+            await message.reply_text(
+                f"Після спринтів тут звітують: {names[current]}.\n"
+                "Змінити (адміни чату): /sprintmode words або /sprintmode percent."
+            )
+            return
+        if not await self.is_chat_admin(message.chat, message.from_user.id) and message.chat.type != ChatType.PRIVATE:
+            await message.reply_text("Змінювати це можуть лише адміни чату.")
+            return
+        await self.storage.set_chat_setting(PLATFORM, chat_id, "sprint_unit", modes[arg].value)
+        await message.reply_text(f"Готово. З наступного спринту звітують: {names[modes[arg]]}.")
 
     @allowed_chat()
     async def mystats(self, update: Update, _context) -> None:
@@ -627,6 +662,7 @@ class WritersTelegramBot:
             CommandHandler("sprint", self.sprint),
             CommandHandler("words", self.words),
             CommandHandler("join", self.join),
+            CommandHandler("sprintmode", self.sprint_mode),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
             CommandHandler("imafan", self.imafan),

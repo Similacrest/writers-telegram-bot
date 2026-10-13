@@ -17,7 +17,8 @@ adds every chat it hears from, and the import only fills gaps.
 
 v3 itself stores everything in one SQLite file (`/app/data/bot.sqlite3`): sprints, participants, word
 reports and the chat registry. The schema is versioned (`PRAGMA user_version`) and upgraded in place on
-startup. v3.1 adds the `broadcast_excluded` column to a v3.0 database.
+startup. v3.1 adds the `broadcast_excluded` column, v3.2 the sprint `unit` column and the `chat_settings`
+table.
 
 ## Cutover
 
@@ -38,9 +39,9 @@ again and the two instances take turns. So stop Render **before** starting the h
    writable by uid 10001.
 5. **Convert the token and import chats** (one-off containers on the same volume):
    ```sh
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.1.0 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.2.0 \
      python scripts/migrate_google_token.py /legacy/token.pickle.b64 /app/data/token.json
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.1.0 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.2.0 \
      python scripts/import_legacy_chats.py /legacy/db.pickle
    ```
 6. **Start the bot** with `TELEGRAM_POLLING=1` and `restart: unless-stopped`. Check the log for

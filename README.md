@@ -20,6 +20,7 @@ A bot for writing communities, on Telegram and Discord.
 | `/sprint [minutes] [delay] [link]` | `/sprint` | Start a sprint (1–120 min, delay 0–10, defaults 30 / 2); a link is counted at the start and again at the end |
 | `/join [link]` (or `/sprint <link>` while a sprint is on) | `/join [link]` | Join the current sprint, optionally with the text to count |
 | `/words …` or reply to the results | `/words` or the report button | Report words (see below) |
+| `/sprintmode [words\|percent]` | `/sprintmode` | Per chat: report words, or percent of the task done (chat admins change it) |
 | `/mystats`, `/top [days]` | `/mystats`, `/top` | Statistics |
 | `/sprinthelp`, `/help`, `/start` | | Help (`help_message` from the config sheet, or a built-in text) |
 | `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` | | Dice rolls |

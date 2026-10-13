@@ -14,6 +14,7 @@ from .models import (
     Participant,
     Sprint,
     SprintStatus,
+    SprintUnit,
     TopEntry,
     UserStats,
 )
@@ -67,6 +68,16 @@ CREATE TABLE IF NOT EXISTS chats (
 BASE_VERSION = 2
 MIGRATIONS: dict[int, list[str]] = {
     3: ["ALTER TABLE chats ADD COLUMN broadcast_excluded INTEGER NOT NULL DEFAULT 0"],
+    4: [
+        "ALTER TABLE sprints ADD COLUMN unit TEXT NOT NULL DEFAULT 'words'",
+        """CREATE TABLE chat_settings (
+            platform TEXT NOT NULL,
+            chat_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (platform, chat_id, key)
+        )""",
+    ],
 }
 SCHEMA_VERSION = max(MIGRATIONS)
 
@@ -124,8 +135,8 @@ class Storage:
     async def create_sprint(self, sprint: Sprint) -> int:
         cur = await self.db.execute(
             """INSERT INTO sprints (platform, chat_id, thread_id, status, duration, planned_duration, delay,
-                   created_by, created_at, start_at, end_at, report_until, stopped_early, refs)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   created_by, created_at, start_at, end_at, report_until, stopped_early, refs, unit)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 sprint.key.platform,
                 sprint.key.chat_id,
@@ -141,6 +152,7 @@ class Storage:
                 _iso(sprint.report_until),
                 int(sprint.stopped_early),
                 json.dumps(sprint.refs),
+                sprint.unit.value,
             ),
         )
         sprint.id = cur.lastrowid
@@ -215,6 +227,7 @@ class Storage:
                 report_until=_dt(row["report_until"]),
                 stopped_early=bool(row["stopped_early"]),
                 refs=json.loads(row["refs"] or "{}"),
+                unit=SprintUnit(row["unit"]),
             )
             async with self.db.execute("SELECT * FROM participants WHERE sprint_id = ?", (sprint.id,)) as cur:
                 for p in await cur.fetchall():
@@ -234,7 +247,8 @@ class Storage:
         query = """SELECT COUNT(*) AS sprints, COUNT(p.words) AS reported, COALESCE(SUM(p.words), 0) AS words,
                        COALESCE(MAX(p.words), 0) AS best, COALESCE(SUM(s.duration), 0) AS minutes
                    FROM participants p JOIN sprints s ON s.id = p.sprint_id
-                   WHERE s.platform = ? AND p.user_id = ? AND s.status IN ('reporting', 'closed')"""
+                   WHERE s.platform = ? AND p.user_id = ? AND s.status IN ('reporting', 'closed')
+                     AND s.unit = 'words'"""
         params: list = [platform, user_id]
         if chat_id is not None:
             query += " AND s.chat_id = ?"
@@ -248,10 +262,32 @@ class Storage:
             """SELECT p.user_id, MAX(p.name) AS name, SUM(p.words) AS words, COUNT(*) AS sprints
                FROM participants p JOIN sprints s ON s.id = p.sprint_id
                WHERE s.platform = ? AND s.chat_id = ? AND s.start_at >= ? AND p.words IS NOT NULL
+                 AND s.unit = 'words'
                GROUP BY p.user_id ORDER BY words DESC LIMIT ?""",
             (platform, chat_id, _iso(since), limit),
         ) as cur:
             return [TopEntry(r["user_id"], r["name"], r["words"], r["sprints"]) for r in await cur.fetchall()]
+
+    # --- per-chat settings ----------------------------------------------------------------------
+
+    async def get_chat_setting(self, platform: str, chat_id: str, key: str) -> str | None:
+        async with self.db.execute(
+            "SELECT value FROM chat_settings WHERE platform = ? AND chat_id = ? AND key = ?", (platform, chat_id, key)
+        ) as cur:
+            row = await cur.fetchone()
+        return row["value"] if row else None
+
+    async def set_chat_setting(self, platform: str, chat_id: str, key: str, value: str) -> None:
+        await self.db.execute(
+            """INSERT INTO chat_settings (platform, chat_id, key, value) VALUES (?, ?, ?, ?)
+               ON CONFLICT (platform, chat_id, key) DO UPDATE SET value = excluded.value""",
+            (platform, chat_id, key, value),
+        )
+        await self.db.commit()
+
+    async def sprint_unit(self, platform: str, chat_id: str) -> SprintUnit:
+        value = await self.get_chat_setting(platform, chat_id, "sprint_unit")
+        return SprintUnit(value) if value in SprintUnit._value2member_map_ else SprintUnit.WORDS
 
     # --- chats the bot is in ---------------------------------------------------------------------
 

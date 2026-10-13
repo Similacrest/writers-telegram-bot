@@ -4,7 +4,7 @@ from datetime import datetime, tzinfo
 from typing import Protocol
 
 from .i18n import CHARACTERS, LETTERS, MINUTES, SPRINTS, WORDS, plural
-from .models import Participant, Sprint, SprintStatus, TopEntry, UserStats
+from .models import Participant, Sprint, SprintStatus, SprintUnit, TopEntry, UserStats
 from .wordcount import TextStats
 
 BAR_WIDTH = 20
@@ -73,11 +73,19 @@ def sprint_text(f: Formatter, sprint: Sprint, now: datetime) -> str:
 TELEGRAM_REPORT_HINT = (
     "Відповідайте на це повідомлення числом слів (або посиланням на текст), або надішліть /words 500."
 )
+TELEGRAM_PERCENT_HINT = "Відповідайте на це повідомлення, скільки відсотків завдання зробили, напр. 40%."
+
+
+def amount(sprint: Sprint, value: int | None) -> str:
+    return f"{value or 0}%" if sprint.unit == SprintUnit.PERCENT else plural(value or 0, WORDS)
 
 
 def report_text(f: Formatter, sprint: Sprint, now: datetime, hint: str = TELEGRAM_REPORT_HINT) -> str:
     final = sprint.status == SprintStatus.CLOSED
-    title = "Підсумки спринту" if final else "Скільки написали?"
+    percent = sprint.unit == SprintUnit.PERCENT
+    if percent and hint == TELEGRAM_REPORT_HINT:
+        hint = TELEGRAM_PERCENT_HINT
+    title = "Підсумки спринту" if final else "Скільки зробили?" if percent else "Скільки написали?"
     span = f"{plural(sprint.duration, MINUTES)}, {f.time(sprint.start_at)}–{f.time(sprint.end_at)}"
     lines = [f"{f.bold(title)} ({span})", ""]
 
@@ -86,8 +94,8 @@ def report_text(f: Formatter, sprint: Sprint, now: datetime, hint: str = TELEGRA
         prefix = f"{i}."
         wpm = sprint.wpm(p)
         wpm_text = f" · {wpm:.1f} сл/хв" if wpm is not None else ""
-        lines.append(f"{prefix} {f.mention(p.user_id, p.name)} — {f.bold(plural(p.words, WORDS))}{wpm_text}")
-    if board:
+        lines.append(f"{prefix} {f.mention(p.user_id, p.name)} — {f.bold(amount(sprint, p.words))}{wpm_text}")
+    if board and not percent:
         total = sum(p.words or 0 for p in board)
         lines += ["", f"Разом: {f.bold(plural(total, WORDS))}"]
 

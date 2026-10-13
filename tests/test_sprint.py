@@ -283,3 +283,29 @@ async def test_recount_failure_leaves_manual_report_open(storage, clock):
         assert outcome.status == ReportStatus.REPORTED
     finally:
         await m.shutdown()
+
+
+async def test_percent_sprint(manager, clock, storage):
+    from writers_bot.core.models import SprintUnit
+
+    sprint = await manager.start(KEY, ALICE, 10, 0, unit=SprintUnit.PERCENT)
+    await manager.join(KEY, BOB)
+    early = await manager.report(KEY, ALICE, parse_report("40%", find_url), None)
+    assert early.status == ReportStatus.TOO_EARLY
+    await clock.advance(10 * 60)
+    assert (await manager.report(KEY, ALICE, parse_report("40%", find_url), None)).status == ReportStatus.REPORTED
+    assert (await manager.report(KEY, BOB, parse_report("120", find_url), None)).status == ReportStatus.TOO_MANY
+    link = parse_report("https://telegra.ph/x", find_url)
+    assert (await manager.report(KEY, BOB, link, None)).status == ReportStatus.PERCENT_ONLY
+    assert sprint.participants["1"].words == 40 and sprint.wpm(sprint.participants["1"]) is None
+    await clock.advance(30 * 60)
+    # percentages never count as words in stats or the top
+    assert (await storage.user_stats("test", "1")).words == 0
+
+
+async def test_chat_setting_roundtrip(storage):
+    from writers_bot.core.models import SprintUnit
+
+    assert await storage.sprint_unit("test", "-1") == SprintUnit.WORDS
+    await storage.set_chat_setting("test", "-1", "sprint_unit", "percent")
+    assert await storage.sprint_unit("test", "-1") == SprintUnit.PERCENT

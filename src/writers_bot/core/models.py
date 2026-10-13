@@ -13,6 +13,13 @@ class SprintStatus(StrEnum):
     CANCELLED = "cancelled"  # cancelled before it started
 
 
+class SprintUnit(StrEnum):
+    """What people report after a sprint: words written, or how much of their task they got done."""
+
+    WORDS = "words"
+    PERCENT = "percent"
+
+
 ACTIVE_STATUSES = (SprintStatus.PLANNED, SprintStatus.RUNNING)
 OPEN_STATUSES = (SprintStatus.PLANNED, SprintStatus.RUNNING, SprintStatus.REPORTING)
 
@@ -33,7 +40,7 @@ class Participant:
     joined_at: datetime
     start_words: int | None = None  # manuscript total at the start, if reported
     start_url: str | None = None  # link counted at the start, recounted on report
-    words: int | None = None  # words written during the sprint (the report)
+    words: int | None = None  # the report: words written, or percent done in a PERCENT sprint
     reported_at: datetime | None = None
 
 
@@ -53,6 +60,7 @@ class Sprint:
     stopped_early: bool = False
     participants: dict[str, Participant] = field(default_factory=dict)
     refs: dict = field(default_factory=dict)  # platform message ids etc.
+    unit: SprintUnit = SprintUnit.WORDS
 
     @property
     def is_active(self) -> bool:
@@ -63,7 +71,7 @@ class Sprint:
         return sorted(reported, key=lambda p: (-(p.words or 0), p.reported_at or p.joined_at))
 
     def wpm(self, participant: Participant) -> float | None:
-        if participant.words is None or self.duration <= 0:
+        if self.unit != SprintUnit.WORDS or participant.words is None or self.duration <= 0:
             return None
         return participant.words / self.duration
 

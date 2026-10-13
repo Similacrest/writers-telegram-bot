@@ -9,7 +9,7 @@ from telegram import Bot, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, Forbidden, TelegramError
 
-from ..core.models import Sprint, SprintStatus
+from ..core.models import Sprint, SprintStatus, SprintUnit
 from ..core.render import report_text, sprint_text
 from ..core.sprint import SprintEvent, utc_now
 
@@ -177,14 +177,17 @@ class TelegramSprintPresenter:
     # --- report prompt ---------------------------------------------------------------------------
 
     async def ask_for_report(self, sprint: Sprint, user_id: int, name: str) -> int:
-        text = (
-            f"{self.fmt.mention(str(user_id), name)}, скільки слів ви написали? "
-            "Відповідайте на це повідомлення числом або посиланням на текст."
-        )
+        who = self.fmt.mention(str(user_id), name)
+        if sprint.unit == SprintUnit.PERCENT:
+            text = f"{who}, скільки відсотків завдання ви зробили? Відповідайте на це повідомлення числом."
+            placeholder = "40%"
+        else:
+            text = f"{who}, скільки слів ви написали? Відповідайте на це повідомлення числом або посиланням на текст."
+            placeholder = "500 або посилання"
         msg = await self._send(
             sprint,
             text,
-            ForceReply(selective=True, input_field_placeholder="500 або посилання"),
+            ForceReply(selective=True, input_field_placeholder=placeholder),
             reply_to=sprint.refs.get("finish"),
         )
         return msg.message_id

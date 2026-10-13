@@ -13,7 +13,7 @@ from discord import app_commands
 
 from ..config import ConfigError, DiscordSettings
 from ..core import sprint as sp
-from ..core.models import ChatKey, Sprint, SprintStatus
+from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
 from ..core.prompts import PromptsStore, PromptsUnavailableError
 from ..core.render import report_text, sprint_text, text_stats_text, top_text, user_stats_text
@@ -26,6 +26,13 @@ logger = logging.getLogger(__name__)
 PLATFORM = "discord"
 LANG = "ua"
 REPORT_HINT = "Натисніть «Звітувати» або надішліть /words 500 (чи посилання на текст)."
+PERCENT_HINT = "Натисніть «Звітувати» або надішліть /words 40%."
+
+
+def hint(sprint: Sprint) -> str:
+    return PERCENT_HINT if sprint.unit == SprintUnit.PERCENT else REPORT_HINT
+
+
 NO_PINGS = discord.AllowedMentions.none()
 PING_USERS = discord.AllowedMentions(users=True, roles=False, everyone=False)
 
@@ -105,9 +112,9 @@ def report_view(sprint: Sprint) -> discord.ui.View:
     return _view(repeat)
 
 
-class ReportModal(discord.ui.Modal, title="Звіт про слова"):
+class ReportModal(discord.ui.Modal, title="Звіт за спринт"):
     value = discord.ui.TextInput(
-        label="Скільки слів ви написали?", placeholder="500, =12500 або посилання на текст", max_length=500
+        label="Ваш результат", placeholder="500 слів, =12500, посилання або 40%", max_length=500
     )
 
     def __init__(self, bot: "WritersDiscordBot", sprint_id: int):
@@ -169,11 +176,11 @@ class DiscordSprintPresenter:
             if sprint.refs.get("msg"):
                 await self._pin(channel.get_partial_message(sprint.refs["msg"]), False)
             msg = await channel.send(
-                report_text(self.fmt, sprint, now, REPORT_HINT), view=report_view(sprint), allowed_mentions=PING_USERS
+                report_text(self.fmt, sprint, now, hint(sprint)), view=report_view(sprint), allowed_mentions=PING_USERS
             )
             sprint.refs["finish"] = msg.id
         elif event in (E.REPORT_UPDATED, E.CLOSED):
-            await self._edit(sprint, "finish", report_text(self.fmt, sprint, now, REPORT_HINT), report_view(sprint))
+            await self._edit(sprint, "finish", report_text(self.fmt, sprint, now, hint(sprint)), report_view(sprint))
 
 
 class WritersDiscordBot:
@@ -252,7 +259,8 @@ class WritersDiscordBot:
         await self.defer(interaction)
         key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
         try:
-            await self.sprints.start(key, user, duration, delay)
+            unit = await self.storage.sprint_unit(PLATFORM, key.chat_id)
+            await self.sprints.start(key, user, duration, delay, unit=unit)
         except sp.SprintAlreadyRunningError:
             await self.reply(interaction, "Спринт вже запущено.", ephemeral=True)
             return
@@ -349,7 +357,8 @@ class WritersDiscordBot:
             S.NO_SPRINT: "Немає спринту, до якого можна звітувати.",
             S.NEED_BASELINE: "Спершу задайте стартову кількість або надішліть просто число написаних слів.",
             S.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як =12000.",
-            S.TOO_MANY: "Це забагато слів для одного спринту.",
+            S.TOO_MANY: "Забагато для одного спринту (відсотки: від 0 до 100).",
+            S.PERCENT_ONLY: "Тут звітують відсотком зробленого, напр. 40%.",
         }
         if outcome.status in texts:
             text = texts[outcome.status]
@@ -443,6 +452,20 @@ class WritersDiscordBot:
             link: str = "",
         ):
             await bot.start_sprint(interaction, duration, delay, link)
+
+        @tree.command(name="sprintmode", description="Звіти після спринтів: слова чи відсоток зробленого")
+        @app_commands.choices(
+            mode=[
+                app_commands.Choice(name="слова", value="words"),
+                app_commands.Choice(name="відсоток зробленого", value="percent"),
+            ]
+        )
+        async def sprintmode_cmd(interaction: discord.Interaction, mode: app_commands.Choice[str]):
+            if not bot.is_admin(interaction):
+                await bot.reply(interaction, "Змінювати це можуть лише адміни.", ephemeral=True)
+                return
+            await bot.storage.set_chat_setting(PLATFORM, str(interaction.channel_id), "sprint_unit", mode.value)
+            await bot.reply(interaction, f"Готово. З наступного спринту звітують: {mode.name}.", ephemeral=True)
 
         @tree.command(name="join", description="Долучитися до спринту")
         @app_commands.describe(link="Посилання на текст: бот порахує, скільки слів додалося")

@@ -57,6 +57,11 @@
     `ALLOWED_CHATS` is set, the "Я переродився" `/start` greeting.
 15. **Broadcast exclusions**: `/bcexclude` / `/bcinclude` keep chosen chats out of every broadcast.
 
+16. **Percent sprints**: a chat setting (`/sprintmode percent`, chat admins) where people report how much of
+    their task they finished (`40%`) instead of words. The board shows percentages; these sprints don't
+    count towards word stats and `/top`. Settings live in a new `chat_settings` table, which phase 3 builds
+    on.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
