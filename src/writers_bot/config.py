@@ -1,0 +1,154 @@
+"""Settings from environment variables. See README for the full list."""
+
+import logging
+import os
+from dataclasses import dataclass
+from datetime import timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from .core.prompts import GoogleSettings
+
+logger = logging.getLogger(__name__)
+
+
+class ConfigError(RuntimeError):
+    pass
+
+
+def _ids(value: str | None) -> frozenset[int]:
+    result = set()
+    for part in (value or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            result.add(int(part))
+        except ValueError:
+            raise ConfigError(f"not a numeric id: {part!r}") from None
+    return frozenset(result)
+
+
+def _flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _int(name: str, default: int) -> int:
+    value = os.environ.get(name, "").strip()
+    try:
+        return int(value) if value else default
+    except ValueError:
+        raise ConfigError(f"{name} must be an integer") from None
+
+
+def _prompt_sheets(value: str | None) -> dict[str, str]:
+    # "ua=База-ua,en=Base-en"
+    result = {}
+    for part in (value or "ua=База-ua").split(","):
+        lang, _, sheet = part.partition("=")
+        if lang.strip() and sheet.strip():
+            result[lang.strip()] = sheet.strip()
+    return result
+
+
+def google_settings() -> GoogleSettings | None:
+    spreadsheet = os.environ.get("SPREADSHEET_ID", "").strip()
+    if not spreadsheet:
+        return None
+    sa = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+    return GoogleSettings(
+        spreadsheet_id=spreadsheet,
+        config_sheet=os.environ.get("CONFIG_SHEET_NAME", "").strip() or None,
+        drive_folder_id=os.environ.get("GOOGLE_DRIVE_BASE_FOLDER_ID", "").strip() or None,
+        prompt_sheets=_prompt_sheets(os.environ.get("PROMPT_SHEETS")),
+        prompt_range=os.environ.get("PROMPT_RANGE", "B1:ZZ").strip(),
+        token_file=Path(os.environ.get("GOOGLE_TOKEN_FILE", "token.json")),
+        service_account_file=Path(sa) if sa else None,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class CommonSettings:
+    timezone: ZoneInfo
+    db_path: Path
+    report_window: timedelta
+    google: GoogleSettings | None
+
+    @classmethod
+    def from_env(cls) -> "CommonSettings":
+        tz_name = os.environ.get("BOT_TIMEZONE", "Europe/Kyiv")
+        return cls(
+            timezone=ZoneInfo(tz_name),
+            db_path=Path(os.environ.get("DB_PATH", "data/bot.sqlite3")),
+            report_window=timedelta(minutes=_int("SPRINT_REPORT_WINDOW", 30)),
+            google=google_settings(),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TelegramSettings:
+    token: str
+    super_admins: frozenset[int]
+    allowed_chats: frozenset[int] | None  # None = every chat
+    polling: bool
+    webhook_host: str | None
+    webhook_listen: str
+    webhook_port: int
+    webhook_path: str
+    webhook_secret: str | None
+    keepalive: bool
+    common: CommonSettings
+
+    @classmethod
+    def from_env(cls) -> "TelegramSettings":
+        token = os.environ.get("TELEGRAM_TOKEN", "").strip()
+        if not token:
+            raise ConfigError("TELEGRAM_TOKEN is not set")
+        allowed = _ids(os.environ.get("ALLOWED_CHATS"))
+        if not allowed:
+            logger.warning("ALLOWED_CHATS is not set: the bot answers in every chat")
+        polling = _flag("TEST_ENV") or _flag("TELEGRAM_POLLING")
+        secret = os.environ.get("TELEGRAM_WEBHOOK_TOKEN", "").strip() or None
+        # In Docker HOSTNAME is the container id, so WEBHOOK_HOST takes precedence.
+        host = (os.environ.get("WEBHOOK_HOST") or os.environ.get("HOSTNAME") or "").strip() or None
+        if not polling:
+            if not secret:
+                raise ConfigError(
+                    "TELEGRAM_WEBHOOK_TOKEN must be set in webhook mode, otherwise anyone can send fake updates"
+                )
+            if not host:
+                raise ConfigError("WEBHOOK_HOST must be set in webhook mode")
+        return cls(
+            token=token,
+            super_admins=_ids(os.environ.get("BOT_SUPERADMINS")),
+            allowed_chats=allowed or None,
+            polling=polling,
+            webhook_host=host,
+            webhook_listen=os.environ.get("WEBHOOK_LISTEN", "0.0.0.0"),  # noqa: S104 - container listens on all
+            webhook_port=_int("PORT", 80),
+            webhook_path=os.environ.get("WEBHOOK_PATH", "").strip("/"),
+            webhook_secret=secret,
+            keepalive=_flag("SPRINT_KEEPALIVE"),
+            common=CommonSettings.from_env(),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DiscordSettings:
+    token: str
+    guild_ids: frozenset[int]  # sync slash commands to these guilds instantly; empty = global sync
+    allowed_guilds: frozenset[int] | None
+    common: CommonSettings
+
+    @classmethod
+    def from_env(cls) -> "DiscordSettings":
+        token = os.environ.get("DISCORD_TOKEN", "").strip()
+        if not token:
+            raise ConfigError("DISCORD_TOKEN is not set")
+        allowed = _ids(os.environ.get("DISCORD_ALLOWED_GUILDS"))
+        return cls(
+            token=token,
+            guild_ids=_ids(os.environ.get("DISCORD_GUILD_IDS")),
+            allowed_guilds=allowed or None,
+            common=CommonSettings.from_env(),
+        )

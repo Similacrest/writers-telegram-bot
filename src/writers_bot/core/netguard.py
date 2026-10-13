@@ -86,8 +86,9 @@ class GuardedBackend(httpcore.AsyncNetworkBackend):
     def __init__(self, inner: httpcore.AsyncNetworkBackend | None = None):
         self._inner = inner or httpcore.AnyIOBackend()
 
-    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
-        addr = await resolve_public(host, port)
+    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):  # noqa: ASYNC109 - httpcore interface
+        async with asyncio.timeout(timeout):
+            addr = await resolve_public(host, port)
         # TLS SNI and certificate checks still use the original hostname (httpcore passes it to start_tls).
         return await self._inner.connect_tcp(
             addr, port, timeout=timeout, local_address=local_address, socket_options=socket_options

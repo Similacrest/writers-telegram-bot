@@ -11,6 +11,7 @@ Supported:
 
 import asyncio
 import base64
+import html
 import json
 import re
 from dataclasses import dataclass
@@ -29,7 +30,7 @@ ELLIPSUS_ID_RE = re.compile(r"^/read/([A-Za-z0-9]{10,40})(?:/|$)")
 BLOCK_TAGS = {
     "p", "div", "br", "hr", "li", "ul", "ol", "blockquote", "aside", "pre", "figure", "figcaption",
     "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr", "td", "th", "section", "article", "header", "footer",
-    "paragraph", "heading", "blockquote", "listitem", "bulletlist", "orderedlist", "codeblock", "hardbreak",
+    "paragraph", "heading", "listitem", "bulletlist", "orderedlist", "codeblock", "hardbreak",
 }  # fmt: skip
 
 
@@ -219,6 +220,10 @@ async def _nodeinfo_says_writefreely(fetcher: SafeFetcher, origin: str) -> bool:
 
 
 async def fetch_writefreely(fetcher: SafeFetcher, url: str) -> LinkedText:
+    # "/post.md" and "/post.txt" are raw views that not every instance serves; use the post page instead.
+    parts = urlsplit(url)
+    if parts.path.endswith((".md", ".txt")):
+        url = parts._replace(path=parts.path.rsplit(".", 1)[0], query="", fragment="").geturl()
     resp = await fetcher.get(url, accept="text/html")
     if resp.status_code != 200 or "html" not in resp.content_type:
         raise UnsupportedLinkError("сторінка недоступна або це не допис")
@@ -231,8 +236,9 @@ async def fetch_writefreely(fetcher: SafeFetcher, url: str) -> LinkedText:
             raise UnsupportedLinkError("непідтримуваний сайт")
     if not parser.parts:
         raise UnsupportedLinkError("на сторінці немає тексту допису")
-    body = _join_blocks(parser.parts)
-    title = parser.title.strip()
+    # Write.as double-escapes some characters (e.g. "&amp;#39;" for an apostrophe), so unescape once more.
+    body = html.unescape(_join_blocks(parser.parts))
+    title = html.unescape(parser.title.strip())
     if title and not body.startswith(title):
         body = f"{title}\n{body}"
     return LinkedText("WriteFreely", title, body, resp.url)
