@@ -1,6 +1,5 @@
 .env
 *.pickle*
-*.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -142,3 +141,10 @@ dmypy.json
 cython_debug/
 
 credentials.json
+
+# runtime data
+data/
+token.json
+service-account*.json
+.venv/
+.ruff_cache/

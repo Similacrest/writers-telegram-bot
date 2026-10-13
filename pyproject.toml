@@ -1,31 +1,52 @@
-[tool.poetry]
-name = "spirit-of-rnc"
-version = "2.2.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+[project]
+name = "writers-bot"
+version = "3.0.0"
+description = "Telegram (and Discord) bot for writers: prompts, writing sprints with word reports, word counter."
 readme = "README.md"
-packages = [{include = "spirit_of_rnc"}]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12"
+dependencies = [
+    "python-telegram-bot[rate-limiter,webhooks]>=22.8,<23",
+    "httpx>=0.28.1",
+    "aiosqlite>=0.22.1",
+    "pycrdt>=0.14.8",
+    "google-api-python-client>=2.201.0",
+    "google-auth>=2.62.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-python-telegram-bot = {extras = ["job-queue", "rate-limiter", "webhooks"], version = "^20.0"}
-telegraph = "^2.2.0"
-google-api-python-client = "^2.70.0"
-google-auth-oauthlib = "^0.8.0"
-parsel = "^1.7.0"
-oauth2client = "^4.1.3"
-tqdm = "^4.64.1"
-pytz = "^2022.7"
-black = "^22.12.0"
-isort = "^5.11.4"
+[project.optional-dependencies]
+discord = ["discord.py>=2.7.1,<3"]
+google-auth-setup = ["google-auth-oauthlib>=1.5.0"]
 
-[tool.black]
-line-length=119
-target-version=['py311']
+[project.scripts]
+writers-bot-telegram = "writers_bot.telegram_bot.app:main"
+writers-bot-discord = "writers_bot.discord_bot.app:main"
 
-[tool.isort]
-profile = "black"
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.0",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/writers_bot"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "S", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "S311"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
