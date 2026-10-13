@@ -46,6 +46,14 @@ class LinkedText:
     url: str
 
 
+_LOCATIVE = {"Телеграф": "У Телеграфі", "Ellipsus": "В Ellipsus", "WriteFreely": "У WriteFreely"}
+
+
+def source_locative(source: str) -> str:
+    """ "У Телеграфі" for headings like the old /wc output."""
+    return _LOCATIVE.get(source, f"У {source}")
+
+
 def find_url(text: str) -> str | None:
     match = URL_RE.search(text or "")
     return match[0].rstrip(".,;:!?)]}") if match else None

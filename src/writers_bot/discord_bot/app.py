@@ -17,7 +17,7 @@ from ..core.models import ChatKey, Sprint, SprintStatus
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
 from ..core.prompts import PromptsStore, PromptsUnavailableError
 from ..core.render import report_text, sprint_text, text_stats_text, top_text, user_stats_text
-from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url
+from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
 from ..core.storage import Storage
 from ..core.wordcount import count_words, text_stats
 
@@ -243,7 +243,14 @@ class WritersDiscordBot:
     async def count_link(self, url: str) -> int:
         return count_words((await fetch_linked_text(self.fetcher, url)).text)
 
+    @staticmethod
+    async def defer(interaction: discord.Interaction) -> None:
+        """Discord fails an interaction not answered in 3 s; sprint actions do DB and API work first."""
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True, thinking=True)
+
     async def start_sprint(self, interaction: discord.Interaction, duration: int, delay: int) -> None:
+        await self.defer(interaction)
         try:
             await self.sprints.start(chat_key(interaction.channel_id), user_ref(interaction.user), duration, delay)
         except sp.SprintAlreadyRunningError:
@@ -259,6 +266,7 @@ class WritersDiscordBot:
             return
         key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
         if action == "join":
+            await self.defer(interaction)
             result, _ = await self.sprints.join(key, user, a)
             text = {
                 sp.JoinResult.JOINED: "Додано до спринту!",
@@ -271,6 +279,7 @@ class WritersDiscordBot:
             async def admin() -> bool:
                 return self.is_admin(interaction)
 
+            await self.defer(interaction)
             result, _ = await self.sprints.leave_or_cancel(key, user, admin, a)
             text = {
                 sp.LeaveResult.LEFT: "Вас вилучено зі спринту",
@@ -383,7 +392,9 @@ class WritersDiscordBot:
                 except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
                     await bot.reply(interaction, f"Не вдалося прочитати посилання: {e}")
                     return
-                await bot.reply(interaction, text_stats_text(bot.fmt, text_stats(linked.text), f"У {linked.source}"))
+                await bot.reply(
+                    interaction, text_stats_text(bot.fmt, text_stats(linked.text), source_locative(linked.source))
+                )
                 return
             await bot.reply(interaction, text_stats_text(bot.fmt, text_stats(text)))
 

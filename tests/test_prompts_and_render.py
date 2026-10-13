@@ -77,7 +77,10 @@ def test_command_args_text_handles_utf16_offsets():
 
 
 def test_chat_key_only_uses_topic_threads():
-    topic = SimpleNamespace(chat_id=-100, message_thread_id=5, is_topic_message=True)
-    reply_thread = SimpleNamespace(chat_id=-100, message_thread_id=5, is_topic_message=False)
+    chat = SimpleNamespace(id=-100)
+    topic = SimpleNamespace(chat=chat, message_thread_id=5, is_topic_message=True)
+    reply_thread = SimpleNamespace(chat=chat, message_thread_id=5, is_topic_message=False)
+    inaccessible = SimpleNamespace(chat=chat, message_id=1)  # no chat_id / is_topic_message attributes
     assert chat_key(topic).thread_id == "5"
     assert chat_key(reply_thread).thread_id is None
+    assert chat_key(inaccessible) == chat_key(reply_thread)

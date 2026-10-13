@@ -36,7 +36,7 @@ from ..core.models import ChatKey, Sprint, SprintStatus
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
 from ..core.prompts import PromptsStore, PromptsUnavailableError
 from ..core.render import text_stats_text, top_text, user_stats_text
-from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url
+from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
 from ..core.storage import Storage
 from ..core.wordcount import count_words, text_stats
 from .presenter import HtmlFormatter, TelegramSprintPresenter
@@ -88,7 +88,8 @@ LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
 def chat_key(message: Message) -> ChatKey:
     # message_thread_id is also set for reply threads in ordinary groups, so only topics count (issue #3).
     thread = message.message_thread_id if getattr(message, "is_topic_message", False) else None
-    return ChatKey(PLATFORM, str(message.chat_id), str(thread) if thread else None)
+    # InaccessibleMessage (buttons on messages older than ~48h) has .chat but no .chat_id.
+    return ChatKey(PLATFORM, str(message.chat.id), str(thread) if thread else None)
 
 
 def user_ref(user) -> sp.UserRef:
@@ -315,7 +316,9 @@ class WritersTelegramBot:
             except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
                 await message.reply_text(f"Не вдалося прочитати посилання: {e}", parse_mode=None)
                 return
-            await message.reply_html(text_stats_text(self.fmt, text_stats(linked.text), f"У {linked.source}"))
+            await message.reply_html(
+                text_stats_text(self.fmt, text_stats(linked.text), source_locative(linked.source))
+            )
             return
         await message.reply_html(text_stats_text(self.fmt, text_stats(text)))
 
