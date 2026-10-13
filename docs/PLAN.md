@@ -137,6 +137,12 @@ Phases are in order of dependency. Each ends in a tagged release.
   and per user (time zone, goals, visibility on boards). The sheet stays as a one-time import source.
 - **Prompt database**: prompts and categories in SQLite, imported from the current sheet. Chats use the
   shared set or their own. Image prompts can stay on Drive.
+- **Communities** (the data model, for Telegram alone to begin with): `communities` and `community_chats`
+  tables; super-admins link chats to a community (`/community`, later in the dashboard). Information is
+  shared per community: boards and `/top`, prompt sets, announcements and `/broadcast` by community, and
+  settings that a community's chats inherit. Telegram's own Communities (Bot API 10.2) are used as a source
+  for linking chats once the calls are made directly, the way ephemeral messages are in
+  `telegram_bot/ephemeral.py`.
 - **Dashboard** (17), a Telegram Mini App served by the bot:
   - for everyone: your sprints, reports and stats with charts; time zone and goals; export and delete
     your data;
@@ -155,8 +161,10 @@ Phases are in order of dependency. Each ends in a tagged release.
 
 ### Phase 5: one community across Telegram and Discord (v4.2)
 - E1 per-server settings come with phase 3.
-- E2: communities, `/link` for accounts, shared boards, then shared sprints with both adapters in one
-  process.
+- E2: Discord chats join the communities from phase 3, `/link` for accounts, shared boards, then shared
+  sprints with both adapters in one process.
 - E3: Matterbridge configuration and setup notes on top of E2.
-- Bot API 10.2 added Telegram *Communities* (several supergroups and channels linked together). When PTB
-  supports them, a Telegram community can map to one of our communities directly.
+
+### Decisions
+- **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
+  features it lacks are called directly and kept in one module, so they can be dropped when it catches up.
