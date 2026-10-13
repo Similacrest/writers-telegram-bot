@@ -35,6 +35,10 @@
    the post page (`e-content`, detected by generator meta or nodeinfo; `.md` URLs normalised), and public
    **Ellipsus Reader links** (`ellipsus.com/read/<id>`) via the reader API, whose Yjs document is decoded
    with `pycrdt`. Ellipsus has no documented API, so that endpoint may change without notice.
+9. **Admin chat registry & broadcasts** (Telegram): `/chats` lists every group, channel and private chat the
+   bot is in; `/broadcast groups|private|all` copies a message to them after a preview and confirmation.
+   Telegram cannot list a bot's chats, so the bot records them as updates arrive; older chats are imported
+   once from the v2 `db.pickle`.
 
 ## 20 further improvements (not in this refactor, for prioritisation)
 
