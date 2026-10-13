@@ -268,6 +268,7 @@ def test_private_chats_and_allowlist(monkeypatch):
     monkeypatch.setenv("TELEGRAM_TOKEN", "x")
     monkeypatch.setenv("TELEGRAM_POLLING", "1")
     monkeypatch.setenv("ALLOWED_CHATS", "-100")
+    monkeypatch.setenv("EXTRAS", "1")
     monkeypatch.setenv("BOT_SUPERADMINS", str(ADMIN))
     group = SimpleNamespace(id=-200, type="supergroup")
     private = SimpleNamespace(id=5, type="private")
@@ -277,6 +278,11 @@ def test_private_chats_and_allowlist(monkeypatch):
     assert bot.is_allowed(SimpleNamespace(id=-100, type="supergroup"), user)
     assert not bot.is_allowed(group, user)
     assert bot.is_allowed(private, user)  # like the v2 "extended" bot
+
+    monkeypatch.delenv("EXTRAS")  # plain behaviour: only the allowlist and super-admins
+    bot = WritersTelegramBot(TelegramSettings.from_env())
+    assert not bot.is_allowed(private, user)
+    monkeypatch.setenv("EXTRAS", "1")
 
     monkeypatch.setenv("ALLOW_PRIVATE_CHATS", "0")
     bot = WritersTelegramBot(TelegramSettings.from_env())
@@ -292,6 +298,7 @@ def test_catch_all_command_handler_is_registered_last(monkeypatch):
 
     monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
     monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    monkeypatch.setenv("EXTRAS", "1")
     app = build_application(TelegramSettings.from_env())
     group = app.handlers[0]
     last_command = max(i for i, h in enumerate(group) if isinstance(h, CommandHandler))
@@ -315,3 +322,26 @@ def test_backup_script(tmp_path, monkeypatch, capsys):
     db.close()
     assert "integrity ok" in capsys.readouterr().out
     assert sqlite3.connect(target).execute("SELECT title FROM chats").fetchone() == ("Backed up",)
+
+
+def test_extras_off_registers_no_extra_handlers(monkeypatch):
+    from telegram.ext import CommandHandler, MessageHandler
+
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import build_application
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+
+    def callbacks(app):
+        return {h.callback.__name__ for group in app.handlers.values() for h in group if hasattr(h, "callback")}
+
+    monkeypatch.delenv("EXTRAS", raising=False)
+    plain = callbacks(build_application(TelegramSettings.from_env()))
+    assert not {"smash", "imafan", "welcome", "on_text", "other_command"} & plain
+    assert "sprint" in plain and "chats" in plain
+
+    monkeypatch.setenv("EXTRAS", "1")
+    full = callbacks(build_application(TelegramSettings.from_env()))
+    assert {"smash", "imafan", "welcome", "on_text", "other_command"} <= full
+    assert CommandHandler and MessageHandler

@@ -32,9 +32,10 @@ A bot for writing communities, on Telegram and Discord.
 | `/smash`, `/imafan` | | Keyboard smash; a random `imafan_message` from the config sheet |
 | `/stats`, `/reload`, `/debuginfo` | `/reload` | Prompt counts, reload prompts (admins), ids |
 
-The bot also greets new members in groups that have a `welcome_message` row for their chat id in the config
-sheet (`{name}` is replaced by the new members), and answers "Слава Україні" / "Слава нації"
-(`SLOGAN_REPLIES`). These come from the v2 `extended` branch.
+**Extras** (`EXTRAS=1`, off by default; these come from the v2 `extended` branch): dice rolls, `/smash`,
+`/imafan`, greeting new members in groups that have a `welcome_message` row for their chat id in the config
+sheet (`{name}` is replaced by the new members), "Слава Україні" / "Слава нації" replies, the "Я переродився"
+`/start` greeting, and private chats staying open when `ALLOWED_CHATS` is set.
 
 ### Admin: chats and broadcasts (Telegram, `BOT_SUPERADMINS` only, in a private chat with the bot)
 
@@ -82,8 +83,9 @@ Discord uses `/words` or the button's form.
 | `TEST_ENV` or `TELEGRAM_POLLING` | off | Use long polling instead of a webhook |
 | `BOT_SUPERADMINS` | empty | Comma-separated user ids with admin rights everywhere |
 | `ALLOWED_CHATS` | empty = all chats | Comma-separated group/channel ids the bot answers in |
-| `ALLOW_PRIVATE_CHATS` | on | Private chats work even when `ALLOWED_CHATS` is set (off: only super-admins) |
-| `SLOGAN_REPLIES` | on | Answer "Слава Україні" / "Слава нації" |
+| `EXTRAS` | off | Switch for the `extended`-branch extras (see Commands) |
+| `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set (off: only super-admins) |
+| `SLOGAN_REPLIES` | follows `EXTRAS` | Answer "Слава Україні" / "Слава нації" |
 | `EPHEMERAL_REPLIES` | on | In groups, replies meant for one person (errors, `/mystats`, `/goal`) are sent as ephemeral messages (Bot API 10.2), visible only to them. Works when the bot is a chat admin or the user sent an ephemeral command; otherwise a normal reply |
 | `EPHEMERAL_COMMANDS` | off | Mark `/words`, `/join`, `/mystats`, `/goal`, `/tz`, `/export` as ephemeral commands in groups, so the command itself is hidden from others too |
 

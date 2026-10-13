@@ -52,7 +52,7 @@
     a manual report.
 13. **Fewer emoji**: plain headings, numbered leaderboard, text-only buttons; one 👍 reaction to confirm a
     report.
-14. **`extended` branch features kept**: dice rolls (`/d20`, `/2d6+1`, `/r 4к6`, `adv`/`dis`), `/smash`,
+14. **`extended` branch features kept, behind `EXTRAS=1`** (off by default, one codebase instead of a second branch): dice rolls (`/d20`, `/2d6+1`, `/r 4к6`, `adv`/`dis`), `/smash`,
     `/imafan`, per-chat welcome messages, slogan replies, private chats open to everyone when
     `ALLOWED_CHATS` is set, the "Я переродився" `/start` greeting.
 15. **Broadcast exclusions**: `/bcexclude` / `/bcinclude` keep chosen chats out of every broadcast.

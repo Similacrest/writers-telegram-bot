@@ -67,8 +67,8 @@ DEFAULT_HELP = """<b>Бот для письменників</b>
 /sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
 /sprinthelp — як працюють спринти та звіти про слова
 /goal — цілі на день і місяць, /tz — часовий пояс, /mystats — статистика
-/export — ваші спринти у файлі, /forgetme — видалити свої дані
-/d20, /2d6+1, /r 4к6 — кинути кубики"""
+/export — ваші спринти у файлі, /forgetme — видалити свої дані"""
+EXTRAS_HELP = "\n/d20, /2d6+1, /r 4к6 — кинути кубики"
 
 SPRINT_HELP = f"""<b>Спринти</b>
 /sprint [хвилин] [затримка] [посилання] запускає спринт: {sp.MIN_SPRINT}–{sp.MAX_SPRINT} хв., затримка {sp.MIN_SPRINT_DELAY}–{sp.MAX_SPRINT_DELAY} хв., типово {sp.DEFAULT_SPRINT} і {sp.DEFAULT_SPRINT_DELAY}.
@@ -301,10 +301,11 @@ class WritersTelegramBot:
     @allowed_chat(show_error=True)
     async def start(self, update: Update, _context) -> None:
         text = self.prompts.config_text("help_message") or DEFAULT_HELP
-        await self._reply_html_safe(update.effective_message, "Я переродився, Райтенчіле!\n\n" + text)
+        greeting = "Я переродився, Райтенчіле!\n\n" if self.settings.extras else ""
+        await self._reply_html_safe(update.effective_message, greeting + text)
 
     async def help(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or DEFAULT_HELP
+        text = self.prompts.config_text("help_message") or DEFAULT_HELP + (EXTRAS_HELP if self.settings.extras else "")
         await self._reply_html_safe(update.effective_message, text)
 
     async def sprint_help(self, update: Update, _context) -> None:
@@ -755,19 +756,23 @@ class WritersTelegramBot:
             CallbackQueryHandler(self.personal.on_forget_button, pattern=r"^fm:(go|no):[0-9a-f]+$"),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
-            CommandHandler("imafan", self.imafan),
-            CommandHandler("smash", self.smash),
             CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"),
             CallbackQueryHandler(self.on_leave, pattern=r"^(sp:leave:\d+|leave_or_cancel_sprint)$"),
             CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"),
             CallbackQueryHandler(self.on_repeat, pattern=r"^(sp:repeat:\d+:\d+|repeat_last_sprint_\d+(_\d+)?)$"),
             MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
-            MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome),
         ]
+        if self.settings.extras:
+            handlers += [
+                CommandHandler("imafan", self.imafan),
+                CommandHandler("smash", self.smash),
+                MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome),
+            ]
         for handler in handlers:
             app.add_handler(handler)
         # Slogan replies in their own group, so a reply that is also a word report gets both.
-        app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, self.on_text), group=2)
+        if self.settings.extras:
+            app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, self.on_text), group=2)
         app.add_handler(TypeHandler(Update, self.note_update), group=-2)
         # Chat registry: runs before everything else and never stops other handlers.
         app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
@@ -778,7 +783,8 @@ class WritersTelegramBot:
         app.add_handler(CommandHandler("bcinclude", self.admin.include))
         app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
         # Last in group 0: only commands that no handler above took (dice rolls).
-        app.add_handler(MessageHandler(filters.COMMAND, self.other_command))
+        if self.settings.extras:
+            app.add_handler(MessageHandler(filters.COMMAND, self.other_command))
         app.add_error_handler(self.on_error)
 
 

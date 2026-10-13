@@ -105,6 +105,7 @@ class TelegramSettings:
     webhook_port: int
     webhook_path: str
     webhook_secret: str | None
+    extras: bool  # the community extras from the v2 "extended" branch (see EXTRAS in the README)
     allow_private: bool  # private chats work even when ALLOWED_CHATS is set
     slogan_replies: bool
     ephemeral_replies: bool  # Bot API 10.2 ephemeral messages for personal replies in groups
@@ -130,6 +131,7 @@ class TelegramSettings:
                 )
             if not host:
                 raise ConfigError("WEBHOOK_HOST must be set in webhook mode")
+        extras = _flag("EXTRAS")
         return cls(
             token=token,
             super_admins=_ids(os.environ.get("BOT_SUPERADMINS")),
@@ -140,8 +142,9 @@ class TelegramSettings:
             webhook_port=_int("PORT", 80),
             webhook_path=os.environ.get("WEBHOOK_PATH", "").strip("/"),
             webhook_secret=secret,
-            allow_private=_flag("ALLOW_PRIVATE_CHATS", default=True),
-            slogan_replies=_flag("SLOGAN_REPLIES", default=True),
+            extras=extras,
+            allow_private=_flag("ALLOW_PRIVATE_CHATS", default=extras),
+            slogan_replies=_flag("SLOGAN_REPLIES", default=extras),
             ephemeral_replies=_flag("EPHEMERAL_REPLIES", default=True),
             ephemeral_commands=_flag("EPHEMERAL_COMMANDS"),
             common=CommonSettings.from_env(),
