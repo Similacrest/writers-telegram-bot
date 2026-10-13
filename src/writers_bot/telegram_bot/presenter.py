@@ -1,13 +1,11 @@
 """Shows sprints in Telegram chats: one pinned, live-updated sprint message and a results message."""
 
-import asyncio
 import contextlib
 import html
 import logging
-import secrets
 from datetime import datetime, tzinfo
 
-from telegram import Bot, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, ReplyParameters
+from telegram import Bot, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, ReplyParameters
 from telegram.constants import KeyboardButtonStyle
 from telegram.error import BadRequest, Forbidden, TelegramError
 
@@ -16,8 +14,6 @@ from ..core.render import report_text, sprint_text
 from ..core.sprint import SprintEvent, utc_now
 
 logger = logging.getLogger(__name__)
-
-KEEPALIVE_EVERY_TICKS = 10
 
 
 class HtmlFormatter:
@@ -68,22 +64,19 @@ def sprint_keyboard(sprint: Sprint) -> InlineKeyboardMarkup | None:
 
 
 def report_keyboard(sprint: Sprint) -> InlineKeyboardMarkup:
-    repeat = InlineKeyboardButton("🔁 Повторити зараз", callback_data=f"sp:repeat:{sprint.planned_duration}:0")
+    repeat = InlineKeyboardButton("Ще раз", callback_data=f"sp:repeat:{sprint.planned_duration}:0")
     if sprint.status == SprintStatus.REPORTING:
         report = InlineKeyboardButton(
-            "📝 Звітувати слова", callback_data=f"sp:report:{sprint.id}", style=KeyboardButtonStyle.PRIMARY
+            "Звітувати", callback_data=f"sp:report:{sprint.id}", style=KeyboardButtonStyle.PRIMARY
         )
         return InlineKeyboardMarkup([[report, repeat]])
     return InlineKeyboardMarkup([[repeat]])
 
 
 class TelegramSprintPresenter:
-    def __init__(self, fmt: HtmlFormatter, keepalive_host: str | None = None):
+    def __init__(self, fmt: HtmlFormatter):
         self.fmt = fmt
         self.bot: Bot | None = None
-        self.keepalive_host = keepalive_host
-        self._ticks: dict[int, int] = {}
-        self._background: set[asyncio.Task] = set()
 
     async def show(self, sprint: Sprint, event: SprintEvent, origin=None) -> None:
         handler = {
@@ -156,32 +149,10 @@ class TelegramSprintPresenter:
 
     async def _tick(self, sprint: Sprint, _origin) -> None:
         await self._edit_main(sprint)
-        if self.keepalive_host:
-            self._ticks[sprint.id] = self._ticks.get(sprint.id, 0) + 1
-            if self._ticks[sprint.id] % KEEPALIVE_EVERY_TICKS == 0:
-                task = asyncio.create_task(self._keepalive(sprint))
-                self._background.add(task)
-                task.add_done_callback(self._background.discard)
-
-    async def _keepalive(self, sprint: Sprint) -> None:
-        """Opt-in (SPRINT_KEEPALIVE=1): a link preview makes Telegram fetch our host, waking sleeping hosts."""
-        url = f"https://{self.keepalive_host}/{secrets.randbelow(1_000_000)}"
-        try:
-            msg = await self._send(
-                sprint,
-                f'Як прогрес<a href="{html.escape(url)}">?</a>',
-                disable_notification=True,
-                link_preview_options=LinkPreviewOptions(url=url),
-            )
-            await asyncio.sleep(5)
-            await msg.delete()
-        except TelegramError as e:
-            logger.debug("keepalive failed: %s", e)
 
     async def _cancelled(self, sprint: Sprint, _origin) -> None:
         await self._edit_main(sprint)
         await self._unpin(sprint, sprint.refs.get("msg"))
-        self._ticks.pop(sprint.id, None)
 
     async def _finished(self, sprint: Sprint, _origin) -> None:
         main = sprint.refs.get("msg")
@@ -191,7 +162,6 @@ class TelegramSprintPresenter:
             sprint, report_text(self.fmt, sprint, utc_now()), report_keyboard(sprint), reply_to=main
         )
         sprint.refs["finish"] = msg.message_id
-        self._ticks.pop(sprint.id, None)
 
     async def _edit_report(self, sprint: Sprint, _origin=None) -> None:
         await self._edit(

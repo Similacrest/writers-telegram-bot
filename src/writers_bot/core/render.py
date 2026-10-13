@@ -37,16 +37,16 @@ def sprint_text(f: Formatter, sprint: Sprint, now: datetime) -> str:
 
     if status == SprintStatus.PLANNED:
         minutes_left = max(1, round((sprint.start_at - now).total_seconds() / 60))
-        head = f"⏳ Спринт почнеться за {plural(minutes_left, MINUTES)}!"
+        head = f"Спринт почнеться за {plural(minutes_left, MINUTES)}!"
         verb = "Писатимемо"
     elif status == SprintStatus.RUNNING:
-        head, verb = "✍️ Спринт розпочався!", "Пишемо"
+        head, verb = "Спринт розпочався!", "Пишемо"
     elif status == SprintStatus.CANCELLED:
-        head, verb = "🚫 Спринт скасовано до його початку", "Не писали"
+        head, verb = "Спринт скасовано до його початку", "Не писали"
     elif sprint.stopped_early:
-        head, verb = "⏹ Спринт зупинено", "Писали всього"
+        head, verb = "Спринт зупинено", "Писали всього"
     else:
-        head, verb = "🏁 Спринт завершено!", "Писали"
+        head, verb = "Спринт завершено!", "Писали"
 
     lines = [
         f.bold(head),
@@ -77,14 +77,13 @@ TELEGRAM_REPORT_HINT = (
 
 def report_text(f: Formatter, sprint: Sprint, now: datetime, hint: str = TELEGRAM_REPORT_HINT) -> str:
     final = sprint.status == SprintStatus.CLOSED
-    title = "🏆 Підсумки спринту" if final else "📝 Скільки написали?"
+    title = "Підсумки спринту" if final else "Скільки написали?"
     span = f"{plural(sprint.duration, MINUTES)}, {f.time(sprint.start_at)}–{f.time(sprint.end_at)}"
     lines = [f"{f.bold(title)} ({span})", ""]
 
     board = sprint.leaderboard()
-    medals = ["🥇", "🥈", "🥉"]
-    for i, p in enumerate(board):
-        prefix = medals[i] if i < len(medals) else f"{i + 1}."
+    for i, p in enumerate(board, 1):
+        prefix = f"{i}."
         wpm = sprint.wpm(p)
         wpm_text = f" · {wpm:.1f} сл/хв" if wpm is not None else ""
         lines.append(f"{prefix} {f.mention(p.user_id, p.name)} — {f.bold(plural(p.words, WORDS))}{wpm_text}")

@@ -29,8 +29,9 @@ def _ids(value: str | None) -> frozenset[int]:
     return frozenset(result)
 
 
-def _flag(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+def _flag(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    return value in {"1", "true", "yes", "on"} if value else default
 
 
 def _int(name: str, default: int) -> int:
@@ -96,7 +97,8 @@ class TelegramSettings:
     webhook_port: int
     webhook_path: str
     webhook_secret: str | None
-    keepalive: bool
+    allow_private: bool  # private chats work even when ALLOWED_CHATS is set
+    slogan_replies: bool
     common: CommonSettings
 
     @classmethod
@@ -128,7 +130,8 @@ class TelegramSettings:
             webhook_port=_int("PORT", 80),
             webhook_path=os.environ.get("WEBHOOK_PATH", "").strip("/"),
             webhook_secret=secret,
-            keepalive=_flag("SPRINT_KEEPALIVE"),
+            allow_private=_flag("ALLOW_PRIVATE_CHATS", default=True),
+            slogan_replies=_flag("SLOGAN_REPLIES", default=True),
             common=CommonSettings.from_env(),
         )
 
