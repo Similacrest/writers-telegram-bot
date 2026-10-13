@@ -5,7 +5,7 @@ import httpx
 import pytest
 from pycrdt import Doc, XmlElement, XmlFragment, XmlText
 
-from writers_bot.core.netguard import SafeFetcher
+from writers_bot.core.netguard import FetchError, SafeFetcher
 from writers_bot.core.sources import (
     UnsupportedLinkError,
     fetch_linked_text,
@@ -126,3 +126,31 @@ async def test_other_sites_are_unsupported():
     fetcher = fetcher_for({"example.com/": httpx.Response(200, html="<html><body>hi</body></html>")})
     with pytest.raises(UnsupportedLinkError):
         await fetch_linked_text(fetcher, "https://example.com/")
+
+
+async def test_fetch_google_doc():
+    doc = "1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789"
+    fetcher = fetcher_for(
+        {
+            f"docs.google.com/document/d/{doc}/export": httpx.Response(
+                200, content="﻿Назва\r\nОдин два три".encode(), headers={"content-type": "text/plain; charset=utf-8"}
+            )
+        }
+    )
+    linked = await fetch_linked_text(fetcher, f"https://docs.google.com/document/d/{doc}/edit?usp=sharing")
+    assert linked.source == "Google Docs" and linked.title == "Назва"
+    assert count_words(linked.text) == 4
+
+
+async def test_google_doc_not_shared():
+    doc = "1AbCdEfGhIjKlMnOpQrStUvWxYz_0123456789"
+    fetcher = fetcher_for(
+        {
+            f"docs.google.com/document/d/{doc}/export": httpx.Response(
+                302, headers={"location": "https://accounts.google.com/ServiceLogin"}
+            ),
+            "accounts.google.com/ServiceLogin": httpx.Response(200, html="<html>sign in</html>"),
+        }
+    )
+    with pytest.raises(FetchError, match="не відкритий"):
+        await fetch_linked_text(fetcher, f"https://docs.google.com/document/u/0/d/{doc}/edit")

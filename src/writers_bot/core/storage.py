@@ -12,6 +12,7 @@ from .models import (
     ChatRecord,
     ChatStatus,
     Participant,
+    ReportRow,
     Sprint,
     SprintStatus,
     SprintUnit,
@@ -77,6 +78,16 @@ MIGRATIONS: dict[int, list[str]] = {
             value TEXT NOT NULL,
             PRIMARY KEY (platform, chat_id, key)
         )""",
+    ],
+    5: [
+        """CREATE TABLE user_settings (
+            platform TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (platform, user_id, key)
+        )""",
+        "CREATE INDEX participants_user_platform ON participants (user_id, sprint_id)",
     ],
 }
 SCHEMA_VERSION = max(MIGRATIONS)
@@ -267,6 +278,75 @@ class Storage:
             (platform, chat_id, _iso(since), limit),
         ) as cur:
             return [TopEntry(r["user_id"], r["name"], r["words"], r["sprints"]) for r in await cur.fetchall()]
+
+    # --- per-user data --------------------------------------------------------------------------
+
+    async def user_settings(self, platform: str, user_id: str) -> dict[str, str]:
+        async with self.db.execute(
+            "SELECT key, value FROM user_settings WHERE platform = ? AND user_id = ?", (platform, user_id)
+        ) as cur:
+            return {r["key"]: r["value"] for r in await cur.fetchall()}
+
+    async def set_user_setting(self, platform: str, user_id: str, key: str, value: str | None) -> None:
+        if value is None:
+            await self.db.execute(
+                "DELETE FROM user_settings WHERE platform = ? AND user_id = ? AND key = ?", (platform, user_id, key)
+            )
+        else:
+            await self.db.execute(
+                """INSERT INTO user_settings (platform, user_id, key, value) VALUES (?, ?, ?, ?)
+                   ON CONFLICT (platform, user_id, key) DO UPDATE SET value = excluded.value""",
+                (platform, user_id, key, value),
+            )
+        await self.db.commit()
+
+    async def user_reports(self, platform: str, user_id: str) -> list[ReportRow]:
+        """Every sprint the user took part in on this platform, oldest first."""
+        async with self.db.execute(
+            """SELECT s.id, s.chat_id, s.status, s.unit, s.start_at, s.duration, p.name, p.joined_at,
+                      p.start_words, p.start_url, p.words, p.reported_at
+               FROM participants p JOIN sprints s ON s.id = p.sprint_id
+               WHERE s.platform = ? AND p.user_id = ? ORDER BY s.start_at, s.id""",
+            (platform, user_id),
+        ) as cur:
+            return [
+                ReportRow(
+                    sprint_id=r["id"],
+                    chat_id=r["chat_id"],
+                    status=SprintStatus(r["status"]),
+                    unit=SprintUnit(r["unit"]),
+                    start_at=_dt(r["start_at"]),
+                    duration=r["duration"],
+                    name=r["name"],
+                    joined_at=_dt(r["joined_at"]),
+                    start_words=r["start_words"],
+                    start_url=r["start_url"],
+                    words=r["words"],
+                    reported_at=_dt(r["reported_at"]),
+                )
+                for r in await cur.fetchall()
+            ]
+
+    async def forget_user(self, platform: str, user_id: str) -> int:
+        """Delete a user's reports in finished sprints, their settings and their private chat record.
+        Returns the number of sprint entries removed. Open sprints are left alone (the caller checks)."""
+        placeholders = ",".join("?" * len(OPEN_STATUSES))
+        cur = await self.db.execute(
+            f"""DELETE FROM participants WHERE user_id = ? AND sprint_id IN (
+                    SELECT id FROM sprints WHERE platform = ? AND status NOT IN ({placeholders}))""",  # noqa: S608
+            (user_id, platform, *[st.value for st in OPEN_STATUSES]),
+        )
+        removed = cur.rowcount
+        await self.db.execute("DELETE FROM user_settings WHERE platform = ? AND user_id = ?", (platform, user_id))
+        await self.db.execute(
+            "DELETE FROM chats WHERE platform = ? AND chat_id = ? AND type = 'private'", (platform, user_id)
+        )
+        await self.db.commit()
+        return removed
+
+    async def ping(self) -> None:
+        async with self.db.execute("SELECT 1") as cur:
+            await cur.fetchone()
 
     # --- per-chat settings ----------------------------------------------------------------------
 

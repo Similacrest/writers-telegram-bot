@@ -5,18 +5,23 @@ intents: reports come through ``/words`` or the report button's modal instead of
 """
 
 import contextlib
+import io
 import logging
+import os
 from datetime import datetime, timedelta, tzinfo
 
 import discord
 from discord import app_commands
 
+from .. import __version__
 from ..config import ConfigError, DiscordSettings
 from ..core import sprint as sp
 from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
+from ..core.ops import HealthServer, setup_logging
+from ..core.personal import Personal
 from ..core.prompts import PromptsStore, PromptsUnavailableError
-from ..core.render import report_text, sprint_text, text_stats_text, top_text, user_stats_text
+from ..core.render import goals_text, report_text, sprint_text, text_stats_text, top_text, user_stats_text
 from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
 from ..core.storage import Storage
 from ..core.wordcount import count_words, text_stats
@@ -203,12 +208,22 @@ class WritersDiscordBot:
             report_window=common.report_window,
             count_link=self.count_link,
         )
+        self.personal = Personal(self.storage, PLATFORM, common.timezone)
+        self.health: HealthServer | None = None
         self.client.setup_hook = self.setup_hook
         self._register_commands()
 
     async def setup_hook(self) -> None:
         self.fetcher = SafeFetcher()
         await self.storage.open()
+        if self.settings.common.health_port:
+            common = self.settings.common
+            self.health = HealthServer(common.health_host, common.health_port, self.health_status)
+            try:
+                await self.health.start()
+            except OSError as e:
+                logger.warning("health endpoint not started: %s", e)
+                self.health = None
         self.client.add_dynamic_items(SprintButton)
         await self.sprints.restore()
         if self.prompts.enabled:
@@ -223,7 +238,17 @@ class WritersDiscordBot:
         if not self.settings.guild_ids:
             await self.tree.sync()
 
+    async def health_status(self) -> dict:
+        await self.storage.ping()
+        return {
+            "ok": self.client.is_ready() and not self.client.is_closed(),
+            "version": __version__,
+            "open_sprints": len(self.sprints._sprints),
+        }
+
     async def close(self) -> None:
+        if self.health:
+            await self.health.stop()
         await self.sprints.shutdown()
         if self.fetcher:
             await self.fetcher.aclose()
@@ -364,11 +389,18 @@ class WritersDiscordBot:
             text = texts[outcome.status]
         elif outcome.status == S.BASELINE:
             text = f"Стартова кількість: {outcome.participant.start_words} сл."
+        elif outcome.sprint.unit == SprintUnit.PERCENT:
+            text = f"Записано: {outcome.participant.words}%."
         else:
             text = f"Записано: {outcome.participant.words} сл." + (
                 f" (у тексті {outcome.counted})" if outcome.counted is not None else ""
             )
         await self.reply(interaction, text, ephemeral=True)
+        if outcome.status == S.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
+            notes = await self.personal.report_notes(str(interaction.user.id), outcome.sprint.id, sp.utc_now())
+            if notes and interaction.channel is not None:
+                with contextlib.suppress(discord.HTTPException):
+                    await interaction.channel.send(f"{interaction.user.mention}: " + " ".join(notes))
 
     # --- commands --------------------------------------------------------------------------------
 
@@ -481,10 +513,61 @@ class WritersDiscordBot:
 
         @tree.command(name="mystats", description="Моя статистика спринтів")
         async def mystats(interaction: discord.Interaction):
-            stats = await bot.storage.user_stats(PLATFORM, str(interaction.user.id))
+            user_id = str(interaction.user.id)
+            stats = await bot.storage.user_stats(PLATFORM, user_id)
+            progress = await bot.personal.progress(user_id, sp.utc_now())
             await bot.reply(
-                interaction, user_stats_text(bot.fmt, interaction.user.display_name, stats), ephemeral=True
+                interaction, user_stats_text(bot.fmt, interaction.user.display_name, stats, progress), ephemeral=True
             )
+
+        @tree.command(name="tz", description="Мій часовий пояс (для цілей і днів поспіль)")
+        @app_commands.describe(zone="Напр. Europe/Kyiv або Kyiv; порожньо — показати")
+        async def tz_cmd(interaction: discord.Interaction, zone: str = ""):
+            text = await bot.personal.tz_command(str(interaction.user.id), zone, sp.utc_now())
+            await bot.reply(interaction, text, ephemeral=True)
+
+        @tree.command(name="goal", description="Цілі на день і місяць")
+        @app_commands.choices(
+            period=[
+                app_commands.Choice(name="на день", value="daily"),
+                app_commands.Choice(name="на місяць", value="monthly"),
+            ]
+        )
+        @app_commands.describe(words="Скільки слів; 0 — прибрати ціль")
+        async def goal_cmd(
+            interaction: discord.Interaction,
+            period: app_commands.Choice[str] | None = None,
+            words: app_commands.Range[int, 0, 1_000_000] | None = None,
+        ):
+            user_id = str(interaction.user.id)
+            if period is not None and words is not None:
+                await bot.personal.goal_command(user_id, [period.value, str(words) if words else "off"], sp.utc_now())
+            progress = await bot.personal.progress(user_id, sp.utc_now())
+            await bot.reply(interaction, goals_text(bot.fmt, progress), ephemeral=True)
+
+        @tree.command(name="export", description="Мої спринти у файлі CSV")
+        async def export_cmd(interaction: discord.Interaction):
+            data, count = await bot.personal.export_csv(str(interaction.user.id))
+            if not count:
+                await bot.reply(interaction, "У вас ще немає спринтів.", ephemeral=True)
+                return
+            await interaction.response.send_message(
+                f"Ваші спринти: {count}.", file=discord.File(io.BytesIO(data), "sprints.csv"), ephemeral=True
+            )
+
+        @tree.command(name="forgetme", description="Видалити всі мої звіти, статистику й налаштування")
+        @app_commands.describe(confirm="Напишіть ТАК, щоб підтвердити")
+        async def forgetme_cmd(interaction: discord.Interaction, confirm: str = ""):
+            if confirm.strip().lower() not in {"так", "yes"}:
+                await bot.reply(
+                    interaction,
+                    "Це видалить усі ваші звіти, статистику, цілі й часовий пояс, і це не можна скасувати. "
+                    "Щоб підтвердити: /forgetme confirm:ТАК",
+                    ephemeral=True,
+                )
+                return
+            removed = await bot.storage.forget_user(PLATFORM, str(interaction.user.id))
+            await bot.reply(interaction, f"Готово. Видалено записів про спринти: {removed}.", ephemeral=True)
 
         @tree.command(name="top", description="Топ за словами в цьому каналі")
         async def top(interaction: discord.Interaction, days: app_commands.Range[int, 1, 366] = 30):
@@ -517,7 +600,7 @@ class WritersDiscordBot:
 
 
 def main() -> None:
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+    setup_logging(os.environ.get("LOG_FORMAT", "text").strip().lower())
     try:
         settings = DiscordSettings.from_env()
     except ConfigError as e:

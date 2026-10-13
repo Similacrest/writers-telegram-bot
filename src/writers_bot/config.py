@@ -74,6 +74,10 @@ class CommonSettings:
     db_path: Path
     report_window: timedelta
     google: GoogleSettings | None
+    log_format: str = "text"  # text | json
+    health_host: str = "127.0.0.1"
+    health_port: int = 0  # 0 = no health endpoint
+    error_alerts: bool = True  # send ERROR log records to the super-admins
 
     @classmethod
     def from_env(cls) -> "CommonSettings":
@@ -83,6 +87,10 @@ class CommonSettings:
             db_path=Path(os.environ.get("DB_PATH", "data/bot.sqlite3")),
             report_window=timedelta(minutes=_int("SPRINT_REPORT_WINDOW", 30)),
             google=google_settings(),
+            log_format=os.environ.get("LOG_FORMAT", "text").strip().lower() or "text",
+            health_host=os.environ.get("HEALTH_HOST", "127.0.0.1").strip() or "127.0.0.1",
+            health_port=_int("HEALTH_PORT", 0),
+            error_alerts=_flag("ERROR_ALERTS", default=True),
         )
 
 
@@ -99,6 +107,8 @@ class TelegramSettings:
     webhook_secret: str | None
     allow_private: bool  # private chats work even when ALLOWED_CHATS is set
     slogan_replies: bool
+    ephemeral_replies: bool  # Bot API 10.2 ephemeral messages for personal replies in groups
+    ephemeral_commands: bool  # mark personal commands as ephemeral in the command menu
     common: CommonSettings
 
     @classmethod
@@ -132,6 +142,8 @@ class TelegramSettings:
             webhook_secret=secret,
             allow_private=_flag("ALLOW_PRIVATE_CHATS", default=True),
             slogan_replies=_flag("SLOGAN_REPLIES", default=True),
+            ephemeral_replies=_flag("EPHEMERAL_REPLIES", default=True),
+            ephemeral_commands=_flag("EPHEMERAL_COMMANDS"),
             common=CommonSettings.from_env(),
         )
 

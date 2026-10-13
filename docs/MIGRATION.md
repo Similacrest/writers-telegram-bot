@@ -39,9 +39,9 @@ again and the two instances take turns. So stop Render **before** starting the h
    writable by uid 10001.
 5. **Convert the token and import chats** (one-off containers on the same volume):
    ```sh
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.2.0 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.0 \
      python scripts/migrate_google_token.py /legacy/token.pickle.b64 /app/data/token.json
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.2.0 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.0 \
      python scripts/import_legacy_chats.py /legacy/db.pickle
    ```
 6. **Start the bot** with `TELEGRAM_POLLING=1` and `restart: unless-stopped`. Check the log for
@@ -64,6 +64,14 @@ Same as on Render, except:
 | `ALLOW_PRIVATE_CHATS` | default (on) | Private chats work for everyone, as in v2 `extended` |
 | `GOOGLE_TOKEN_FILE` | default `/app/data/token.json` | Replaces `token.pickle.b64` |
 | `DB_PATH` | default `/app/data/bot.sqlite3` | |
+
+## Monitoring
+
+The image has a Docker `HEALTHCHECK` on `http://127.0.0.1:8080/health`: 200 while the bot receives updates and
+the database answers, 503 otherwise, so `docker ps` shows `unhealthy` when something's wrong. For an outside
+monitor, set `HEALTH_HOST=0.0.0.0` and publish the port on the homelab's internal network only. Errors are
+also sent to the super-admins in a private chat (`ERROR_ALERTS`). Set `LOG_FORMAT=json` if the logs go to a
+collector.
 
 ## Backups
 

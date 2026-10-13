@@ -23,8 +23,14 @@ USER bot
 # Persistent state (SQLite, Google token) lives in /app/data: mount a volume there.
 ENV PATH="/app/.venv/bin:$PATH" \
     DB_PATH=/app/data/bot.sqlite3 \
-    GOOGLE_TOKEN_FILE=/app/data/token.json
+    GOOGLE_TOKEN_FILE=/app/data/token.json \
+    HEALTH_PORT=8080
 VOLUME ["/app/data"]
+
+# /health answers 200 while the bot is receiving updates and the database works (127.0.0.1 only by
+# default; set HEALTH_HOST=0.0.0.0 and publish the port for outside monitoring).
+HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \
+    CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"HEALTH_PORT\"]}/health', timeout=5)"]
 
 EXPOSE 80
 # Telegram by default; run the Discord bot from the same image with `writers-bot-discord`.

@@ -109,29 +109,27 @@ messages, and an English interface.
 
 Phases are in order of dependency. Each ends in a tagged release.
 
-### Phase 1: run well on the homelab (v3.2)
-- Cut over from Render ([MIGRATION.md](MIGRATION.md)).
-- `/health` endpoint (or a heartbeat file for polling mode) for the homelab's monitoring; structured logs.
-- Errors reported to super-admins in a private chat (rate-limited), instead of only to the log.
-- Scheduled backups via `scripts/backup_db.py` (the job itself runs on the ops side).
-- `/export` (a CSV of your own sprints and reports) and `/forgetme` (delete your reports and stats, with a
-  confirmation step).
+### Phase 1: run well on the homelab (done in v3.3)
+- Cut-over guide from Render ([MIGRATION.md](MIGRATION.md)); the cut-over itself is up to ops.
+- `/health` endpoint with a Docker `HEALTHCHECK`; JSON logs (`LOG_FORMAT=json`).
+- Errors from the log sent to super-admins in private, rate-limited.
+- Backups via `scripts/backup_db.py` (scheduling it is on the ops side).
+- `/export` (CSV of your sprints, sent privately) and `/forgetme` (with a confirmation step).
 
-### Phase 2: personal progress (v3.3)
-- **Per-user time zone** (15): `/tz Europe/Kyiv`, defaulting to `BOT_TIMEZONE`. Comes first, because
-  "today" for goals and streaks depends on it.
-- **Goals** (2): `/goal daily 500`, `/goal monthly 20000`; progress shown after each report and in
-  `/mystats`.
-- **Streaks** (3): consecutive days with at least one report, in the writer's time zone. Shown in
-  `/mystats`. No reminders (they would be noise in group chats).
-- **Personal bests** (5): most words and best words per minute in one sprint, mentioned in the results when
-  beaten.
-- **Ephemeral replies** (16) for "report saved", "you're already in the sprint" and similar, so group chats
-  stay quiet. Needs a PTB release with Bot API 10.2 (or a raw `do_api_request` call); reactions remain the
-  fallback.
-- **Google Docs word count** (18): `docs.google.com/document/d/<id>` links that are shared as "anyone with
-  the link", exported as plain text through the Drive API with the bot's existing credentials. Works for
-  `/wc`, `/words` and links remembered for a sprint.
+### Phase 2: personal progress (done in v3.3)
+- **Per-user time zone** (15): `/tz Europe/Kyiv` or `/tz Kyiv`, defaulting to `BOT_TIMEZONE`.
+- **Goals** (2): `/goal daily 500`, `/goal monthly 20000`. They count words reported after sprints, on the
+  day the sprint started, in the writer's time zone. Reaching a goal is announced once per day or month,
+  and progress is in `/mystats`.
+- **Streaks** (3): days in a row with reported words, in `/mystats`. No reminders.
+- **Personal bests** (5): most words in one sprint and fastest sprint (sprints of 5 minutes or more),
+  announced when beaten. Your first sprint doesn't count as a record.
+- **Ephemeral replies** (16), Bot API 10.2: personal replies in groups go only to that person when Telegram
+  allows it, and fall back to a normal reply otherwise. PTB 22.8 has no methods for this yet, so the calls
+  are made directly (`telegram_bot/ephemeral.py`). Ephemeral commands are opt-in (`EPHEMERAL_COMMANDS`)
+  until they've been tried in a real group.
+- **Google Docs word count** (18): documents shared as "anyone with the link", through the plain-text
+  export. No Google credentials are needed, and private documents are reported as not shared.
 
 ### Phase 3: settings store and dashboard (v4.0)
 - **Settings in the database** instead of environment variables and the config sheet: per chat (welcome
@@ -160,3 +158,5 @@ Phases are in order of dependency. Each ends in a tagged release.
 - E2: communities, `/link` for accounts, shared boards, then shared sprints with both adapters in one
   process.
 - E3: Matterbridge configuration and setup notes on top of E2.
+- Bot API 10.2 added Telegram *Communities* (several supergroups and channels linked together). When PTB
+  supports them, a Telegram community can map to one of our communities directly.

@@ -1,11 +1,14 @@
 """Message texts shared by the adapters. A :class:`Formatter` maps them to HTML (Telegram) or Markdown (Discord)."""
 
 from datetime import datetime, tzinfo
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .i18n import CHARACTERS, LETTERS, MINUTES, SPRINTS, WORDS, plural
 from .models import Participant, Sprint, SprintStatus, SprintUnit, TopEntry, UserStats
 from .wordcount import TextStats
+
+if TYPE_CHECKING:
+    from .progress import Progress
 
 BAR_WIDTH = 20
 
@@ -121,9 +124,10 @@ def text_stats_text(f: Formatter, stats: TextStats, source: str | None = None) -
     )
 
 
-def user_stats_text(f: Formatter, name: str, stats: UserStats) -> str:
+def user_stats_text(f: Formatter, name: str, stats: UserStats, progress: "Progress | None" = None) -> str:
+    extra = progress_lines(f, progress) if progress is not None else []
     if not stats.sprints:
-        return f"{f.escape(name)}, у вас ще немає завершених спринтів тут."
+        return "\n".join([f"{f.escape(name)}, у вас ще немає завершених спринтів тут.", *extra])
     avg = stats.words / stats.reported_sprints if stats.reported_sprints else 0
     return "\n".join(
         [
@@ -133,6 +137,7 @@ def user_stats_text(f: Formatter, name: str, stats: UserStats) -> str:
             f"Написано: {f.bold(plural(stats.words, WORDS))}",
             f"Найкращий спринт: {plural(stats.best_words, WORDS)}",
             f"У середньому: {plural(round(avg), WORDS)} за спринт",
+            *(["", *extra] if extra else []),
         ]
     )
 
@@ -148,3 +153,28 @@ def top_text(f: Formatter, entries: list[TopEntry], days: int) -> str:
 
 def participant_label(p: Participant) -> str:
     return p.name
+
+
+def progress_lines(f: Formatter, p: "Progress") -> list[str]:
+    lines = []
+    if p.goals.daily:
+        lines.append(f"Сьогодні: {p.today} з {plural(p.goals.daily, WORDS)}")
+    elif p.today:
+        lines.append(f"Сьогодні: {plural(p.today, WORDS)}")
+    if p.goals.monthly:
+        lines.append(f"Цього місяця: {p.month} з {plural(p.goals.monthly, WORDS)}")
+    if p.streak:
+        lines.append(f"Днів поспіль: {p.streak}")
+    if p.best_wpm is not None:
+        lines.append(f"Найшвидше: {p.best_wpm:.1f} сл/хв")
+    return lines
+
+
+def goals_text(f: Formatter, p: "Progress") -> str:
+    if not p.goals.daily and not p.goals.monthly:
+        return (
+            "Цілей не задано.\n"
+            "/goal daily 500 задає денну ціль, /goal monthly 20000 місячну, /goal daily off прибирає.\n"
+            "Рахуються слова, про які ви звітували після спринтів."
+        )
+    return "\n".join([f.bold("Ваші цілі"), *progress_lines(f, p)])

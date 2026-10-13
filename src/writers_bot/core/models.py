@@ -77,6 +77,24 @@ class Sprint:
 
 
 @dataclass(frozen=True, slots=True)
+class ReportRow:
+    """One user's entry in one sprint, as stored."""
+
+    sprint_id: int
+    chat_id: str
+    status: SprintStatus
+    unit: SprintUnit
+    start_at: datetime
+    duration: int
+    name: str
+    joined_at: datetime
+    start_words: int | None
+    start_url: str | None
+    words: int | None
+    reported_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class UserStats:
     sprints: int
     reported_sprints: int

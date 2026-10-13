@@ -6,7 +6,9 @@ Supported:
 * Ellipsus public Reader links (``ellipsus.com/read/<id>``): the reader API returns a Yjs document
   that is decoded locally with ``pycrdt``;
 * any WriteFreely / Write.as instance: the post page is detected by its generator meta tag or nodeinfo,
-  and the text is taken from the ``e-content`` element.
+  and the text is taken from the ``e-content`` element;
+* Google Docs shared as "anyone with the link": the document's plain-text export. Docs that are not
+  shared that way redirect to a sign-in page, which is reported as not shared.
 """
 
 import asyncio
@@ -27,6 +29,9 @@ ELLIPSUS_HOSTS = {"ellipsus.com", "www.ellipsus.com"}
 ELLIPSUS_API = "https://service.ellipsus.com/api/reader/link"
 ELLIPSUS_ID_RE = re.compile(r"^/read/([A-Za-z0-9]{10,40})(?:/|$)")
 
+GDOCS_HOSTS = {"docs.google.com"}
+GDOCS_ID_RE = re.compile(r"^/document(?:/u/\d+)?/d/([A-Za-z0-9_-]{20,})(?:/|$)")
+
 BLOCK_TAGS = {
     "p", "div", "br", "hr", "li", "ul", "ol", "blockquote", "aside", "pre", "figure", "figcaption",
     "h1", "h2", "h3", "h4", "h5", "h6", "table", "tr", "td", "th", "section", "article", "header", "footer",
@@ -46,7 +51,12 @@ class LinkedText:
     url: str
 
 
-_LOCATIVE = {"Телеграф": "У Телеграфі", "Ellipsus": "В Ellipsus", "WriteFreely": "У WriteFreely"}
+_LOCATIVE = {
+    "Телеграф": "У Телеграфі",
+    "Ellipsus": "В Ellipsus",
+    "WriteFreely": "У WriteFreely",
+    "Google Docs": "У Google Docs",
+}
 
 
 def source_locative(source: str) -> str:
@@ -252,6 +262,25 @@ async def fetch_writefreely(fetcher: SafeFetcher, url: str) -> LinkedText:
     return LinkedText("WriteFreely", title, body, resp.url)
 
 
+# --- Google Docs -------------------------------------------------------------------------------------
+
+
+async def fetch_google_doc(fetcher: SafeFetcher, url: str) -> LinkedText:
+    match = GDOCS_ID_RE.match(urlsplit(url).path)
+    if not match:
+        raise UnsupportedLinkError("not a Google Docs document link")
+    export = f"https://docs.google.com/document/d/{match[1]}/export?format=txt"
+    resp = await fetcher.get(export, accept="text/plain")
+    if resp.status_code == 404:
+        raise FetchError("документ не знайдено")
+    if resp.status_code != 200 or not resp.content_type.startswith("text/plain"):
+        # Docs that are not shared by link answer with a redirect to the Google sign-in page.
+        raise FetchError("документ не відкритий для всіх, хто має посилання")
+    text = resp.content.decode("utf-8-sig", errors="replace").replace("\r\n", "\n")
+    title = text.split("\n", 1)[0].strip()
+    return LinkedText("Google Docs", title, text, url)
+
+
 # --- dispatch ----------------------------------------------------------------------------------------
 
 
@@ -273,4 +302,6 @@ async def fetch_linked_text(fetcher: SafeFetcher, url: str) -> LinkedText:
         return await fetch_telegraph(fetcher, url)
     if host in ELLIPSUS_HOSTS:
         return await fetch_ellipsus(fetcher, url)
+    if host in GDOCS_HOSTS:
+        return await fetch_google_doc(fetcher, url)
     return await fetch_writefreely(fetcher, url)

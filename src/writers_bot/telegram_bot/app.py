@@ -2,8 +2,10 @@
 
 import contextlib
 import logging
+import os
 import random
 import re
+import time
 from datetime import timedelta
 from functools import wraps
 
@@ -34,17 +36,21 @@ from telegram.ext import (
     filters,
 )
 
+from .. import __version__
 from ..config import ConfigError, TelegramSettings
 from ..core import extras
 from ..core import sprint as sp
 from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
 from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
+from ..core.ops import AlertHandler, HealthServer, setup_logging
 from ..core.prompts import PromptsStore, PromptsUnavailableError
 from ..core.render import text_stats_text, top_text, user_stats_text
 from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
 from ..core.storage import Storage
 from ..core.wordcount import count_words, text_stats
 from .admin import AdminTools
+from .ephemeral import set_commands
+from .personal import PersonalHandlers
 from .presenter import HtmlFormatter, TelegramSprintPresenter
 
 logger = logging.getLogger(__name__)
@@ -60,6 +66,8 @@ DEFAULT_HELP = """<b>Бот для письменників</b>
 /wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф, WriteFreely чи Ellipsus)
 /sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
 /sprinthelp — як працюють спринти та звіти про слова
+/goal — цілі на день і місяць, /tz — часовий пояс, /mystats — статистика
+/export — ваші спринти у файлі, /forgetme — видалити свої дані
 /d20, /2d6+1, /r 4к6 — кинути кубики"""
 
 SPRINT_HELP = f"""<b>Спринти</b>
@@ -87,11 +95,16 @@ COMMANDS = [
     BotCommand("join", "Долучитися до спринту: /join [посилання]"),
     BotCommand("words", "Звіт про слова за спринт"),
     BotCommand("mystats", "Моя статистика спринтів"),
+    BotCommand("goal", "Цілі: /goal daily 500"),
+    BotCommand("tz", "Мій часовий пояс"),
+    BotCommand("export", "Мої спринти у файлі CSV"),
     BotCommand("sprintmode", "Звіти словами чи відсотками"),
     BotCommand("top", "Топ за словами"),
     BotCommand("sprinthelp", "Як працюють спринти"),
     BotCommand("help", "Допомога"),
 ]
+PRIVATE_COMMANDS = [*COMMANDS, BotCommand("forgetme", "Видалити мої дані")]
+EPHEMERAL_COMMANDS = {"words", "join", "mystats", "goal", "tz", "export"}
 
 ADMIN_COMMANDS = [
     *COMMANDS,
@@ -167,10 +180,17 @@ class WritersTelegramBot:
         )
         self.me = None
         self.admin = AdminTools(self.storage, settings.super_admins)
+        self.personal = PersonalHandlers(self)
+        self.app: Application | None = None
+        self.alerts: AlertHandler | None = None
+        self.health: HealthServer | None = None
+        self.started = time.monotonic()
+        self.last_update: float | None = None
 
     # --- lifecycle -------------------------------------------------------------------------------
 
     async def post_init(self, app: Application) -> None:
+        self.app = app
         self.presenter.bot = app.bot
         self.me = await app.bot.get_me()
         self.fetcher = SafeFetcher()
@@ -179,8 +199,12 @@ class WritersTelegramBot:
         if restored:
             logger.info("restored %d open sprints", restored)
         try:
-            await app.bot.set_my_commands(COMMANDS, scope=BotCommandScopeAllPrivateChats())
-            await app.bot.set_my_commands(COMMANDS, scope=BotCommandScopeAllGroupChats())
+            await app.bot.set_my_commands(PRIVATE_COMMANDS, scope=BotCommandScopeAllPrivateChats())
+            if not (
+                self.settings.ephemeral_commands
+                and await set_commands(app.bot, COMMANDS, {"type": "all_group_chats"}, EPHEMERAL_COMMANDS)
+            ):
+                await app.bot.set_my_commands(COMMANDS, scope=BotCommandScopeAllGroupChats())
         except TelegramError as e:
             logger.warning("set_my_commands failed: %s", e)
         for admin_id in self.settings.super_admins:
@@ -188,13 +212,55 @@ class WritersTelegramBot:
                 await app.bot.set_my_commands(ADMIN_COMMANDS, scope=BotCommandScopeChat(admin_id))
             except TelegramError as e:  # the admin has not started a chat with the bot yet
                 logger.info("no admin command menu for %s: %s", admin_id, e)
+        await self._start_ops()
         if self.prompts.enabled:
             try:
                 await self.prompts.load()
             except Exception:
                 logger.exception("could not load prompts; /prompt and /image are unavailable until /reload")
 
+    async def _start_ops(self) -> None:
+        common = self.settings.common
+        if common.error_alerts and self.settings.super_admins:
+            self.alerts = AlertHandler(self._send_alert)
+            self.alerts.start()
+        if common.health_port:
+            self.health = HealthServer(common.health_host, common.health_port, self.health_status)
+            try:
+                await self.health.start()
+            except OSError as e:
+                logger.warning("health endpoint not started: %s", e)
+                self.health = None
+
+    async def _send_alert(self, text: str) -> None:
+        for admin_id in self.settings.super_admins:
+            with contextlib.suppress(TelegramError):
+                await self.app.bot.send_message(admin_id, f"Помилка в боті\n\n{text}", parse_mode=None)
+
+    async def health_status(self) -> dict:
+        await self.storage.ping()
+        updater = self.app.updater if self.app else None
+        receiving = (
+            self.app is not None
+            and self.app.running
+            and (not self.settings.polling or (updater is not None and updater.running))
+        )
+        return {
+            "ok": receiving,
+            "version": __version__,
+            "uptime_s": round(time.monotonic() - self.started),
+            "last_update_s": None if self.last_update is None else round(time.monotonic() - self.last_update),
+            "open_sprints": len(self.sprints._sprints),
+        }
+
+    async def note_update(self, _update: Update, _context) -> None:
+        self.last_update = time.monotonic()
+
     async def post_shutdown(self, _app: Application) -> None:
+        if self.alerts:
+            await self.alerts.stop()
+        if self.health:
+            await self.health.stop()
         await self.admin.shutdown()
         await self.sprints.shutdown()
         if self.fetcher:
@@ -589,17 +655,19 @@ class WritersTelegramBot:
             sp.ReportStatus.PERCENT_ONLY: "У цьому чаті звітують відсотком зробленого, напр. 40%.",
         }
         if status in texts:
-            await message.reply_text(texts[status])
+            await self.personal.respond(message, texts[status], html=False)
             return
         if outcome.counted is not None:
             prefix = "Стартова кількість" if status == sp.ReportStatus.BASELINE else "У тексті"
             extra = f", записано {outcome.participant.words}" if status == sp.ReportStatus.REPORTED else ""
-            await message.reply_text(f"{prefix}: {outcome.counted} сл.{extra}")
-            return
-        try:
-            await message.set_reaction(ReactionTypeEmoji("👍"))
-        except TelegramError:
-            await message.reply_text("Записано!")
+            await self.personal.respond(message, f"{prefix}: {outcome.counted} сл.{extra}", html=False)
+        else:
+            try:
+                await message.set_reaction(ReactionTypeEmoji("👍"))
+            except TelegramError:
+                await self.personal.respond(message, "Записано.", html=False)
+        if status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
+            await self.personal.report_notes(message, outcome.sprint.id)
 
     @allowed_chat()
     async def sprint_mode(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -629,11 +697,28 @@ class WritersTelegramBot:
         await message.reply_text(f"Готово. З наступного спринту звітують: {names[modes[arg]]}.")
 
     @allowed_chat()
+    async def tz(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self.personal.tz(update, context)
+
+    @allowed_chat()
+    async def goal(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self.personal.goal(update, context)
+
+    @allowed_chat()
+    async def export(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self.personal.export(update, context)
+
+    async def forgetme(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        await self.personal.forgetme(update, context)  # always allowed: deleting your data
+
+    @allowed_chat()
     async def mystats(self, update: Update, _context) -> None:
         message = update.effective_message
         chat_id = None if message.chat.type == ChatType.PRIVATE else str(message.chat_id)
-        stats = await self.storage.user_stats(PLATFORM, str(message.from_user.id), chat_id)
-        await message.reply_html(user_stats_text(self.fmt, message.from_user.full_name, stats))
+        user_id = str(message.from_user.id)
+        stats = await self.storage.user_stats(PLATFORM, user_id, chat_id)
+        progress = await self.personal.personal.progress(user_id, sp.utc_now())
+        await self.personal.respond(message, user_stats_text(self.fmt, message.from_user.full_name, stats, progress))
 
     @allowed_chat()
     async def top(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -663,6 +748,11 @@ class WritersTelegramBot:
             CommandHandler("words", self.words),
             CommandHandler("join", self.join),
             CommandHandler("sprintmode", self.sprint_mode),
+            CommandHandler("tz", self.tz),
+            CommandHandler("goal", self.goal),
+            CommandHandler("export", self.export),
+            CommandHandler("forgetme", self.forgetme),
+            CallbackQueryHandler(self.personal.on_forget_button, pattern=r"^fm:(go|no):[0-9a-f]+$"),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
             CommandHandler("imafan", self.imafan),
@@ -678,6 +768,7 @@ class WritersTelegramBot:
             app.add_handler(handler)
         # Slogan replies in their own group, so a reply that is also a word report gets both.
         app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, self.on_text), group=2)
+        app.add_handler(TypeHandler(Update, self.note_update), group=-2)
         # Chat registry: runs before everything else and never stops other handlers.
         app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
         app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
@@ -714,8 +805,7 @@ def build_application(settings: TelegramSettings) -> Application:
 
 
 def main() -> None:
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    setup_logging(os.environ.get("LOG_FORMAT", "text").strip().lower())
     try:
         settings = TelegramSettings.from_env()
     except ConfigError as e:
