@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 PLATFORM = "discord"
 LANG = "ua"
-REPORT_HINT = "Натисніть «Звітувати слова» або надішліть /words 500 (чи посилання на текст)."
+REPORT_HINT = "Натисніть «Звітувати» або надішліть /words 500 (чи посилання на текст)."
 NO_PINGS = discord.AllowedMentions.none()
 PING_USERS = discord.AllowedMentions(users=True, roles=False, everyone=False)
 
@@ -99,11 +99,9 @@ def sprint_view(sprint: Sprint) -> discord.ui.View | None:
 
 
 def report_view(sprint: Sprint) -> discord.ui.View:
-    repeat = SprintButton("repeat", sprint.planned_duration, 0, label="🔁 Повторити зараз")
+    repeat = SprintButton("repeat", sprint.planned_duration, 0, label="Ще раз")
     if sprint.status == SprintStatus.REPORTING:
-        return _view(
-            SprintButton("report", sprint.id, label="📝 Звітувати слова", style=discord.ButtonStyle.primary), repeat
-        )
+        return _view(SprintButton("report", sprint.id, label="Звітувати", style=discord.ButtonStyle.primary), repeat)
     return _view(repeat)
 
 
@@ -196,6 +194,7 @@ class WritersDiscordBot:
             DiscordSprintPresenter(self.client, self.fmt),
             platform=PLATFORM,
             report_window=common.report_window,
+            count_link=self.count_link,
         )
         self.client.setup_hook = self.setup_hook
         self._register_commands()
@@ -249,16 +248,29 @@ class WritersDiscordBot:
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True, thinking=True)
 
-    async def start_sprint(self, interaction: discord.Interaction, duration: int, delay: int) -> None:
+    async def start_sprint(self, interaction: discord.Interaction, duration: int, delay: int, link: str = "") -> None:
         await self.defer(interaction)
+        key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
         try:
-            await self.sprints.start(chat_key(interaction.channel_id), user_ref(interaction.user), duration, delay)
+            await self.sprints.start(key, user, duration, delay)
         except sp.SprintAlreadyRunningError:
-            await self.reply(interaction, "Спринт вже запущено!", ephemeral=True)
+            await self.reply(interaction, "Спринт вже запущено.", ephemeral=True)
+            return
         except sp.InvalidSprintParamsError as e:
             await self.reply(interaction, str(e), ephemeral=True)
-        else:
-            await self.reply(interaction, "Спринт створено ✍️", ephemeral=True)
+            return
+        text = "Спринт створено."
+        if url := find_url(link):
+            try:
+                outcome = await self.sprints.report(
+                    key, user, sp.ReportInput(sp.ReportKind.LINK, url=url), self.count_link
+                )
+            except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
+                text += f" Не вдалося прочитати посилання: {e}"
+            else:
+                if outcome.counted is not None:
+                    text += f" У тексті зараз {outcome.counted} сл., після спринту порахую ще раз."
+        await self.reply(interaction, text, ephemeral=True)
 
     async def on_button(self, interaction: discord.Interaction, action: str, a: int, b: int | None) -> None:
         if not self.allowed(interaction):
@@ -317,7 +329,7 @@ class WritersDiscordBot:
             S.NO_SPRINT: "Немає спринту, до якого можна звітувати.",
             S.NEED_BASELINE: "Спершу задайте стартову кількість або надішліть просто число написаних слів.",
             S.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як =12000.",
-            S.TOO_MANY: "Це забагато слів для одного спринту 🙂",
+            S.TOO_MANY: "Це забагато слів для одного спринту.",
         }
         if outcome.status in texts:
             text = texts[outcome.status]
@@ -399,13 +411,18 @@ class WritersDiscordBot:
             await bot.reply(interaction, text_stats_text(bot.fmt, text_stats(text)))
 
         @tree.command(name="sprint", description="Почати спринт")
-        @app_commands.describe(duration="Тривалість, хвилин", delay="Затримка до початку, хвилин")
+        @app_commands.describe(
+            duration="Тривалість, хвилин",
+            delay="Затримка до початку, хвилин",
+            link="Посилання на текст: бот порахує, скільки слів додалося",
+        )
         async def sprint_cmd(
             interaction: discord.Interaction,
             duration: app_commands.Range[int, sp.MIN_SPRINT, sp.MAX_SPRINT] = sp.DEFAULT_SPRINT,
             delay: app_commands.Range[int, sp.MIN_SPRINT_DELAY, sp.MAX_SPRINT_DELAY] = sp.DEFAULT_SPRINT_DELAY,
+            link: str = "",
         ):
-            await bot.start_sprint(interaction, duration, delay)
+            await bot.start_sprint(interaction, duration, delay, link)
 
         @tree.command(name="words", description="Звіт про слова: 500, =12500 або посилання")
         @app_commands.describe(

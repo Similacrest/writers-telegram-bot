@@ -163,6 +163,7 @@ class SprintManager:
         tick_seconds: float = 60.0,
         now: Callable[[], datetime] = utc_now,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        count_link: Callable[[str], Awaitable[int]] | None = None,
     ):
         self.storage = storage
         self.presenter = presenter
@@ -171,9 +172,11 @@ class SprintManager:
         self.tick_seconds = tick_seconds
         self.now = now
         self._sleep = sleep
+        self.count_link = count_link
         self._sprints: dict[int, Sprint] = {}
         self._locks: defaultdict[ChatKey, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._tasks: dict[int, asyncio.Task] = {}
+        self._recounts: set[asyncio.Task] = set()
 
     # --- lookups ---------------------------------------------------------------------------------
 
@@ -202,7 +205,7 @@ class SprintManager:
         return len(self._sprints)
 
     async def shutdown(self) -> None:
-        tasks = list(self._tasks.values())
+        tasks = [*self._tasks.values(), *self._recounts]
         for task in tasks:
             task.cancel()
         for task in tasks:
@@ -283,6 +286,36 @@ class SprintManager:
         await self.storage.save_sprint(sprint)
         await self._present(sprint, SprintEvent.FINISHED)
         await self.storage.save_sprint(sprint)
+        if self.count_link and any(p.start_url and p.words is None for p in sprint.participants.values()):
+            task = asyncio.create_task(self._recount_links(sprint), name=f"sprint-{sprint.id}-recount")
+            self._recounts.add(task)
+            task.add_done_callback(self._recounts.discard)
+
+    async def _recount_links(self, sprint: Sprint) -> None:
+        """Count the texts linked before the sprint, so those writers don't have to report by hand."""
+        counted: dict[str, int] = {}
+        for p in list(sprint.participants.values()):
+            if not p.start_url or p.words is not None:
+                continue
+            try:
+                counted[p.user_id] = await self.count_link(p.start_url)
+            except Exception as e:
+                logger.info("sprint %s: could not recount %s: %s", sprint.id, p.start_url, e)
+        if not counted:
+            return
+        async with self.lock(sprint.key):
+            if sprint.status != SprintStatus.REPORTING:
+                return
+            changed = False
+            for user_id, words in counted.items():
+                p = sprint.participants.get(user_id)
+                if p is None or p.words is not None or not p.start_url:
+                    continue  # left the sprint or reported by hand meanwhile
+                report = ReportInput(ReportKind.LINK, url=p.start_url)
+                changed |= self._apply_report(sprint, p, report, words).status == ReportStatus.REPORTED
+            if changed:
+                await self._present(sprint, SprintEvent.REPORT_UPDATED)
+                await self.storage.save_sprint(sprint)
 
     # --- commands --------------------------------------------------------------------------------
 

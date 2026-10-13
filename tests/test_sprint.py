@@ -237,3 +237,49 @@ async def test_presenter_failure_does_not_stop_sprint(storage, clock):
 )
 def test_parse_report(text, expected):
     assert parse_report(text, find_url) == expected
+
+
+async def test_start_link_is_counted_when_the_sprint_ends(storage, clock):
+    counts = {"https://telegra.ph/a": iter([1000, 1450]), "https://telegra.ph/b": iter([200, 900])}
+
+    async def count_link(url):
+        return next(counts[url])
+
+    m = SprintManager(
+        storage, FakePresenter(), platform="test", now=clock.now, sleep=clock.sleep, count_link=count_link
+    )
+    try:
+        sprint = await m.start(KEY, ALICE, 10, 0)
+        await m.join(KEY, BOB)
+        await m.report(KEY, ALICE, ReportInput(ReportKind.LINK, url="https://telegra.ph/a"), count_link)
+        await m.report(KEY, BOB, ReportInput(ReportKind.LINK, url="https://telegra.ph/b"), count_link)
+        await clock.advance(10 * 60)
+        assert sprint.status == SprintStatus.REPORTING
+        assert sprint.participants["1"].words == 450
+        assert sprint.participants["2"].words == 700
+        assert events(m, sprint.id)[-1] == SprintEvent.REPORT_UPDATED
+    finally:
+        await m.shutdown()
+
+
+async def test_recount_failure_leaves_manual_report_open(storage, clock):
+    calls = []
+
+    async def count_link(url):
+        calls.append(url)
+        if len(calls) > 1:
+            raise RuntimeError("site is down")
+        return 1000
+
+    m = SprintManager(
+        storage, FakePresenter(), platform="test", now=clock.now, sleep=clock.sleep, count_link=count_link
+    )
+    try:
+        sprint = await m.start(KEY, ALICE, 5, 0)
+        await m.report(KEY, ALICE, ReportInput(ReportKind.LINK, url="https://telegra.ph/a"), count_link)
+        await clock.advance(5 * 60)
+        assert sprint.participants["1"].words is None
+        outcome = await m.report(KEY, ALICE, ReportInput(ReportKind.WRITTEN, 300), count_link)
+        assert outcome.status == ReportStatus.REPORTED
+    finally:
+        await m.shutdown()
