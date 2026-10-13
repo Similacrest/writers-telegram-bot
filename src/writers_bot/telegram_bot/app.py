@@ -10,6 +10,7 @@ from telegram import (
     BotCommand,
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
+    BotCommandScopeChat,
     Chat,
     LinkPreviewOptions,
     Message,
@@ -23,10 +24,12 @@ from telegram.ext import (
     AIORateLimiter,
     Application,
     CallbackQueryHandler,
+    ChatMemberHandler,
     CommandHandler,
     ContextTypes,
     Defaults,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -39,6 +42,7 @@ from ..core.render import text_stats_text, top_text, user_stats_text
 from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
 from ..core.storage import Storage
 from ..core.wordcount import count_words, text_stats
+from .admin import AdminTools
 from .presenter import HtmlFormatter, TelegramSprintPresenter
 
 logger = logging.getLogger(__name__)
@@ -80,6 +84,14 @@ COMMANDS = [
     BotCommand("top", "Топ за словами"),
     BotCommand("sprinthelp", "Як працюють спринти"),
     BotCommand("help", "Допомога"),
+]
+
+ADMIN_COMMANDS = [
+    *COMMANDS,
+    BotCommand("chats", "Адмін: усі чати з ботом"),
+    BotCommand("broadcast", "Адмін: розсилка (groups / private / all)"),
+    BotCommand("stats", "Адмін: кількість промптів"),
+    BotCommand("reload", "Адмін: перезавантажити промпти"),
 ]
 
 LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
@@ -141,6 +153,7 @@ class WritersTelegramBot:
             self.storage, self.presenter, platform=PLATFORM, report_window=common.report_window
         )
         self.me = None
+        self.admin = AdminTools(self.storage, settings.super_admins)
 
     # --- lifecycle -------------------------------------------------------------------------------
 
@@ -157,6 +170,11 @@ class WritersTelegramBot:
             await app.bot.set_my_commands(COMMANDS, scope=BotCommandScopeAllGroupChats())
         except TelegramError as e:
             logger.warning("set_my_commands failed: %s", e)
+        for admin_id in self.settings.super_admins:
+            try:
+                await app.bot.set_my_commands(ADMIN_COMMANDS, scope=BotCommandScopeChat(admin_id))
+            except TelegramError as e:  # the admin has not started a chat with the bot yet
+                logger.info("no admin command menu for %s: %s", admin_id, e)
         if self.prompts.enabled:
             try:
                 await self.prompts.load()
@@ -164,6 +182,7 @@ class WritersTelegramBot:
                 logger.exception("could not load prompts; /prompt and /image are unavailable until /reload")
 
     async def post_shutdown(self, _app: Application) -> None:
+        await self.admin.shutdown()
         await self.sprints.shutdown()
         if self.fetcher:
             await self.fetcher.aclose()
@@ -533,6 +552,12 @@ class WritersTelegramBot:
         ]
         for handler in handlers:
             app.add_handler(handler)
+        # Chat registry: runs before everything else and never stops other handlers.
+        app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
+        app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
+        app.add_handler(CommandHandler("chats", self.admin.chats))
+        app.add_handler(CommandHandler("broadcast", self.admin.broadcast))
+        app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
         app.add_error_handler(self.on_error)
 
 
@@ -541,7 +566,7 @@ def build_application(settings: TelegramSettings) -> Application:
     app = (
         Application.builder()
         .token(settings.token)
-        .rate_limiter(AIORateLimiter())
+        .rate_limiter(AIORateLimiter(max_retries=3))
         .defaults(
             Defaults(
                 parse_mode=ParseMode.HTML,

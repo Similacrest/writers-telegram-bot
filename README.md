@@ -23,6 +23,19 @@ A bot for writing communities, on Telegram and Discord.
 | `/sprinthelp`, `/help`, `/start` | | Help (`help_message` from the config sheet, or a built-in text) |
 | `/stats`, `/reload`, `/debuginfo` | `/reload` | Prompt counts, reload prompts (admins), ids |
 
+### Admin: chats and broadcasts (Telegram, `BOT_SUPERADMINS` only, in a private chat with the bot)
+
+- `/chats [groups|private|all]`: every chat the bot is in (groups, supergroups, channels and private chats),
+  with ids and last activity; more than 60 entries come as a CSV file.
+- `/broadcast groups|private|all`: send it **as a reply** to the message to broadcast (any type: text,
+  photo, formatting are kept), or `/broadcast all Текст`. The bot shows a preview and the recipient count
+  and sends only after you press ✅. Chats that removed or blocked the bot are marked and skipped afterwards.
+
+Telegram has no method that lists a bot's chats, so the bot records chats as it receives updates from them
+and when it is added or removed. Chats from before this version are imported once from the old
+`db.pickle`: `python scripts/import_legacy_chats.py db.pickle` (add `--include-users` to also try users
+who only used the bot in groups as private chats).
+
 ### Word reports
 
 When a sprint ends, the bot posts a results message and accepts reports for `SPRINT_REPORT_WINDOW` minutes:

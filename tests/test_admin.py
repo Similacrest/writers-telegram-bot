@@ -1,0 +1,221 @@
+import io
+import pickle
+import sys
+import warnings
+from datetime import timedelta
+from types import SimpleNamespace
+
+import pytest
+from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter, TimedOut
+
+from writers_bot.core.models import ChatRecord, ChatStatus
+from writers_bot.telegram_bot.admin import AdminTools, BroadcastResult, PendingBroadcast, member_status
+from writers_bot.telegram_bot.legacy import guess_chat_type, read_legacy_ids
+
+ADMIN = 42
+
+
+def rec(chat_id, type_="supergroup", status=ChatStatus.MEMBER, title=None):
+    return ChatRecord("telegram", str(chat_id), type_, title, None, status)
+
+
+# --- legacy import -----------------------------------------------------------------------------------
+
+
+class Evil:
+    def __reduce__(self):
+        return (sys.exit, (99,))  # would run on a plain pickle.load
+
+
+class _BotRefPickler(pickle.Pickler):
+    def persistent_id(self, obj):
+        return "bot" if obj == "BOT" else None
+
+
+def test_read_legacy_ids_without_running_anything(tmp_path):
+    data = {
+        "chat_data": {-1001234567890: {}, -4567: {}, 555: {"x": "BOT"}},
+        "user_data": {555: {}, 777: {}},
+        "bot_data": {"evil": Evil()},
+        "conversations": {},
+        "callback_data": None,
+    }
+    buf = io.BytesIO()
+    _BotRefPickler(buf).dump(data)
+    path = tmp_path / "db.pickle"
+    path.write_bytes(buf.getvalue())
+    chats, users = read_legacy_ids(path)  # must not call sys.exit
+    assert chats == {-1001234567890, -4567, 555}
+    assert users == {555, 777}
+
+
+def test_guess_chat_type():
+    assert guess_chat_type(555) == "private"
+    assert guess_chat_type(-4567) == "group"
+    assert guess_chat_type(-1001234567890) == "supergroup"
+
+
+# --- storage -----------------------------------------------------------------------------------------
+
+
+async def test_chat_registry(storage):
+    await storage.upsert_chat(rec(-1001, title="Writers"))
+    await storage.upsert_chat(rec(5, "private", title="Ann"))
+    await storage.upsert_chat(rec(-1002, status=ChatStatus.KICKED))
+    # importing old ids never overwrites what the bot has seen
+    await storage.upsert_chat(rec(-1001, "group", ChatStatus.UNKNOWN), only_new=True)
+    await storage.upsert_chat(rec(-1003, "group", ChatStatus.UNKNOWN), only_new=True)
+
+    all_chats = {c.chat_id: c for c in await storage.list_chats("telegram")}
+    assert all_chats["-1001"].type == "supergroup" and all_chats["-1001"].status == ChatStatus.MEMBER
+    assert all_chats["-1003"].status == ChatStatus.UNKNOWN
+
+    groups = await storage.list_chats("telegram", private=False, reachable_only=True)
+    assert {c.chat_id for c in groups} == {"-1001", "-1003"}
+    private = await storage.list_chats("telegram", private=True, reachable_only=True)
+    assert [c.chat_id for c in private] == ["5"]
+
+    await storage.set_chat_status("telegram", "5", ChatStatus.KICKED)
+    assert await storage.list_chats("telegram", private=True, reachable_only=True) == []
+
+
+# --- tracking ----------------------------------------------------------------------------------------
+
+
+def fake_update(chat_id, type_="group", title="G", migrate_to=None, my_chat_member=None):
+    chat = SimpleNamespace(id=chat_id, type=type_, title=title, first_name=None, last_name=None, username=None)
+    message = SimpleNamespace(migrate_to_chat_id=migrate_to)
+    return SimpleNamespace(effective_chat=chat, effective_message=message, my_chat_member=my_chat_member)
+
+
+async def test_track_records_and_throttles(storage):
+    tools = AdminTools(storage, frozenset({ADMIN}))
+    await tools.track(fake_update(-1, title="First"), None)
+    await tools.track(fake_update(-1, title="Renamed"), None)  # throttled
+    [chat] = await storage.list_chats("telegram")
+    assert chat.title == "First"
+
+
+async def test_track_group_migration(storage):
+    tools = AdminTools(storage, frozenset({ADMIN}))
+    await tools.track(fake_update(-1), None)
+    await tools.track(fake_update(-1, migrate_to=-1009), None)
+    chats = {c.chat_id: c.status for c in await storage.list_chats("telegram")}
+    assert chats == {"-1": ChatStatus.MIGRATED, "-1009": ChatStatus.MEMBER}
+
+
+@pytest.mark.parametrize(
+    ("status", "is_member", "expected"),
+    [
+        ("member", None, ChatStatus.MEMBER),
+        ("administrator", None, ChatStatus.MEMBER),
+        ("left", None, ChatStatus.LEFT),
+        ("kicked", None, ChatStatus.KICKED),
+        ("restricted", False, ChatStatus.LEFT),
+        ("restricted", True, ChatStatus.MEMBER),
+    ],
+)
+def test_member_status(status, is_member, expected):
+    change = SimpleNamespace(new_chat_member=SimpleNamespace(status=status, is_member=is_member))
+    assert member_status(change) == expected
+
+
+# --- broadcasting ------------------------------------------------------------------------------------
+
+
+class FakeBot:
+    def __init__(self, behaviour):
+        self.behaviour = behaviour  # chat_id -> list of exceptions to raise before succeeding
+        self.sent = []
+
+    async def copy_message(self, chat_id, from_chat_id, message_id):
+        queue = self.behaviour.get(chat_id, [])
+        if queue:
+            raise queue.pop(0)
+        self.sent.append(chat_id)
+
+    async def send_message(self, chat_id, text, **kwargs):
+        self.sent.append(("text", chat_id))
+
+
+class FakeStatusMessage:
+    def __init__(self):
+        self.texts = []
+
+    async def edit_text(self, text, **kwargs):
+        self.texts.append(text)
+
+
+async def test_broadcast_handles_gone_chats_and_retries(storage, monkeypatch):
+    async def no_sleep(_):
+        return None
+
+    monkeypatch.setattr("writers_bot.telegram_bot.admin.asyncio.sleep", no_sleep)
+    for chat in [
+        rec(-1),
+        rec(-2),
+        rec(-3),
+        rec(-4),
+        rec(-5),
+        rec(7, "private"),
+        rec(ADMIN, "private"),
+        rec(-6, status=ChatStatus.LEFT),
+    ]:
+        await storage.upsert_chat(chat)
+    await storage.upsert_chat(rec(-8, "group", ChatStatus.UNKNOWN), only_new=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # PTB warns about the int -> timedelta change of retry_after
+        retry = RetryAfter(timedelta(seconds=1))
+    bot = FakeBot(
+        {
+            -2: [Forbidden("bot was kicked")],
+            -3: [BadRequest("Chat not found")],
+            -4: [retry],
+            -5: [ChatMigrated(-1005)],
+            7: [TimedOut()],
+        }
+    )
+    tools = AdminTools(storage, frozenset({ADMIN}))
+    status = FakeStatusMessage()
+    await tools._run_broadcast(bot, PendingBroadcast(ADMIN, "all", ADMIN, 10), status)
+
+    assert sorted(bot.sent) == sorted([-1, -4, -1005, -8])  # never the source chat, never the left chat
+    chats = {c.chat_id: c.status for c in await storage.list_chats("telegram")}
+    assert chats["-2"] == ChatStatus.KICKED
+    assert chats["-3"] == ChatStatus.LEFT
+    assert chats["-5"] == ChatStatus.MIGRATED and chats["-1005"] == ChatStatus.MEMBER
+    assert chats["-8"] == ChatStatus.MEMBER  # confirmed by a successful delivery
+    assert "Надіслано: 4 з 7" in status.texts[-1]
+    assert "Помилки: 1" in status.texts[-1]
+
+
+async def test_broadcast_target_filters(storage):
+    for chat in [rec(-1), rec(7, "private"), rec(8, "private")]:
+        await storage.upsert_chat(chat)
+    tools = AdminTools(storage, frozenset({ADMIN}))
+    assert {c.chat_id for c in await tools._recipients("groups")} == {"-1"}
+    assert {c.chat_id for c in await tools._recipients("private", exclude=8)} == {"7"}
+    assert len(await tools._recipients("all")) == 3
+
+
+async def test_broadcast_buttons_only_for_the_admin_who_asked(storage):
+    tools = AdminTools(storage, frozenset({ADMIN, 43}))
+    tools._pending["abc"] = PendingBroadcast(ADMIN, "all", ADMIN, 1)
+    answers = []
+
+    async def answer(text=None, **kwargs):
+        answers.append(text)
+
+    async def edit_reply_markup(*args, **kwargs):
+        return None
+
+    query = SimpleNamespace(
+        data="bc:go:abc", from_user=SimpleNamespace(id=43), answer=answer, edit_message_reply_markup=edit_reply_markup
+    )
+    await tools.on_broadcast_button(SimpleNamespace(callback_query=query), None)
+    assert answers == ["Ця розсилка вже неактуальна."]
+    assert "abc" in tools._pending
+
+
+def test_result_defaults():
+    assert BroadcastResult().sent == 0

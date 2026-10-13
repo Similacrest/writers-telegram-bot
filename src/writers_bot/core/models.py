@@ -77,6 +77,35 @@ class UserStats:
     minutes: int
 
 
+class ChatStatus(StrEnum):
+    MEMBER = "member"  # the bot is in the chat / the user has not blocked it
+    UNKNOWN = "unknown"  # imported from old data, not confirmed yet
+    LEFT = "left"  # removed from the group, or the chat no longer exists
+    KICKED = "kicked"  # banned from the group, or the user blocked the bot
+    MIGRATED = "migrated"  # group upgraded to a supergroup with a new id
+
+
+REACHABLE_CHAT_STATUSES = (ChatStatus.MEMBER, ChatStatus.UNKNOWN)
+
+
+@dataclass(slots=True)
+class ChatRecord:
+    """A chat the bot has seen. Telegram has no API to list a bot's chats, so the bot keeps this itself."""
+
+    platform: str
+    chat_id: str
+    type: str  # private, group, supergroup, channel
+    title: str | None = None
+    username: str | None = None
+    status: ChatStatus = ChatStatus.MEMBER
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+
+    @property
+    def is_private(self) -> bool:
+        return self.type == "private"
+
+
 @dataclass(frozen=True, slots=True)
 class TopEntry:
     user_id: str

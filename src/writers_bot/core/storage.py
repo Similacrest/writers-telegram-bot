@@ -6,7 +6,17 @@ from pathlib import Path
 
 import aiosqlite
 
-from .models import OPEN_STATUSES, ChatKey, Participant, Sprint, SprintStatus, TopEntry, UserStats
+from .models import (
+    OPEN_STATUSES,
+    ChatKey,
+    ChatRecord,
+    ChatStatus,
+    Participant,
+    Sprint,
+    SprintStatus,
+    TopEntry,
+    UserStats,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sprints (
@@ -39,8 +49,22 @@ CREATE TABLE IF NOT EXISTS participants (
     PRIMARY KEY (sprint_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS participants_user ON participants (user_id);
-PRAGMA user_version = 1;
+CREATE TABLE IF NOT EXISTS chats (
+    platform TEXT NOT NULL,
+    chat_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT,
+    username TEXT,
+    status TEXT NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    PRIMARY KEY (platform, chat_id)
+);
+PRAGMA user_version = 2;
 """
+
+
+REACHABLE = [ChatStatus.MEMBER.value, ChatStatus.UNKNOWN.value]
 
 
 def _dt(value: str | None) -> datetime | None:
@@ -212,3 +236,67 @@ class Storage:
             (platform, chat_id, _iso(since), limit),
         ) as cur:
             return [TopEntry(r["user_id"], r["name"], r["words"], r["sprints"]) for r in await cur.fetchall()]
+
+    # --- chats the bot is in ---------------------------------------------------------------------
+
+    async def upsert_chat(self, chat: ChatRecord, *, only_new: bool = False) -> None:
+        """Record a chat sighting. ``only_new`` adds it only if unknown so far (importing old ids)."""
+        now = _iso(chat.last_seen or datetime.now(UTC))
+        conflict = (
+            "DO NOTHING"
+            if only_new
+            else """DO UPDATE SET type = excluded.type,
+                   title = COALESCE(excluded.title, chats.title),
+                   username = COALESCE(excluded.username, chats.username),
+                   status = excluded.status,
+                   last_seen = MAX(chats.last_seen, excluded.last_seen)"""
+        )
+        await self.db.execute(
+            f"""INSERT INTO chats (platform, chat_id, type, title, username, status, first_seen, last_seen)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (platform, chat_id) {conflict}""",  # noqa: S608
+            (
+                chat.platform,
+                chat.chat_id,
+                chat.type,
+                chat.title,
+                chat.username,
+                chat.status.value,
+                _iso(chat.first_seen) or now,
+                now,
+            ),
+        )
+        await self.db.commit()
+
+    async def set_chat_status(self, platform: str, chat_id: str, status: ChatStatus) -> None:
+        await self.db.execute(
+            "UPDATE chats SET status = ? WHERE platform = ? AND chat_id = ?", (status.value, platform, chat_id)
+        )
+        await self.db.commit()
+
+    async def list_chats(
+        self, platform: str, *, private: bool | None = None, reachable_only: bool = False
+    ) -> list[ChatRecord]:
+        query = "SELECT * FROM chats WHERE platform = ?"
+        params: list = [platform]
+        if private is True:
+            query += " AND type = 'private'"
+        elif private is False:
+            query += " AND type != 'private'"
+        if reachable_only:
+            query += f" AND status IN ({','.join('?' * len(REACHABLE))})"
+            params += REACHABLE
+        query += " ORDER BY type = 'private', last_seen DESC"
+        async with self.db.execute(query, params) as cur:
+            return [
+                ChatRecord(
+                    platform=r["platform"],
+                    chat_id=r["chat_id"],
+                    type=r["type"],
+                    title=r["title"],
+                    username=r["username"],
+                    status=ChatStatus(r["status"]),
+                    first_seen=_dt(r["first_seen"]),
+                    last_seen=_dt(r["last_seen"]),
+                )
+                for r in await cur.fetchall()
+            ]
