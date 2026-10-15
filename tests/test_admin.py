@@ -403,3 +403,26 @@ async def test_image_prompt_shows_a_link_preview(monkeypatch):
     merged = ext._merge_lpo_defaults(sent["link_preview_options"])
     assert merged.is_disabled is False and merged.url == link
     assert 'href="https://drive.google.com/uc?id=abc&amp;export=download"' in sent["text"]
+
+
+async def test_link_previews_follow_v2(monkeypatch):
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import WritersTelegramBot, build_application
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    assert build_application(TelegramSettings.from_env()).bot.defaults.link_preview_options is None
+
+    bot = WritersTelegramBot(TelegramSettings.from_env())
+    bot.prompts.random_text = lambda lang, category=None: {"Сюжет": "див. https://example.com"}
+    sent = []
+
+    async def reply_html(text, **kwargs):
+        sent.append(kwargs)
+
+    message = SimpleNamespace(text="/help", caption=None, reply_html=reply_html)
+    update = SimpleNamespace(effective_chat=None, effective_user=None, effective_message=message)
+    await bot.help(update, SimpleNamespace(args=[]))
+    assert sent[-1]["link_preview_options"].is_disabled  # v2 turned previews off for /help and /start
+    await bot.prompt(update, SimpleNamespace(args=[]))
+    assert "link_preview_options" not in sent[-1]  # prompts from the sheet get previews, as in v2

@@ -58,6 +58,8 @@ logger = logging.getLogger(__name__)
 PLATFORM = "telegram"
 LANG = "ua"
 LINK_WITH_SHORT_TEXT = 20  # a message that is mostly a link is counted by fetching the link
+# Link previews are on by default, as in v2; these messages turn them off (v2 did for /help and /start).
+NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 
 DEFAULT_HELP = """<b>Бот для письменників</b>
 
@@ -255,7 +257,9 @@ class WritersTelegramBot:
     async def _send_alert(self, text: str) -> None:
         for admin_id in self.settings.super_admins:
             with contextlib.suppress(TelegramError):
-                await self.app.bot.send_message(admin_id, f"Помилка в боті\n\n{text}", parse_mode=None)
+                await self.app.bot.send_message(
+                    admin_id, f"Помилка в боті\n\n{text}", parse_mode=None, link_preview_options=NO_PREVIEW
+                )
 
     async def health_status(self) -> dict:
         await self.storage.ping()
@@ -322,13 +326,13 @@ class WritersTelegramBot:
     async def start(self, update: Update, _context) -> None:
         text = self.prompts.config_text("help_message") or (PREVIEW_HELP if self.preview else DEFAULT_HELP)
         greeting = "Я переродився, Райтенчіле!\n\n" if self.settings.extras else ""
-        await self._reply_html_safe(update.effective_message, greeting + text)
+        await self._reply_html_safe(update.effective_message, greeting + text, link_preview_options=NO_PREVIEW)
 
     async def help(self, update: Update, _context) -> None:
         text = self.prompts.config_text("help_message") or (
             (PREVIEW_HELP if self.preview else DEFAULT_HELP) + (EXTRAS_HELP if self.settings.extras else "")
         )
-        await self._reply_html_safe(update.effective_message, text)
+        await self._reply_html_safe(update.effective_message, text, link_preview_options=NO_PREVIEW)
 
     async def sprint_help(self, update: Update, _context) -> None:
         await update.effective_message.reply_html(SPRINT_HELP)
@@ -366,7 +370,6 @@ class WritersTelegramBot:
         link = image.get("webContentLink") or image.get("webViewLink") or ""
         await message.reply_html(
             f'{self.fmt.escape(cat)} #<a href="{self.fmt.escape(link)}">{num}</a>',
-            # is_disabled must be explicit: unset fields are filled from Defaults, which disable previews.
             link_preview_options=LinkPreviewOptions(is_disabled=False, url=link, prefer_large_media=True)
             if link
             else None,
@@ -485,7 +488,9 @@ class WritersTelegramBot:
             try:
                 linked = await fetch_linked_text(self.fetcher, url, all_sources=self.preview)
             except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-                await message.reply_text(f"Не вдалося прочитати посилання: {e}", parse_mode=None)
+                await message.reply_text(
+                    f"Не вдалося прочитати посилання: {e}", parse_mode=None, link_preview_options=NO_PREVIEW
+                )
                 return
             await message.reply_html(
                 text_stats_text(self.fmt, text_stats(linked.text), source_locative(linked.source))
@@ -669,7 +674,9 @@ class WritersTelegramBot:
                 chat_key(message), user_ref(message.from_user), report, self.count_link, sprint_id
             )
         except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-            await message.reply_text(f"Не вдалося прочитати посилання: {e}", parse_mode=None)
+            await message.reply_text(
+                f"Не вдалося прочитати посилання: {e}", parse_mode=None, link_preview_options=NO_PREVIEW
+            )
             return
         await self._report_feedback(message, outcome)
 
@@ -830,7 +837,6 @@ def build_application(settings: TelegramSettings) -> Application:
         .defaults(
             Defaults(
                 parse_mode=ParseMode.HTML,
-                link_preview_options=LinkPreviewOptions(is_disabled=True),
                 tzinfo=settings.common.timezone,
             )
         )

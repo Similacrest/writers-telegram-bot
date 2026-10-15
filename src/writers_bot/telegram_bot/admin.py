@@ -20,7 +20,16 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from telegram import Chat, ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, Message, Update
+from telegram import (
+    Chat,
+    ChatMemberUpdated,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputFile,
+    LinkPreviewOptions,
+    Message,
+    Update,
+)
 from telegram.constants import ChatMemberStatus, ChatType, KeyboardButtonStyle
 from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter, TelegramError
 from telegram.ext import ContextTypes
@@ -31,6 +40,7 @@ from ..core.storage import Storage
 logger = logging.getLogger(__name__)
 
 PLATFORM = "telegram"
+NO_PREVIEW = LinkPreviewOptions(is_disabled=True)  # admin output: chat titles and broadcast texts
 TRACK_EVERY = timedelta(minutes=10)  # refresh last_seen at most this often per chat
 PENDING_TTL = 3600
 PROGRESS_EVERY = 5.0  # seconds between progress edits
@@ -213,11 +223,11 @@ class AdminTools:
         chunk = head
         for line in lines:
             if len(chunk) + len(line) + 1 > limit:
-                await message.reply_html(chunk)
+                await message.reply_html(chunk, link_preview_options=NO_PREVIEW)
                 chunk = ""
             chunk += ("\n" if chunk else "") + line
         if chunk:
-            await message.reply_html(chunk)
+            await message.reply_html(chunk, link_preview_options=NO_PREVIEW)
 
     # --- /broadcast ------------------------------------------------------------------------------
 
@@ -247,7 +257,9 @@ class AdminTools:
             if len(text) < 3:
                 await message.reply_text("Надішліть команду у відповідь на повідомлення або додайте текст після цілі.")
                 return
-            preview = await context.bot.send_message(chat_id, text[2], parse_mode=None)
+            preview = await context.bot.send_message(
+                chat_id, text[2], parse_mode=None, link_preview_options=NO_PREVIEW
+            )
 
         recipients = await self._recipients(target, exclude=chat_id)
         skipped = await self._excluded_count(target)
