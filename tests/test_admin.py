@@ -375,3 +375,31 @@ def test_preview_features_off_by_default(monkeypatch):
     group, private, admin = command_menus(True)
     assert "forgetme" in names(private) and "forgetme" not in names(group)
     assert {"goal", "join", "chats", "reload"} <= names(admin)
+
+
+async def test_image_prompt_shows_a_link_preview(monkeypatch):
+    from telegram import LinkPreviewOptions
+    from telegram.ext import Defaults, ExtBot
+
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import WritersTelegramBot
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    bot = WritersTelegramBot(TelegramSettings.from_env())
+    link = "https://drive.google.com/uc?id=abc&export=download"
+    bot.prompts.random_image = lambda category: ("Персонаж", 7, {"webContentLink": link})
+    sent = {}
+
+    async def reply_html(text, **kwargs):
+        sent.update(kwargs, text=text)
+
+    message = SimpleNamespace(text="/image", caption=None, reply_html=reply_html)
+    update = SimpleNamespace(effective_chat=None, effective_user=None, effective_message=message)
+    await bot.image(update, SimpleNamespace(args=[]))
+
+    # The application's Defaults disable previews; what the image prompt passes must override that.
+    ext = ExtBot("123:abc", defaults=Defaults(link_preview_options=LinkPreviewOptions(is_disabled=True)))
+    merged = ext._merge_lpo_defaults(sent["link_preview_options"])
+    assert merged.is_disabled is False and merged.url == link
+    assert 'href="https://drive.google.com/uc?id=abc&amp;export=download"' in sent["text"]

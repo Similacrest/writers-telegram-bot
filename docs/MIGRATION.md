@@ -39,9 +39,9 @@ again and the two instances take turns. So stop Render **before** starting the h
    writable by uid 10001.
 5. **Convert the token and import chats** (one-off containers on the same volume):
    ```sh
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.3 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.4 \
      python scripts/migrate_google_token.py /legacy/token.pickle.b64 /app/data/token.json
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.3 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.4 \
      python scripts/import_legacy_chats.py /legacy/db.pickle
    ```
 6. **Start the bot** with `TELEGRAM_POLLING=1` and `restart: unless-stopped`. Check the log for

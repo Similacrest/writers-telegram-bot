@@ -366,7 +366,10 @@ class WritersTelegramBot:
         link = image.get("webContentLink") or image.get("webViewLink") or ""
         await message.reply_html(
             f'{self.fmt.escape(cat)} #<a href="{self.fmt.escape(link)}">{num}</a>',
-            link_preview_options=LinkPreviewOptions(url=link, prefer_large_media=True) if link else None,
+            # is_disabled must be explicit: unset fields are filled from Defaults, which disable previews.
+            link_preview_options=LinkPreviewOptions(is_disabled=False, url=link, prefer_large_media=True)
+            if link
+            else None,
         )
 
     @allowed_chat()
