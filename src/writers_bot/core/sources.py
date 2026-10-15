@@ -294,16 +294,17 @@ def _json(resp) -> dict:
     return data
 
 
-async def fetch_linked_text(fetcher: SafeFetcher, url: str, *, google_docs: bool = True) -> LinkedText:
+async def fetch_linked_text(fetcher: SafeFetcher, url: str, *, all_sources: bool = True) -> LinkedText:
+    """Text behind ``url``. With ``all_sources=False`` only Telegraph, as in v2."""
     host = (urlsplit(url).hostname or "").lower()
     if url.lower().startswith("http://"):
         url = "https://" + url[7:]
     if host in TELEGRAPH_HOSTS:
         return await fetch_telegraph(fetcher, url)
+    if not all_sources:
+        raise UnsupportedLinkError("непідтримуваний сайт")
     if host in ELLIPSUS_HOSTS:
         return await fetch_ellipsus(fetcher, url)
     if host in GDOCS_HOSTS:
-        if not google_docs:
-            raise UnsupportedLinkError("непідтримуваний сайт")
         return await fetch_google_doc(fetcher, url)
     return await fetch_writefreely(fetcher, url)

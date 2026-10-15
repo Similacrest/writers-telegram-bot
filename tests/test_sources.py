@@ -156,7 +156,15 @@ async def test_google_doc_not_shared():
         await fetch_linked_text(fetcher, f"https://docs.google.com/document/u/0/d/{doc}/edit")
 
 
-async def test_google_docs_can_be_switched_off():
-    doc = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
-    with pytest.raises(UnsupportedLinkError):
-        await fetch_linked_text(fetcher_for({}), f"https://docs.google.com/document/d/{doc}/edit", google_docs=False)
+async def test_only_telegraph_without_all_sources():
+    page = {"ok": True, "result": {"title": "Назва", "content": ["слово"]}}
+    fetcher = fetcher_for({"api.telegra.ph/getPage/Nazva-10-13": httpx.Response(200, json=page)})
+    linked = await fetch_linked_text(fetcher, "https://telegra.ph/Nazva-10-13", all_sources=False)
+    assert linked.source == "Телеграф"
+    for url in (
+        "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit",
+        "https://ellipsus.com/read/6Wix2TBqszeWlODJo5mkx4",
+        "https://paper.wf/sim/post",
+    ):
+        with pytest.raises(UnsupportedLinkError):
+            await fetch_linked_text(fetcher_for({}), url, all_sources=False)

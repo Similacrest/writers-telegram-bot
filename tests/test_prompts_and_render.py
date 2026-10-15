@@ -100,3 +100,56 @@ def test_percent_report_text():
                     participants={"1": Participant("1", "Ann", now, words=40, reported_at=now)})  # fmt: skip
     text = report_text(HtmlFormatter(ZoneInfo("Europe/Kyiv")), sprint, now)
     assert "<b>40%</b>" in text and "сл/хв" not in text and "Разом" not in text and "відсотків" in text
+
+
+async def test_finish_without_reports_looks_like_v2():
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from writers_bot.core.models import ChatKey, Participant, Sprint, SprintStatus
+    from writers_bot.core.sprint import SprintEvent
+    from writers_bot.telegram_bot.presenter import TelegramSprintPresenter
+
+    calls = []
+
+    class FakeBot:
+        def __getattr__(self, name):
+            async def call(*args, **kwargs):
+                calls.append((name, kwargs))
+                return SimpleNamespace(message_id=99)
+
+            return call
+
+    def finished(stopped: bool) -> Sprint:
+        start = datetime(2026, 10, 15, 12, tzinfo=UTC)
+        return Sprint(
+            id=1,
+            key=ChatKey("telegram", "-100", None),
+            status=SprintStatus.CLOSED,
+            duration=30,
+            planned_duration=30,
+            delay=0,
+            created_by="1",
+            created_at=start,
+            start_at=start,
+            end_at=start + timedelta(minutes=30),
+            participants={"1": Participant("1", "Alice", start)},
+            refs={"msg": 10},
+            stopped_early=stopped,
+        )
+
+    presenter = TelegramSprintPresenter(HtmlFormatter(UTC), reports=False)
+    presenter.bot = FakeBot()
+
+    await presenter.show(finished(stopped=False), SprintEvent.FINISHED)
+    sent = [kw for name, kw in calls if name == "send_message"]
+    assert len(sent) == 1 and "Спринт завершено" in sent[0]["text"] and "Звіт" not in sent[0]["text"]
+    buttons = [b.text for row in sent[0]["reply_markup"].inline_keyboard for b in row]
+    assert buttons == ["Ще раз"]
+
+    calls.clear()
+    await presenter.show(finished(stopped=True), SprintEvent.FINISHED)
+    assert not [c for c in calls if c[0] == "send_message"]
+    edit = next(kw for name, kw in calls if name == "edit_message_text")
+    assert "Спринт зупинено" in edit["text"]
+    assert [b.text for row in edit["reply_markup"].inline_keyboard for b in row] == ["Ще раз"]

@@ -62,6 +62,17 @@
     count towards word stats and `/top`. Settings live in a new `chat_settings` table, which phase 3 builds
     on.
 
+## v3.3.3: v2 features by default
+
+Only what the v2 bot (`main` + `extended`) offered is on by default: prompts, images, `/wc` for text and
+Telegraph, sprints with join/leave/repeat buttons, `/stats`, `/reload`, `/debuginfo` and the `EXTRAS`.
+Everything else that users see is behind `PREVIEW_FEATURES=1` while the commands are redesigned: the Discord
+bot, word reports and the results board, `/join`, sprint links, percent sprints, `/mystats`, `/top`,
+`/sprinthelp`, prompt categories as an argument, WriteFreely/Ellipsus/Google Docs links, admin chat list and
+broadcasts, and phases 1–2 below. Without the preview a sprint ends as in v2: a "finished" message with a
+repeat button and no report window. The rewrite (items 1–6 and 10–11 above, minus Discord) and the ops parts
+of phase 1 stay on. The bot still records the chats it is in, so the registry is complete once `/chats` returns.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
@@ -111,7 +122,7 @@ Phases are in order of dependency. Each ends in a tagged release.
 
 ### Phase 1: run well on the homelab (done in v3.3)
 Health check, error alerts, JSON logs and backups are on. `/export` and `/forgetme` are behind
-`PREVIEW_FEATURES` (off by default since v3.3.2) while the commands are redesigned.
+`PREVIEW_FEATURES` (off by default since v3.3.2).
 - Cut-over guide from Render ([MIGRATION.md](MIGRATION.md)); the cut-over itself is up to ops.
 - `/health` endpoint with a Docker `HEALTHCHECK`; JSON logs (`LOG_FORMAT=json`).
 - Errors from the log sent to super-admins in private, rate-limited.

@@ -165,6 +165,7 @@ class SprintManager:
         now: Callable[[], datetime] = utc_now,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         count_link: Callable[[str], Awaitable[int]] | None = None,
+        reports: bool = True,
     ):
         self.storage = storage
         self.presenter = presenter
@@ -174,6 +175,7 @@ class SprintManager:
         self.now = now
         self._sleep = sleep
         self.count_link = count_link
+        self.reports = reports  # False: a finished sprint closes at once, as in v2 (no word reports)
         self._sprints: dict[int, Sprint] = {}
         self._locks: defaultdict[ChatKey, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._tasks: dict[int, asyncio.Task] = {}
@@ -282,6 +284,12 @@ class SprintManager:
                 await self._sleep(5)
 
     async def _finish(self, sprint: Sprint) -> None:
+        if not self.reports:
+            sprint.status = SprintStatus.CLOSED
+            await self._present(sprint, SprintEvent.FINISHED)
+            await self.storage.save_sprint(sprint)
+            self._drop(sprint)
+            return
         sprint.status = SprintStatus.REPORTING
         sprint.report_until = self.now() + self.report_window
         await self.storage.save_sprint(sprint)
@@ -410,7 +418,8 @@ class SprintManager:
         sprint.duration = max(0, int((now - sprint.start_at).total_seconds() // 60))
         sprint.end_at = now
         await self._finish(sprint)
-        self._spawn(sprint)  # restart the runner so the report window closes on time
+        if sprint.status == SprintStatus.REPORTING:
+            self._spawn(sprint)  # restart the runner so the report window closes on time
         return LeaveResult.STOPPED
 
     async def update_refs(self, sprint: Sprint, update: Callable[[dict], None]) -> None:

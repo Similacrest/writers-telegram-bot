@@ -78,7 +78,7 @@ class CommonSettings:
     health_host: str = "127.0.0.1"
     health_port: int = 0  # 0 = no health endpoint
     error_alerts: bool = True  # send ERROR log records to the super-admins
-    # Phase 1-2 user features still being designed (see PREVIEW_FEATURES in the README)
+    # everything added since v2 that users see, still being designed (see PREVIEW_FEATURES in the README)
     preview_features: bool = False
 
     @classmethod
@@ -167,10 +167,13 @@ class DiscordSettings:
         token = os.environ.get("DISCORD_TOKEN", "").strip()
         if not token:
             raise ConfigError("DISCORD_TOKEN is not set")
+        common = CommonSettings.from_env()
+        if not common.preview_features:
+            raise ConfigError("the Discord bot is a preview feature: set PREVIEW_FEATURES=1 to run it")
         allowed = _ids(os.environ.get("DISCORD_ALLOWED_GUILDS"))
         return cls(
             token=token,
             guild_ids=_ids(os.environ.get("DISCORD_GUILD_IDS")),
             allowed_guilds=allowed or None,
-            common=CommonSettings.from_env(),
+            common=common,
         )

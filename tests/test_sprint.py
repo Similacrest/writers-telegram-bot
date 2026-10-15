@@ -309,3 +309,22 @@ async def test_chat_setting_roundtrip(storage):
     assert await storage.sprint_unit("test", "-1") == SprintUnit.WORDS
     await storage.set_chat_setting("test", "-1", "sprint_unit", "percent")
     assert await storage.sprint_unit("test", "-1") == SprintUnit.PERCENT
+
+
+async def test_without_reports_a_sprint_closes_when_it_ends(storage, clock):
+    m = SprintManager(storage, FakePresenter(), platform="test", now=clock.now, sleep=clock.sleep, reports=False)
+    try:
+        sprint = await m.start(KEY, ALICE, duration=10, delay=0)
+        await clock.advance(10 * 60)
+        assert sprint.status == SprintStatus.CLOSED and m.get(sprint.id) is None
+        assert events(m, sprint.id)[-1] == SprintEvent.FINISHED
+
+        sprint = await m.start(KEY, ALICE, duration=10, delay=0)
+        await clock.advance(60)
+        result, _ = await m.leave_or_cancel(KEY, ALICE, no_admin)
+        assert result == LeaveResult.STOPPED
+        assert sprint.status == SprintStatus.CLOSED and sprint.stopped_early and m.get(sprint.id) is None
+        assert not m._tasks
+        assert await m.start(KEY, BOB, duration=5, delay=0)  # the chat is free again
+    finally:
+        await m.shutdown()

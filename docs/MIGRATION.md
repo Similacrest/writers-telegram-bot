@@ -39,9 +39,9 @@ again and the two instances take turns. So stop Render **before** starting the h
    writable by uid 10001.
 5. **Convert the token and import chats** (one-off containers on the same volume):
    ```sh
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.2 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.3 \
      python scripts/migrate_google_token.py /legacy/token.pickle.b64 /app/data/token.json
-   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.2 \
+   docker run --rm -v writers-data:/app/data -v "$PWD/legacy:/legacy:ro" writers-bot:v3.3.3 \
      python scripts/import_legacy_chats.py /legacy/db.pickle
    ```
 6. **Start the bot** with `TELEGRAM_POLLING=1` and `restart: unless-stopped`. Check the log for
@@ -62,7 +62,7 @@ Same as on Render, except:
 | `HOSTNAME` | not used | v2 used it for the webhook URL and the "Як прогрес?" keep-awake posts; both are gone |
 | `ALLOWED_CHATS` | the group ids v2 had `welcome_message` rows for | v2 `extended` only answered in those groups and in private chats |
 | `EXTRAS` | `1` | Dice, `/smash`, `/imafan`, welcome messages, slogans and open private chats, as in v2 `extended`. Leave unset for the plain `main` behaviour |
-| `PREVIEW_FEATURES` | unset | Goals, time zones, `/export`, `/forgetme`, ephemeral replies and Google Docs links are still being designed; turn them on only in a test deployment |
+| `PREVIEW_FEATURES` | unset | The bot then behaves like v2. Everything newer (word reports, `/join`, sprint links, percent sprints, stats, goals, broadcasts, Discord…) is still being designed; turn it on only in a test deployment |
 | `GOOGLE_TOKEN_FILE` | default `/app/data/token.json` | Replaces `token.pickle.b64` |
 | `DB_PATH` | default `/app/data/bot.sqlite3` | |
 

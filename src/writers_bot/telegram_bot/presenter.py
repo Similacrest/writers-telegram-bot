@@ -74,8 +74,9 @@ def report_keyboard(sprint: Sprint) -> InlineKeyboardMarkup:
 
 
 class TelegramSprintPresenter:
-    def __init__(self, fmt: HtmlFormatter):
+    def __init__(self, fmt: HtmlFormatter, reports: bool = True):
         self.fmt = fmt
+        self.reports = reports
         self.bot: Bot | None = None
 
     async def show(self, sprint: Sprint, event: SprintEvent, origin=None) -> None:
@@ -156,6 +157,14 @@ class TelegramSprintPresenter:
 
     async def _finished(self, sprint: Sprint, _origin) -> None:
         main = sprint.refs.get("msg")
+        if not self.reports:  # v2: a stopped sprint keeps its message, a finished one gets a new message
+            stopped = sprint.stopped_early
+            await self._edit(sprint, main, self._main_text(sprint), report_keyboard(sprint) if stopped else None)
+            await self._unpin(sprint, main)
+            if not stopped:
+                msg = await self._send(sprint, self._main_text(sprint), report_keyboard(sprint), reply_to=main)
+                sprint.refs["finish"] = msg.message_id
+            return
         await self._edit(sprint, main, self._main_text(sprint), None)
         await self._unpin(sprint, main)
         msg = await self._send(

@@ -61,12 +61,17 @@ LINK_WITH_SHORT_TEXT = 20  # a message that is mostly a link is counted by fetch
 
 DEFAULT_HELP = """<b>Бот для письменників</b>
 
+/prompt — випадковий текстовий промпт
+/image — випадковий промпт-зображення
+/wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф)
+/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2"""
+PREVIEW_HELP = """<b>Бот для письменників</b>
+
 /prompt — випадковий текстовий промпт (/prompt &lt;категорія&gt; — з однієї категорії)
 /image — випадковий промпт-зображення (/image &lt;категорія&gt;)
 /wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф, WriteFreely чи Ellipsus)
 /sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
-/sprinthelp — як працюють спринти та звіти про слова"""
-PREVIEW_HELP = """
+/sprinthelp — як працюють спринти та звіти про слова
 /goal — цілі на день і місяць, /tz — часовий пояс, /mystats — статистика
 /export — ваші спринти у файлі, /forgetme — видалити свої дані"""
 EXTRAS_HELP = "\n/d20, /2d6+1, /r 4к6 — кинути кубики"
@@ -96,20 +101,15 @@ COMMANDS = [
     BotCommand("join", "Долучитися до спринту: /join [посилання]"),
     BotCommand("words", "Звіт про слова за спринт"),
     BotCommand("mystats", "Моя статистика спринтів"),
+    BotCommand("goal", "Цілі: /goal daily 500"),
+    BotCommand("tz", "Мій часовий пояс"),
+    BotCommand("export", "Мої спринти у файлі CSV"),
     BotCommand("sprintmode", "Звіти словами чи відсотками"),
     BotCommand("top", "Топ за словами"),
     BotCommand("sprinthelp", "Як працюють спринти"),
     BotCommand("help", "Допомога"),
 ]
-# PREVIEW_FEATURES: shown after /mystats; /forgetme only in private chats.
-PREVIEW_COMMANDS = [
-    BotCommand("goal", "Цілі: /goal daily 500"),
-    BotCommand("tz", "Мій часовий пояс"),
-    BotCommand("export", "Мої спринти у файлі CSV"),
-]
-PREVIEW_PRIVATE_COMMANDS = [BotCommand("forgetme", "Видалити мої дані")]
-EPHEMERAL_COMMANDS = {"words", "join", "mystats", "goal", "tz", "export"}
-
+PRIVATE_ONLY_COMMANDS = [BotCommand("forgetme", "Видалити мої дані")]
 ADMIN_ONLY_COMMANDS = [
     BotCommand("chats", "Адмін: усі чати з ботом"),
     BotCommand("broadcast", "Адмін: розсилка (groups / private / all)"),
@@ -118,17 +118,19 @@ ADMIN_ONLY_COMMANDS = [
     BotCommand("stats", "Адмін: кількість промптів"),
     BotCommand("reload", "Адмін: перезавантажити промпти"),
 ]
+# Everything that is not in v2 needs PREVIEW_FEATURES.
+V2_COMMANDS = {"prompt", "image", "wc", "sprint", "help", "stats", "reload"}
+EPHEMERAL_COMMANDS = {"words", "join", "mystats", "goal", "tz", "export"}
 
 
 def command_menus(preview: bool) -> tuple[list[BotCommand], list[BotCommand], list[BotCommand]]:
     """Command menus for groups, private chats and super-admins."""
-    group = list(COMMANDS)
-    private = list(COMMANDS)
-    if preview:
-        at = next(i for i, c in enumerate(COMMANDS) if c.command == "mystats") + 1
-        group[at:at] = PREVIEW_COMMANDS
-        private = [*group, *PREVIEW_PRIVATE_COMMANDS]
-    return group, private, [*group, *ADMIN_ONLY_COMMANDS]
+
+    def available(commands: list[BotCommand]) -> list[BotCommand]:
+        return [c for c in commands if preview or c.command in V2_COMMANDS]
+
+    group = available(COMMANDS)
+    return group, [*group, *available(PRIVATE_ONLY_COMMANDS)], [*group, *available(ADMIN_ONLY_COMMANDS)]
 
 
 LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
@@ -185,18 +187,19 @@ class WritersTelegramBot:
         self.storage = Storage(common.db_path)
         self.prompts = PromptsStore(common.google)
         self.fetcher: SafeFetcher | None = None
-        self.presenter = TelegramSprintPresenter(self.fmt)
+        self.preview = common.preview_features
+        self.presenter = TelegramSprintPresenter(self.fmt, reports=self.preview)
         self.sprints = sp.SprintManager(
             self.storage,
             self.presenter,
             platform=PLATFORM,
             report_window=common.report_window,
             count_link=self.count_link,
+            reports=self.preview,
         )
         self.me = None
         self.admin = AdminTools(self.storage, settings.super_admins)
         self.personal = PersonalHandlers(self)
-        self.preview = settings.common.preview_features
         self.app: Application | None = None
         self.alerts: AlertHandler | None = None
         self.health: HealthServer | None = None
@@ -317,13 +320,13 @@ class WritersTelegramBot:
 
     @allowed_chat(show_error=True)
     async def start(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or DEFAULT_HELP + (PREVIEW_HELP if self.preview else "")
+        text = self.prompts.config_text("help_message") or (PREVIEW_HELP if self.preview else DEFAULT_HELP)
         greeting = "Я переродився, Райтенчіле!\n\n" if self.settings.extras else ""
         await self._reply_html_safe(update.effective_message, greeting + text)
 
     async def help(self, update: Update, _context) -> None:
         text = self.prompts.config_text("help_message") or (
-            DEFAULT_HELP + (PREVIEW_HELP if self.preview else "") + (EXTRAS_HELP if self.settings.extras else "")
+            (PREVIEW_HELP if self.preview else DEFAULT_HELP) + (EXTRAS_HELP if self.settings.extras else "")
         )
         await self._reply_html_safe(update.effective_message, text)
 
@@ -333,7 +336,7 @@ class WritersTelegramBot:
     @allowed_chat()
     async def prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
-        query = " ".join(context.args or [])
+        query = " ".join(context.args or []) if self.preview else ""  # v2: one prompt from every category
         try:
             category = None
             if query:
@@ -352,7 +355,9 @@ class WritersTelegramBot:
     async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         command = (message.text or message.caption or "").split()[0].split("@")[0].lower()
-        category = command.removeprefix("/image").removeprefix("_") or (context.args[0] if context.args else None)
+        category = command.removeprefix("/image").removeprefix("_") or (
+            context.args[0] if context.args and self.preview else None  # v2 only had /image_<category>
+        )
         try:
             cat, num, image = self.prompts.random_image(category)
         except PromptsUnavailableError:
@@ -455,7 +460,7 @@ class WritersTelegramBot:
     # --- word count ------------------------------------------------------------------------------
 
     async def count_link(self, url: str) -> int:
-        linked = await fetch_linked_text(self.fetcher, url, google_docs=self.preview)
+        linked = await fetch_linked_text(self.fetcher, url, all_sources=self.preview)
         return count_words(linked.text)
 
     @allowed_chat()
@@ -475,7 +480,7 @@ class WritersTelegramBot:
                 message_thread_id=message.message_thread_id if message.is_topic_message else None,
             )
             try:
-                linked = await fetch_linked_text(self.fetcher, url, google_docs=self.preview)
+                linked = await fetch_linked_text(self.fetcher, url, all_sources=self.preview)
             except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
                 await message.reply_text(f"Не вдалося прочитати посилання: {e}", parse_mode=None)
                 return
@@ -497,7 +502,7 @@ class WritersTelegramBot:
     async def _start_sprint(self, message: Message, user, duration: int, delay: int) -> str | None:
         """Start a sprint; returns an error text or None."""
         key = chat_key(message)
-        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id)
+        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id) if self.preview else SprintUnit.WORDS
         try:
             await self.sprints.start(key, user_ref(user), duration, delay, origin=message, unit=unit)
         except sp.SprintAlreadyRunningError:
@@ -510,7 +515,7 @@ class WritersTelegramBot:
     async def sprint(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """/sprint [minutes] [delay] [link]: a link is counted now and again when the sprint ends."""
         message = update.effective_message
-        url = find_url(command_args_text(message))
+        url = find_url(command_args_text(message)) if self.preview else None
         args = [a for a in context.args or [] if a != url]
         if url and self.sprints.active(chat_key(message)) is not None:
             await self._join_with_link(message, url)  # "/sprint <link>" in a running sprint = join with it
@@ -579,7 +584,9 @@ class WritersTelegramBot:
             {
                 sp.LeaveResult.LEFT: "Вас вилучено зі спринту",
                 sp.LeaveResult.CANCELLED: "Спринт скасовано",
-                sp.LeaveResult.STOPPED: "Спринт зупинено. Можна звітувати про слова.",
+                sp.LeaveResult.STOPPED: "Спринт зупинено. Можна звітувати про слова."
+                if self.preview
+                else "Спринт зупинено",
                 sp.LeaveResult.NOT_ALLOWED: "Ви не маєте права скасувати спринт",
                 sp.LeaveResult.NOT_PARTICIPANT: "Ви не у спринті",
                 sp.LeaveResult.CLOSED: "Цей спринт уже завершився.",
@@ -686,7 +693,7 @@ class WritersTelegramBot:
                 await message.set_reaction(ReactionTypeEmoji("👍"))
             except TelegramError:
                 await self.personal.respond(message, "Записано.", html=False)
-        if self.preview and status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
+        if status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
             await self.personal.report_notes(message, outcome.sprint.id)
 
     @allowed_chat()
@@ -737,7 +744,7 @@ class WritersTelegramBot:
         chat_id = None if message.chat.type == ChatType.PRIVATE else str(message.chat_id)
         user_id = str(message.from_user.id)
         stats = await self.storage.user_stats(PLATFORM, user_id, chat_id)
-        progress = await self.personal.personal.progress(user_id, sp.utc_now()) if self.preview else None
+        progress = await self.personal.personal.progress(user_id, sp.utc_now())
         await self.personal.respond(message, user_stats_text(self.fmt, message.from_user.full_name, stats, progress))
 
     @allowed_chat()
@@ -757,7 +764,6 @@ class WritersTelegramBot:
         handlers = [
             CommandHandler("start", self.start),
             CommandHandler("help", self.help),
-            CommandHandler("sprinthelp", self.sprint_help),
             CommandHandler(["prompt", "prompt_ua"], self.prompt),
             MessageHandler(filters.COMMAND & image_cmd, self.image),
             CommandHandler("wc", self.wordcount),
@@ -765,19 +771,20 @@ class WritersTelegramBot:
             CommandHandler("reload", self.reload),
             CommandHandler("debuginfo", self.debuginfo),
             CommandHandler("sprint", self.sprint),
-            CommandHandler("words", self.words),
-            CommandHandler("join", self.join),
-            CommandHandler("sprintmode", self.sprint_mode),
-            CommandHandler("mystats", self.mystats),
-            CommandHandler("top", self.top),
             CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"),
             CallbackQueryHandler(self.on_leave, pattern=r"^(sp:leave:\d+|leave_or_cancel_sprint)$"),
-            CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"),
             CallbackQueryHandler(self.on_repeat, pattern=r"^(sp:repeat:\d+:\d+|repeat_last_sprint_\d+(_\d+)?)$"),
-            MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
         ]
-        if self.preview:
+        if self.preview:  # everything users see that v2 did not have
             handlers += [
+                CommandHandler("sprinthelp", self.sprint_help),
+                CommandHandler("words", self.words),
+                CommandHandler("join", self.join),
+                CommandHandler("sprintmode", self.sprint_mode),
+                CommandHandler("mystats", self.mystats),
+                CommandHandler("top", self.top),
+                CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"),
+                MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
                 CommandHandler("tz", self.tz),
                 CommandHandler("goal", self.goal),
                 CommandHandler("export", self.export),
@@ -799,11 +806,12 @@ class WritersTelegramBot:
         # Chat registry: runs before everything else and never stops other handlers.
         app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
         app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
-        app.add_handler(CommandHandler("chats", self.admin.chats))
-        app.add_handler(CommandHandler("broadcast", self.admin.broadcast))
-        app.add_handler(CommandHandler("bcexclude", self.admin.exclude))
-        app.add_handler(CommandHandler("bcinclude", self.admin.include))
-        app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
+        if self.preview:
+            app.add_handler(CommandHandler("chats", self.admin.chats))
+            app.add_handler(CommandHandler("broadcast", self.admin.broadcast))
+            app.add_handler(CommandHandler("bcexclude", self.admin.exclude))
+            app.add_handler(CommandHandler("bcinclude", self.admin.include))
+            app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
         # Last in group 0: only commands that no handler above took (dice rolls).
         if self.settings.extras:
             app.add_handler(MessageHandler(filters.COMMAND, self.other_command))
