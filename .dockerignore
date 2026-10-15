@@ -1,0 +1,14 @@
+# Never bake secrets or runtime data into the image (the old Dockerfile copied the whole directory).
+.env
+*.pickle*
+token*.json
+service-account*.json
+data/
+db.pickle
+.git/
+.venv/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+tests/
+docs/
