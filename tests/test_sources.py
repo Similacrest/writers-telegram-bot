@@ -154,3 +154,9 @@ async def test_google_doc_not_shared():
     )
     with pytest.raises(FetchError, match="не відкритий"):
         await fetch_linked_text(fetcher, f"https://docs.google.com/document/u/0/d/{doc}/edit")
+
+
+async def test_google_docs_can_be_switched_off():
+    doc = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+    with pytest.raises(UnsupportedLinkError):
+        await fetch_linked_text(fetcher_for({}), f"https://docs.google.com/document/d/{doc}/edit", google_docs=False)

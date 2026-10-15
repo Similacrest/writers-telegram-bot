@@ -209,6 +209,7 @@ class WritersDiscordBot:
             count_link=self.count_link,
         )
         self.personal = Personal(self.storage, PLATFORM, common.timezone)
+        self.preview = common.preview_features
         self.health: HealthServer | None = None
         self.client.setup_hook = self.setup_hook
         self._register_commands()
@@ -272,7 +273,7 @@ class WritersDiscordBot:
             await interaction.response.send_message(text, ephemeral=ephemeral, allowed_mentions=NO_PINGS)
 
     async def count_link(self, url: str) -> int:
-        return count_words((await fetch_linked_text(self.fetcher, url)).text)
+        return count_words((await fetch_linked_text(self.fetcher, url, google_docs=self.preview)).text)
 
     @staticmethod
     async def defer(interaction: discord.Interaction) -> None:
@@ -396,7 +397,7 @@ class WritersDiscordBot:
                 f" (у тексті {outcome.counted})" if outcome.counted is not None else ""
             )
         await self.reply(interaction, text, ephemeral=True)
-        if outcome.status == S.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
+        if self.preview and outcome.status == S.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
             notes = await self.personal.report_notes(str(interaction.user.id), outcome.sprint.id, sp.utc_now())
             if notes and interaction.channel is not None:
                 with contextlib.suppress(discord.HTTPException):
@@ -461,7 +462,7 @@ class WritersDiscordBot:
             if url and count_words(text.replace(url, "")) < 20:
                 await interaction.response.defer(thinking=True)
                 try:
-                    linked = await fetch_linked_text(bot.fetcher, url)
+                    linked = await fetch_linked_text(bot.fetcher, url, google_docs=bot.preview)
                 except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
                     await bot.reply(interaction, f"Не вдалося прочитати посилання: {e}")
                     return
@@ -515,59 +516,63 @@ class WritersDiscordBot:
         async def mystats(interaction: discord.Interaction):
             user_id = str(interaction.user.id)
             stats = await bot.storage.user_stats(PLATFORM, user_id)
-            progress = await bot.personal.progress(user_id, sp.utc_now())
+            progress = await bot.personal.progress(user_id, sp.utc_now()) if bot.preview else None
             await bot.reply(
                 interaction, user_stats_text(bot.fmt, interaction.user.display_name, stats, progress), ephemeral=True
             )
 
-        @tree.command(name="tz", description="Мій часовий пояс (для цілей і днів поспіль)")
-        @app_commands.describe(zone="Напр. Europe/Kyiv або Kyiv; порожньо — показати")
-        async def tz_cmd(interaction: discord.Interaction, zone: str = ""):
-            text = await bot.personal.tz_command(str(interaction.user.id), zone, sp.utc_now())
-            await bot.reply(interaction, text, ephemeral=True)
+        if bot.preview:  # PREVIEW_FEATURES: still being designed
 
-        @tree.command(name="goal", description="Цілі на день і місяць")
-        @app_commands.choices(
-            period=[
-                app_commands.Choice(name="на день", value="daily"),
-                app_commands.Choice(name="на місяць", value="monthly"),
-            ]
-        )
-        @app_commands.describe(words="Скільки слів; 0 — прибрати ціль")
-        async def goal_cmd(
-            interaction: discord.Interaction,
-            period: app_commands.Choice[str] | None = None,
-            words: app_commands.Range[int, 0, 1_000_000] | None = None,
-        ):
-            user_id = str(interaction.user.id)
-            if period is not None and words is not None:
-                await bot.personal.goal_command(user_id, [period.value, str(words) if words else "off"], sp.utc_now())
-            progress = await bot.personal.progress(user_id, sp.utc_now())
-            await bot.reply(interaction, goals_text(bot.fmt, progress), ephemeral=True)
+            @tree.command(name="tz", description="Мій часовий пояс (для цілей і днів поспіль)")
+            @app_commands.describe(zone="Напр. Europe/Kyiv або Kyiv; порожньо — показати")
+            async def tz_cmd(interaction: discord.Interaction, zone: str = ""):
+                text = await bot.personal.tz_command(str(interaction.user.id), zone, sp.utc_now())
+                await bot.reply(interaction, text, ephemeral=True)
 
-        @tree.command(name="export", description="Мої спринти у файлі CSV")
-        async def export_cmd(interaction: discord.Interaction):
-            data, count = await bot.personal.export_csv(str(interaction.user.id))
-            if not count:
-                await bot.reply(interaction, "У вас ще немає спринтів.", ephemeral=True)
-                return
-            await interaction.response.send_message(
-                f"Ваші спринти: {count}.", file=discord.File(io.BytesIO(data), "sprints.csv"), ephemeral=True
+            @tree.command(name="goal", description="Цілі на день і місяць")
+            @app_commands.choices(
+                period=[
+                    app_commands.Choice(name="на день", value="daily"),
+                    app_commands.Choice(name="на місяць", value="monthly"),
+                ]
             )
+            @app_commands.describe(words="Скільки слів; 0 — прибрати ціль")
+            async def goal_cmd(
+                interaction: discord.Interaction,
+                period: app_commands.Choice[str] | None = None,
+                words: app_commands.Range[int, 0, 1_000_000] | None = None,
+            ):
+                user_id = str(interaction.user.id)
+                if period is not None and words is not None:
+                    await bot.personal.goal_command(
+                        user_id, [period.value, str(words) if words else "off"], sp.utc_now()
+                    )
+                progress = await bot.personal.progress(user_id, sp.utc_now())
+                await bot.reply(interaction, goals_text(bot.fmt, progress), ephemeral=True)
 
-        @tree.command(name="forgetme", description="Видалити всі мої звіти, статистику й налаштування")
-        @app_commands.describe(confirm="Напишіть ТАК, щоб підтвердити")
-        async def forgetme_cmd(interaction: discord.Interaction, confirm: str = ""):
-            if confirm.strip().lower() not in {"так", "yes"}:
-                await bot.reply(
-                    interaction,
-                    "Це видалить усі ваші звіти, статистику, цілі й часовий пояс, і це не можна скасувати. "
-                    "Щоб підтвердити: /forgetme confirm:ТАК",
-                    ephemeral=True,
+            @tree.command(name="export", description="Мої спринти у файлі CSV")
+            async def export_cmd(interaction: discord.Interaction):
+                data, count = await bot.personal.export_csv(str(interaction.user.id))
+                if not count:
+                    await bot.reply(interaction, "У вас ще немає спринтів.", ephemeral=True)
+                    return
+                await interaction.response.send_message(
+                    f"Ваші спринти: {count}.", file=discord.File(io.BytesIO(data), "sprints.csv"), ephemeral=True
                 )
-                return
-            removed = await bot.storage.forget_user(PLATFORM, str(interaction.user.id))
-            await bot.reply(interaction, f"Готово. Видалено записів про спринти: {removed}.", ephemeral=True)
+
+            @tree.command(name="forgetme", description="Видалити всі мої звіти, статистику й налаштування")
+            @app_commands.describe(confirm="Напишіть ТАК, щоб підтвердити")
+            async def forgetme_cmd(interaction: discord.Interaction, confirm: str = ""):
+                if confirm.strip().lower() not in {"так", "yes"}:
+                    await bot.reply(
+                        interaction,
+                        "Це видалить усі ваші звіти, статистику, цілі й часовий пояс, і це не можна скасувати. "
+                        "Щоб підтвердити: /forgetme confirm:ТАК",
+                        ephemeral=True,
+                    )
+                    return
+                removed = await bot.storage.forget_user(PLATFORM, str(interaction.user.id))
+                await bot.reply(interaction, f"Готово. Видалено записів про спринти: {removed}.", ephemeral=True)
 
         @tree.command(name="top", description="Топ за словами в цьому каналі")
         async def top(interaction: discord.Interaction, days: app_commands.Range[int, 1, 366] = 30):

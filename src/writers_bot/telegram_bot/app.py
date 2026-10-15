@@ -65,7 +65,8 @@ DEFAULT_HELP = """<b>Бот для письменників</b>
 /image — випадковий промпт-зображення (/image &lt;категорія&gt;)
 /wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф, WriteFreely чи Ellipsus)
 /sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
-/sprinthelp — як працюють спринти та звіти про слова
+/sprinthelp — як працюють спринти та звіти про слова"""
+PREVIEW_HELP = """
 /goal — цілі на день і місяць, /tz — часовий пояс, /mystats — статистика
 /export — ваші спринти у файлі, /forgetme — видалити свої дані"""
 EXTRAS_HELP = "\n/d20, /2d6+1, /r 4к6 — кинути кубики"
@@ -95,19 +96,21 @@ COMMANDS = [
     BotCommand("join", "Долучитися до спринту: /join [посилання]"),
     BotCommand("words", "Звіт про слова за спринт"),
     BotCommand("mystats", "Моя статистика спринтів"),
-    BotCommand("goal", "Цілі: /goal daily 500"),
-    BotCommand("tz", "Мій часовий пояс"),
-    BotCommand("export", "Мої спринти у файлі CSV"),
     BotCommand("sprintmode", "Звіти словами чи відсотками"),
     BotCommand("top", "Топ за словами"),
     BotCommand("sprinthelp", "Як працюють спринти"),
     BotCommand("help", "Допомога"),
 ]
-PRIVATE_COMMANDS = [*COMMANDS, BotCommand("forgetme", "Видалити мої дані")]
+# PREVIEW_FEATURES: shown after /mystats; /forgetme only in private chats.
+PREVIEW_COMMANDS = [
+    BotCommand("goal", "Цілі: /goal daily 500"),
+    BotCommand("tz", "Мій часовий пояс"),
+    BotCommand("export", "Мої спринти у файлі CSV"),
+]
+PREVIEW_PRIVATE_COMMANDS = [BotCommand("forgetme", "Видалити мої дані")]
 EPHEMERAL_COMMANDS = {"words", "join", "mystats", "goal", "tz", "export"}
 
-ADMIN_COMMANDS = [
-    *COMMANDS,
+ADMIN_ONLY_COMMANDS = [
     BotCommand("chats", "Адмін: усі чати з ботом"),
     BotCommand("broadcast", "Адмін: розсилка (groups / private / all)"),
     BotCommand("bcexclude", "Адмін: прибрати чати з розсилок"),
@@ -115,6 +118,18 @@ ADMIN_COMMANDS = [
     BotCommand("stats", "Адмін: кількість промптів"),
     BotCommand("reload", "Адмін: перезавантажити промпти"),
 ]
+
+
+def command_menus(preview: bool) -> tuple[list[BotCommand], list[BotCommand], list[BotCommand]]:
+    """Command menus for groups, private chats and super-admins."""
+    group = list(COMMANDS)
+    private = list(COMMANDS)
+    if preview:
+        at = next(i for i, c in enumerate(COMMANDS) if c.command == "mystats") + 1
+        group[at:at] = PREVIEW_COMMANDS
+        private = [*group, *PREVIEW_PRIVATE_COMMANDS]
+    return group, private, [*group, *ADMIN_ONLY_COMMANDS]
+
 
 LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
 
@@ -181,6 +196,7 @@ class WritersTelegramBot:
         self.me = None
         self.admin = AdminTools(self.storage, settings.super_admins)
         self.personal = PersonalHandlers(self)
+        self.preview = settings.common.preview_features
         self.app: Application | None = None
         self.alerts: AlertHandler | None = None
         self.health: HealthServer | None = None
@@ -198,18 +214,19 @@ class WritersTelegramBot:
         restored = await self.sprints.restore()
         if restored:
             logger.info("restored %d open sprints", restored)
+        group_cmds, private_cmds, admin_cmds = command_menus(self.preview)
         try:
-            await app.bot.set_my_commands(PRIVATE_COMMANDS, scope=BotCommandScopeAllPrivateChats())
+            await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeAllPrivateChats())
             if not (
                 self.settings.ephemeral_commands
-                and await set_commands(app.bot, COMMANDS, {"type": "all_group_chats"}, EPHEMERAL_COMMANDS)
+                and await set_commands(app.bot, group_cmds, {"type": "all_group_chats"}, EPHEMERAL_COMMANDS)
             ):
-                await app.bot.set_my_commands(COMMANDS, scope=BotCommandScopeAllGroupChats())
+                await app.bot.set_my_commands(group_cmds, scope=BotCommandScopeAllGroupChats())
         except TelegramError as e:
             logger.warning("set_my_commands failed: %s", e)
         for admin_id in self.settings.super_admins:
             try:
-                await app.bot.set_my_commands(ADMIN_COMMANDS, scope=BotCommandScopeChat(admin_id))
+                await app.bot.set_my_commands(admin_cmds, scope=BotCommandScopeChat(admin_id))
             except TelegramError as e:  # the admin has not started a chat with the bot yet
                 logger.info("no admin command menu for %s: %s", admin_id, e)
         await self._start_ops()
@@ -300,12 +317,14 @@ class WritersTelegramBot:
 
     @allowed_chat(show_error=True)
     async def start(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or DEFAULT_HELP
+        text = self.prompts.config_text("help_message") or DEFAULT_HELP + (PREVIEW_HELP if self.preview else "")
         greeting = "Я переродився, Райтенчіле!\n\n" if self.settings.extras else ""
         await self._reply_html_safe(update.effective_message, greeting + text)
 
     async def help(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or DEFAULT_HELP + (EXTRAS_HELP if self.settings.extras else "")
+        text = self.prompts.config_text("help_message") or (
+            DEFAULT_HELP + (PREVIEW_HELP if self.preview else "") + (EXTRAS_HELP if self.settings.extras else "")
+        )
         await self._reply_html_safe(update.effective_message, text)
 
     async def sprint_help(self, update: Update, _context) -> None:
@@ -436,7 +455,7 @@ class WritersTelegramBot:
     # --- word count ------------------------------------------------------------------------------
 
     async def count_link(self, url: str) -> int:
-        linked = await fetch_linked_text(self.fetcher, url)
+        linked = await fetch_linked_text(self.fetcher, url, google_docs=self.preview)
         return count_words(linked.text)
 
     @allowed_chat()
@@ -456,7 +475,7 @@ class WritersTelegramBot:
                 message_thread_id=message.message_thread_id if message.is_topic_message else None,
             )
             try:
-                linked = await fetch_linked_text(self.fetcher, url)
+                linked = await fetch_linked_text(self.fetcher, url, google_docs=self.preview)
             except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
                 await message.reply_text(f"Не вдалося прочитати посилання: {e}", parse_mode=None)
                 return
@@ -667,7 +686,7 @@ class WritersTelegramBot:
                 await message.set_reaction(ReactionTypeEmoji("👍"))
             except TelegramError:
                 await self.personal.respond(message, "Записано.", html=False)
-        if status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
+        if self.preview and status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
             await self.personal.report_notes(message, outcome.sprint.id)
 
     @allowed_chat()
@@ -718,7 +737,7 @@ class WritersTelegramBot:
         chat_id = None if message.chat.type == ChatType.PRIVATE else str(message.chat_id)
         user_id = str(message.from_user.id)
         stats = await self.storage.user_stats(PLATFORM, user_id, chat_id)
-        progress = await self.personal.personal.progress(user_id, sp.utc_now())
+        progress = await self.personal.personal.progress(user_id, sp.utc_now()) if self.preview else None
         await self.personal.respond(message, user_stats_text(self.fmt, message.from_user.full_name, stats, progress))
 
     @allowed_chat()
@@ -749,11 +768,6 @@ class WritersTelegramBot:
             CommandHandler("words", self.words),
             CommandHandler("join", self.join),
             CommandHandler("sprintmode", self.sprint_mode),
-            CommandHandler("tz", self.tz),
-            CommandHandler("goal", self.goal),
-            CommandHandler("export", self.export),
-            CommandHandler("forgetme", self.forgetme),
-            CallbackQueryHandler(self.personal.on_forget_button, pattern=r"^fm:(go|no):[0-9a-f]+$"),
             CommandHandler("mystats", self.mystats),
             CommandHandler("top", self.top),
             CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"),
@@ -762,6 +776,14 @@ class WritersTelegramBot:
             CallbackQueryHandler(self.on_repeat, pattern=r"^(sp:repeat:\d+:\d+|repeat_last_sprint_\d+(_\d+)?)$"),
             MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
         ]
+        if self.preview:
+            handlers += [
+                CommandHandler("tz", self.tz),
+                CommandHandler("goal", self.goal),
+                CommandHandler("export", self.export),
+                CommandHandler("forgetme", self.forgetme),
+                CallbackQueryHandler(self.personal.on_forget_button, pattern=r"^fm:(go|no):[0-9a-f]+$"),
+            ]
         if self.settings.extras:
             handlers += [
                 CommandHandler("imafan", self.imafan),

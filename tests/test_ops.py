@@ -84,6 +84,12 @@ def test_discord_command_tree_builds(monkeypatch, tmp_path):
 
     monkeypatch.setenv("DISCORD_TOKEN", "x")
     monkeypatch.setenv("DB_PATH", str(tmp_path / "d.sqlite3"))
+    monkeypatch.delenv("PREVIEW_FEATURES", raising=False)
+    plain = {c.name for c in WritersDiscordBot(DiscordSettings.from_env()).tree.get_commands()}
+    assert {"sprint", "join", "words", "mystats", "sprintmode"} <= plain
+    assert not plain & {"tz", "goal", "export", "forgetme"}
+
+    monkeypatch.setenv("PREVIEW_FEATURES", "1")
     bot = WritersDiscordBot(DiscordSettings.from_env())
     names = {c.name for c in bot.tree.get_commands()}
     assert {"sprint", "join", "words", "mystats", "tz", "goal", "export", "forgetme", "sprintmode"} <= names

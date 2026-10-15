@@ -6,8 +6,8 @@ A bot for writing communities, on Telegram and Discord.
   Google Sheets / Google Drive.
 - **Word counter**: counts plain text, or the text behind a link: [Telegraph](https://telegra.ph),
   any [WriteFreely](https://writefreely.org) / Write.as instance, and public
-  [Ellipsus](https://ellipsus.com) Reader links (`ellipsus.com/read/…`), and Google Docs shared as "anyone with the
-  link".
+  [Ellipsus](https://ellipsus.com) Reader links (`ellipsus.com/read/…`), and (with `PREVIEW_FEATURES=1`) Google
+  Docs shared as "anyone with the link".
 - **Writing sprints** with a live, pinned timer, join/leave buttons, one sprint per chat (or per forum topic),
   then **word reports**: a leaderboard with words per minute, per-user stats and a chat top.
 
@@ -22,15 +22,24 @@ A bot for writing communities, on Telegram and Discord.
 | `/join [link]` (or `/sprint <link>` while a sprint is on) | `/join [link]` | Join the current sprint, optionally with the text to count |
 | `/words …` or reply to the results | `/words` or the report button | Report words (see below) |
 | `/sprintmode [words\|percent]` | `/sprintmode` | Per chat: report words, or percent of the task done (chat admins change it) |
-| `/mystats`, `/top [days]` | `/mystats`, `/top` | Statistics; `/mystats` also shows today's words, goals, days in a row and fastest sprint |
-| `/goal daily 500`, `/goal monthly 20000`, `/goal daily off` | `/goal` | Word goals from sprint reports; reaching one is announced once |
-| `/tz Europe/Kyiv` (or `/tz Kyiv`) | `/tz` | Your time zone: when your day starts for goals and days in a row |
-| `/export` | `/export` | Your sprints as CSV (sent to your private chat) |
-| `/forgetme` (private chat) | `/forgetme confirm:ТАК` | Delete your reports, stats and settings, after a confirmation |
+| `/mystats`, `/top [days]` | `/mystats`, `/top` | Statistics |
 | `/sprinthelp`, `/help`, `/start` | | Help (`help_message` from the config sheet, or a built-in text) |
 | `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` | | Dice rolls |
 | `/smash`, `/imafan` | | Keyboard smash; a random `imafan_message` from the config sheet |
 | `/stats`, `/reload`, `/debuginfo` | `/reload` | Prompt counts, reload prompts (admins), ids |
+
+**Preview** (`PREVIEW_FEATURES=1`, off by default; phases 1–2 of the [plan](docs/PLAN.md), still being designed):
+
+| Telegram | Discord | |
+|---|---|---|
+| `/goal daily 500`, `/goal monthly 20000`, `/goal daily off` | `/goal` | Word goals from sprint reports; reaching one is announced once |
+| `/tz Europe/Kyiv` (or `/tz Kyiv`) | `/tz` | Your time zone: when your day starts for goals and days in a row |
+| `/export` | `/export` | Your sprints as CSV (sent to your private chat) |
+| `/forgetme` (private chat) | `/forgetme confirm:ТАК` | Delete your reports, stats and settings, after a confirmation |
+
+With it, `/mystats` also shows today's words, goals, days in a row and fastest sprint, personal bests are
+announced after reports, personal replies in Telegram groups are ephemeral (`EPHEMERAL_REPLIES`), and `/wc`
+and sprint links accept Google Docs.
 
 **Extras** (`EXTRAS=1`, off by default; these come from the v2 `extended` branch): dice rolls, `/smash`,
 `/imafan`, greeting new members in groups that have a `welcome_message` row for their chat id in the config
@@ -86,7 +95,7 @@ Discord uses `/words` or the button's form.
 | `EXTRAS` | off | Switch for the `extended`-branch extras (see Commands) |
 | `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set (off: only super-admins) |
 | `SLOGAN_REPLIES` | follows `EXTRAS` | Answer "Слава Україні" / "Слава нації" |
-| `EPHEMERAL_REPLIES` | on | In groups, replies meant for one person (errors, `/mystats`, `/goal`) are sent as ephemeral messages (Bot API 10.2), visible only to them. Works when the bot is a chat admin or the user sent an ephemeral command; otherwise a normal reply |
+| `EPHEMERAL_REPLIES` | follows `PREVIEW_FEATURES` | In groups, replies meant for one person (errors, `/mystats`, `/goal`) are sent as ephemeral messages (Bot API 10.2), visible only to them. Works when the bot is a chat admin or the user sent an ephemeral command; otherwise a normal reply |
 | `EPHEMERAL_COMMANDS` | off | Mark `/words`, `/join`, `/mystats`, `/goal`, `/tz`, `/export` as ephemeral commands in groups, so the command itself is hidden from others too |
 
 ### Discord
@@ -110,6 +119,7 @@ Invite the bot with the `bot` and `applications.commands` scopes and the Send Me
 | `HEALTH_PORT` / `HEALTH_HOST` | off (`8080` in the image) / `127.0.0.1` | `GET /health`: JSON with `ok`, version, uptime, seconds since the last update; 503 when not receiving updates |
 | `LOG_FORMAT` | `text` | `json` for one JSON object per log line |
 | `ERROR_ALERTS` | on | Telegram: errors from the log go to the super-admins in private (same error at most every 15 minutes, 10 an hour) |
+| `PREVIEW_FEATURES` | off | Phase 1–2 user features still being designed: goals, time zones, streaks, personal bests, `/export`, `/forgetme`, ephemeral replies, Google Docs links (see Commands) |
 | `SPREADSHEET_ID` | empty = prompts disabled | Google Sheet with the prompts and config |
 | `CONFIG_SHEET_NAME` | empty | Config sheet (rows: key, subkey, comment, value…) |
 | `PROMPT_SHEETS` | `ua=База-ua` | Language → sheet name, comma-separated |

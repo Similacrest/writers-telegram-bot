@@ -110,13 +110,17 @@ messages, and an English interface.
 Phases are in order of dependency. Each ends in a tagged release.
 
 ### Phase 1: run well on the homelab (done in v3.3)
+Health check, error alerts, JSON logs and backups are on. `/export` and `/forgetme` are behind
+`PREVIEW_FEATURES` (off by default since v3.3.2) while the commands are redesigned.
 - Cut-over guide from Render ([MIGRATION.md](MIGRATION.md)); the cut-over itself is up to ops.
 - `/health` endpoint with a Docker `HEALTHCHECK`; JSON logs (`LOG_FORMAT=json`).
 - Errors from the log sent to super-admins in private, rate-limited.
 - Backups via `scripts/backup_db.py` (scheduling it is on the ops side).
 - `/export` (CSV of your sprints, sent privately) and `/forgetme` (with a confirmation step).
 
-### Phase 2: personal progress (done in v3.3)
+### Phase 2: personal progress (built in v3.3, behind `PREVIEW_FEATURES` since v3.3.2)
+Everything in this phase is off by default while the commands are redesigned; the code, tables and tests
+stay, and `PREVIEW_FEATURES=1` turns it all on for testing.
 - **Per-user time zone** (15): `/tz Europe/Kyiv` or `/tz Kyiv`, defaulting to `BOT_TIMEZONE`.
 - **Goals** (2): `/goal daily 500`, `/goal monthly 20000`. They count words reported after sprints, on the
   day the sprint started, in the writer's time zone. Reaching a goal is announced once per day or month,

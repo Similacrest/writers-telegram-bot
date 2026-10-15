@@ -75,6 +75,7 @@ async def test_respond_falls_back_to_a_public_reply(monkeypatch):
 
     monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
     monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    monkeypatch.setenv("PREVIEW_FEATURES", "1")
     tg = WritersTelegramBot(TelegramSettings.from_env())
     replies = []
 
@@ -100,3 +101,34 @@ async def test_respond_falls_back_to_a_public_reply(monkeypatch):
     assert replies == ["loud"]
     await tg.personal.respond(message(fail=True), "progress only", public_fallback=False)
     assert replies == ["loud"]
+
+
+async def test_respond_is_a_plain_reply_without_preview_features(monkeypatch):
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import WritersTelegramBot
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    monkeypatch.delenv("PREVIEW_FEATURES", raising=False)
+    monkeypatch.delenv("EPHEMERAL_REPLIES", raising=False)
+    tg = WritersTelegramBot(TelegramSettings.from_env())
+    assert not tg.settings.ephemeral_replies
+    replies = []
+
+    async def reply_text(text, **kwargs):
+        replies.append(text)
+
+    recorder = Recorder()
+    bot = Bot("123:abc", request=recorder, get_updates_request=Recorder())
+    message = SimpleNamespace(
+        api_kwargs={},
+        chat=SimpleNamespace(type="supergroup"),
+        chat_id=-100,
+        from_user=SimpleNamespace(id=5),
+        is_topic_message=False,
+        message_thread_id=None,
+        get_bot=lambda: bot,
+        reply_text=reply_text,
+    )
+    await tg.personal.respond(message, "public")
+    assert replies == ["public"] and recorder.calls == []

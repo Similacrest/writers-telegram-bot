@@ -294,7 +294,7 @@ def _json(resp) -> dict:
     return data
 
 
-async def fetch_linked_text(fetcher: SafeFetcher, url: str) -> LinkedText:
+async def fetch_linked_text(fetcher: SafeFetcher, url: str, *, google_docs: bool = True) -> LinkedText:
     host = (urlsplit(url).hostname or "").lower()
     if url.lower().startswith("http://"):
         url = "https://" + url[7:]
@@ -303,5 +303,7 @@ async def fetch_linked_text(fetcher: SafeFetcher, url: str) -> LinkedText:
     if host in ELLIPSUS_HOSTS:
         return await fetch_ellipsus(fetcher, url)
     if host in GDOCS_HOSTS:
+        if not google_docs:
+            raise UnsupportedLinkError("непідтримуваний сайт")
         return await fetch_google_doc(fetcher, url)
     return await fetch_writefreely(fetcher, url)

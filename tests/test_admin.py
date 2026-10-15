@@ -345,3 +345,34 @@ def test_extras_off_registers_no_extra_handlers(monkeypatch):
     full = callbacks(build_application(TelegramSettings.from_env()))
     assert {"smash", "imafan", "welcome", "on_text", "other_command"} <= full
     assert CommandHandler and MessageHandler
+
+
+def test_preview_features_off_by_default(monkeypatch):
+    from writers_bot.config import TelegramSettings
+    from writers_bot.telegram_bot.app import build_application, command_menus
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:abc")
+    monkeypatch.setenv("TELEGRAM_POLLING", "1")
+    preview = {"tz", "goal", "export", "forgetme", "on_forget_button"}
+
+    def callbacks(app):
+        return {h.callback.__name__ for group in app.handlers.values() for h in group if hasattr(h, "callback")}
+
+    def names(commands):
+        return [c.command for c in commands]
+
+    monkeypatch.delenv("PREVIEW_FEATURES", raising=False)
+    assert not callbacks(build_application(TelegramSettings.from_env())) & preview
+    for menu in command_menus(False):
+        assert not set(names(menu)) & preview
+
+    monkeypatch.setenv("PREVIEW_FEATURES", "1")
+    assert preview <= callbacks(build_application(TelegramSettings.from_env()))
+    group, private, admin = command_menus(True)
+    assert names(group)[names(group).index("mystats") + 1 : names(group).index("sprintmode")] == [
+        "goal",
+        "tz",
+        "export",
+    ]
+    assert "forgetme" in names(private) and "forgetme" not in names(group)
+    assert {"goal", "chats"} <= set(names(admin))

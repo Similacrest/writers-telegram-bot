@@ -78,6 +78,8 @@ class CommonSettings:
     health_host: str = "127.0.0.1"
     health_port: int = 0  # 0 = no health endpoint
     error_alerts: bool = True  # send ERROR log records to the super-admins
+    # Phase 1-2 user features still being designed (see PREVIEW_FEATURES in the README)
+    preview_features: bool = False
 
     @classmethod
     def from_env(cls) -> "CommonSettings":
@@ -91,6 +93,7 @@ class CommonSettings:
             health_host=os.environ.get("HEALTH_HOST", "127.0.0.1").strip() or "127.0.0.1",
             health_port=_int("HEALTH_PORT", 0),
             error_alerts=_flag("ERROR_ALERTS", default=True),
+            preview_features=_flag("PREVIEW_FEATURES"),
         )
 
 
@@ -132,6 +135,7 @@ class TelegramSettings:
             if not host:
                 raise ConfigError("WEBHOOK_HOST must be set in webhook mode")
         extras = _flag("EXTRAS")
+        common = CommonSettings.from_env()
         return cls(
             token=token,
             super_admins=_ids(os.environ.get("BOT_SUPERADMINS")),
@@ -145,9 +149,9 @@ class TelegramSettings:
             extras=extras,
             allow_private=_flag("ALLOW_PRIVATE_CHATS", default=extras),
             slogan_replies=_flag("SLOGAN_REPLIES", default=extras),
-            ephemeral_replies=_flag("EPHEMERAL_REPLIES", default=True),
+            ephemeral_replies=_flag("EPHEMERAL_REPLIES", default=common.preview_features),
             ephemeral_commands=_flag("EPHEMERAL_COMMANDS"),
-            common=CommonSettings.from_env(),
+            common=common,
         )
 
 
