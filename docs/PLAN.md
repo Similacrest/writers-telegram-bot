@@ -170,13 +170,22 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   gap, so missing a chat sprint or forgetting to report doesn't break a streak, and there are no
   reminders.
 - **Day boundary**: one bot-wide day starting at 03:00 Kyiv time, for goals, streaks and `/top`.
-- **Units**: words or %, chosen per person, with a chat default (replaces the per-chat `/sprintmode`).
+- **Units**: words or %, chosen per work, defaulting to the chat's unit (replaces the per-chat
+  `/sprintmode`); a work without a document is no different. In a sprint, % always means the share of
+  what you planned for that sprint, labelled "% of plan" on the board; there is no whole-work percentage.
+  Goals are in words.
+- **Which work a report goes to**: joining attaches the works marked "keep for next sprint" (none is
+  fine). Linked works are re-counted at the end, each with its own delta. A typed number goes to the only
+  unlinked work in the sprint; with two or more, the bot asks once (`500 → [Novel] [Essay] [Split]`), or
+  you name the work (`+500 essay`). `/progress` follows the same rule.
+- **Asking privately**: ephemeral where Telegram allows; otherwise a normal reply whose buttons only that
+  person can press, deleted after the tap. Not a DM.
 - **Outcomes**: a number, **Done ✓** (no number), or **Didn't make it ✗**. A sprint counts as completed
   with any positive progress: words or % above 0, or Done. A 0, ✗ or no report doesn't count.
 - **Visibility**: public (the default) or private. Private numbers count towards your own stats, and the
   board shows ✓ in their place. Joining never needs you to share anything.
-- **Board**: a words section and a % section, each sorted high to low, then ✓ and ✗. No medals and no
-  winner. Records and goals go in one summary line on the board, not separate posts.
+- **Board**: a words section and a % section, each sorted high to low, then ✓ and ✗. One line per person
+  per section, summed over their works (the split is only in `/mystats`). No medals and no winner. Records and goals go in one summary line on the board, not separate posts.
 - **No fixed report window**: late reports are accepted until your next sprint or about 12 hours, and the
   board is edited when they arrive, so someone in the zone can keep writing.
 - **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
