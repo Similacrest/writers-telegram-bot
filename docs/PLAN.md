@@ -203,14 +203,15 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   can press), on for the works kept for the next sprint. Toggling a work also changes whether it is kept for
   the next sprint (remembered by default); the card can be reopened from the sprint message (`[My works]`) at any time, and a work added mid-sprint
   has its link counted when added. The sprint message lists who is in and, for public writers, their
-  works: names for works marked public (off by default), otherwise a count. Private writers show no
+  works: names for public works (the default; a work can be made private), otherwise a count. Private writers show no
   works.
 - **Bragging**: `/progress` with no arguments posts one public line with your progress for the shortest
   calendar period that has any (today, this week, this month, this year), plus the goal and streak where
   they apply. It's your choice to post, so it shows private writers' numbers too. A %-only writer gets
   sprints and minutes. With arguments, `/progress` reports quietly.
 - **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/words` (`/wc` and `/stats`
-  stay as hidden aliases). Every command gets a Ukrainian alias (`/слова`, `/спринт`, `/прогрес`, …).
+  stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/слова`, `/спринт`,
+  `/прогрес`, `/я`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
   Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
   sees all messages (privacy mode off, or the bot is an admin); they aren't in the menu.
 - **`/top`**: total minutes of completed sprints in the chat over N days, private writers included (minutes
