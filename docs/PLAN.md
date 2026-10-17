@@ -251,10 +251,11 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   shared set (super-admins approve). Image prompts can stay on Drive.
 
 ### Phase 5: achievements (v4.1)
-- **Achievements** (9), defined by chat admins in the dashboard: a name and a rule from a fixed set (total
-  words, words in one sprint, streak length, number of sprints, a goal reached). A few defaults per chat,
-  which admins can switch off. Earned achievements are listed in `/mystats` and announced once in the chat.
-  No XP and no random awards.
+- **Achievements** (9), made and awarded by hand: chat admins create one in the web app (a name, a
+  pictogram, an optional description) and award it to a member, or take it back. No rules, no
+  automation, and no tie to sprints, works or stats. Awarding posts one line in the chat
+  (`🦉 Taras отримує «Нічна сова»`); earned achievements are listed in `/me`. Achievements belong to the
+  community where there is one, otherwise to the chat. No XP.
 
 ### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.2)
 - A Discord parity pass once the Telegram sprint redesign has settled: the same flow with Discord's
