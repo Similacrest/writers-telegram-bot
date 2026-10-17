@@ -176,8 +176,10 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   Goals are in words.
 - **Which work a report goes to**: joining attaches the works marked "keep for next sprint" (none is
   fine). Linked works are re-counted at the end, each with its own delta. A typed number goes to the only
-  unlinked work in the sprint; with two or more, the bot asks once (`500 → [Novel] [Essay] [Split]`), or
-  you name the work (`+500 essay`). `/progress` follows the same rule.
+  unlinked work in the sprint with that unit, so `520 50%` in one reply fills a words work and a % work.
+  Only when two works share a unit does the bot ask once (`500 → [Novel] [Essay] [Split]`); naming them
+  avoids it (`+300 novel +200 essay`). The Report button asks per work. `/progress` follows the same
+  rule. Someone with works in both units appears in both board sections.
 - **Asking privately**: ephemeral where Telegram allows; otherwise a normal reply whose buttons only that
   person can press, deleted after the tap. Not a DM.
 - **Outcomes**: a number, **Done ✓** (no number), or **Didn't make it ✗**. A sprint counts as completed
@@ -190,6 +192,13 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   board is edited when they arrive, so someone in the zone can keep writing.
 - **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
   it reacts), and confirmations are ephemeral where Telegram allows.
+- **`/mystats`**: the private view (ephemeral in groups): each work with its goal and month total, the
+  streak with the last 7 days (gaps within 3 days can be filled from there), completed sprints and
+  minutes, visibility. Buttons for `/progress`, works and settings. No rankings or comparisons.
+- **Your data**: `/export` and `/forgetme` come out of preview and are found in `/mystats` → Settings →
+  My data (the commands stay as fallbacks, off the group menu). Export covers works, goals and
+  `/progress` entries as well as sprints; deletion covers works too. The first sprint you join says
+  once that your numbers are stored and where to export or delete them. `/sprinthelp` is removed.
 - **`/top`**: total minutes of completed sprints in the chat over N days, private writers included (minutes
   reveal nothing about the work). You get credit from when you joined: joining 20 minutes into a
   30-minute sprint gives 10.
