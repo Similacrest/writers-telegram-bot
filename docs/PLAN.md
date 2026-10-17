@@ -214,7 +214,7 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   calendar period that has any (today, this week, this month, this year), plus the goal and streak where
   they apply. It's your choice to post, so it shows private writers' numbers too. A %-only writer gets
   sprints and minutes. With arguments, `/progress` reports quietly.
-- **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/words` (`/wc` and `/stats`
+- **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/count` (`/wc` and `/stats`
   stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/слова`, `/спринт`,
   `/прогрес`, `/я`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
   Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
@@ -277,7 +277,7 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   - **Reporting with modals only**: the Report button opens a modal with a field per work. No replies to
     the sprint message, so the bot keeps running without the message-content intent and ignores bridged
     text (E3).
-  - Join card as an ephemeral multi-select menu; `/words` also as a message context-menu command;
+  - Join card as an ephemeral multi-select menu; `/count` also as a message context-menu command;
     `/award` also as a user context-menu command.
   - **Achievements use server emoji**, not stickers (server sticker slots are few).
   - **Broadcasts** go to the server's `#general` channel (the system channel if there is none). A server is
