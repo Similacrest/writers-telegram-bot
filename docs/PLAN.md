@@ -84,14 +84,13 @@ phase 4.
 - A *community* groups chats across platforms: `communities(id, name)` and
   `community_chats(community_id, platform, chat_id)`. Super-admins link chats; later chat admins do it
   in the dashboard.
-- *People* are linked across platforms by the users themselves: `/link` on one side gives a short-lived
-  code, `/link <code>` on the other side joins both accounts to one `person_id`. Nobody is merged by
-  matching names.
-- `/top` and `/mystats` in a linked chat count every chat of the community and add up a person's
-  accounts. Goals, streaks and achievements (phases 2 and 5) are kept per person.
+- *People* are linked across platforms by the users themselves, by signing in to the web app with both
+  accounts, which joins them to one `person_id`. Nobody is merged by matching names.
+- `/top` and `/me` in a linked chat count every chat of the community and add up a person's
+  accounts. Works, goals and streaks are kept per person, achievements per community.
 - Shared sprints (one sprint posted on both sides, people joining from either) need both adapters to share
   one sprint engine. Simplest: run both clients in one process, with one `SprintManager` and a presenter that
-  fans out to every chat of the community. Until then each side runs its own sprints, and only the boards
+  fans out to linked channels (see phase 6). Until then each side runs its own sprints, and only the boards
   are shared.
 
 **E3. As E2, with Matterbridge relaying messages between Telegram and Discord.**
