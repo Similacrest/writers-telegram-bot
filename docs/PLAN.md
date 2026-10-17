@@ -148,6 +148,8 @@ Decided in the October 2026 roadmap review; nothing here has been tried with a f
 join and report with replies and buttons, nobody is pushed to share their work or to compete, and the
 chat stays quiet. It replaces the preview reporting flow. Before the redesign, the extra link sources
 (WriteFreely, Ellipsus, Google Docs) come out of `PREVIEW_FEATURES`.
+- **Modules first** (before works and the web app, so they aren't built into the old `app.py`): see
+  "Architecture: modules" below.
 - **Web app from the start**: the bot serves one web app, opened as a Telegram Mini App (Mini App
   `initData`, validated on the server) or as a plain website with Telegram Login and, later, Discord
   OAuth as the fallback. In this phase it holds the sprint panel and your works; phase 4 grows it into
@@ -296,6 +298,37 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   `SprintManager` (one container instead of two; agreed with the owner).
 - E3: Matterbridge is on the owner's roadmap. Its configuration (`IgnoreNicks` for the bot on both sides)
   and setup notes come on top of E2; linked channels are the natural pairs to bridge.
+
+### Architecture: modules
+The bot is built from modules that can be served as one bot or as several, set in a config file.
+- **Modules**: `greeter`, `prompts`, `wordcount`, `sprints`, `works`, `dice`, `achievements`, `extras`
+  (smash, imafan, slogans), `admin` (chat list, broadcasts), `data` (export, deletion). Each one brings
+  its handlers, commands (menu, `/help`, Ukrainian aliases), settings, migrations and web app pages, and
+  adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
+  shows only what its modules do.
+- **Shared core**, not a module: storage (one database for every bot), the settings store, people and
+  accounts, communities, ephemeral replies, the web app server.
+- **Dependencies** are declared: required, or optional (sprints uses works when available; without
+  works the join card is a plain Join button).
+- **Calls between modules** go through a service interface. Within one process it's a direct call; when the
+  modules run in different bots or processes, the same interface is served over an internal,
+  authenticated API. That way a reply to the sprint bot can still record progress on a work kept by the
+  works bot.
+- **Config file** (TOML): each bot names its modules and its targets, Telegram and/or Discord, each with
+  its own token:
+  ```toml
+  [bots.main]
+  modules = ["prompts", "wordcount", "sprints", "works", "achievements", "dice"]
+  telegram = { token = "env:TG_MAIN" }
+  discord = { token = "env:DISCORD_MAIN" }
+
+  [bots.greeter]
+  modules = ["greeter"]
+  telegram = { token = "env:TG_GREETER" }
+  ```
+  One process can run several bots, or each bot can run in its own container from the same image
+  (`--bot greeter`); that is up to ops. `PREVIEW_FEATURES` and `EXTRAS` become the choice of modules; the
+  default config is the v2 set.
 
 ### Decisions
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
