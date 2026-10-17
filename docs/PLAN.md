@@ -273,8 +273,19 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 - Achievements belong to the community where there is one, otherwise to the chat.
 
 ### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.2)
-- A Discord parity pass once the Telegram sprint redesign has settled: the same flow with Discord's
-  buttons and modals, tested in a real server.
+- A Discord parity pass once the Telegram sprint redesign has settled, tested in a real server. Discord
+  matches or beats Telegram on buttons, menus and ephemeral replies; the differences:
+  - **Reporting with modals only**: the Report button opens a modal with a field per work. No replies to
+    the sprint message, so the bot keeps running without the message-content intent and ignores bridged
+    text (E3).
+  - Join card as an ephemeral multi-select menu; `/words` also as a message context-menu command;
+    `/award` also as a user context-menu command.
+  - **Achievements use server emoji**, not stickers (server sticker slots are few).
+  - **Broadcasts** go to the server's `#general` channel (the system channel if there is none). A server is
+    a community; its channels are its chats.
+  - **Web app**: the website with Discord OAuth; no Discord Activity.
+  - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
+  - `EXTRAS` slogans and welcome messages are not on Discord (they need privileged intents).
 - E1 per-server settings come with phase 4.
 - E2: Discord chats join the communities from phase 4, `/link` for accounts, shared boards, then shared
   sprints with both adapters in one process.
