@@ -287,9 +287,16 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
   - `EXTRAS` slogans and welcome messages are not on Discord (they need privileged intents).
 - E1 per-server settings come with phase 4.
-- E2: Discord chats join the communities from phase 4, `/link` for accounts, shared boards, then shared
-  sprints with both adapters in one process.
-- E3: Matterbridge configuration and setup notes on top of E2.
+- E2: a Discord server joins a community from phase 4. Linking is done in the web app by someone who is an
+  admin on both sides. People link their accounts in the web app too: signing in with both Telegram and
+  Discord joins them into one person (no `/link` codes). `/me`, works, goals and streaks are then per
+  person; `/top` and achievements per community.
+- Shared sprints through **channel links**: an admin links a Telegram chat (or forum topic) with a Discord
+  channel. A sprint started in either is posted in both, people join from either side, and there is one
+  board. Unlinked chats and channels keep their own sprints. Both adapters run in one process with one
+  `SprintManager` (one container instead of two; agreed with the owner).
+- E3: Matterbridge is on the owner's roadmap. Its configuration (`IgnoreNicks` for the bot on both sides)
+  and setup notes come on top of E2; linked channels are the natural pairs to bridge.
 
 ### Decisions
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
