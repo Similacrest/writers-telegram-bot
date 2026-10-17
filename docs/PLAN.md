@@ -260,7 +260,7 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   the pack, the achievement keeps its name and the bot asks for a new sticker. The pack can also be a
   custom emoji pack, so achievements appear inline in `/me`; whether the bot may send custom emoji in its
   messages is to be checked against the Bot API when this is built.
-- **Awarding by command** (chat admins): reply to the member's message with `/award`, then pick the
+- **Awarding by command** (chat admins; alias `/нагорода`): reply to the member's message with `/award`, then pick the
   achievement from buttons, or `/award <name>`; `/unaward` takes it back. The bot posts the sticker and one
   line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/me`.
 - Achievements belong to the community where there is one, otherwise to the chat.
