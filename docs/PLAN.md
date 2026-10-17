@@ -246,9 +246,16 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   - for chat admins: the chat's settings, its prompt set and its achievements.
   - Admin rights are checked with `getChatMember` on every change. Discord users sign in with Discord OAuth.
 - **Prompt databases per chat** (not a priority; last in this phase or later): prompts and categories in
-  SQLite, imported from the current sheet. Chat admins manage their chat's own set, and choose whether the
-  chat also uses the shared bot-wide set. A new prompt can stay private to the chat or be submitted to the
-  shared set (super-admins approve). Image prompts can stay on Drive.
+  SQLite. Chat admins manage their chat's own set (`/addprompt <category> <text>` or the web app's Prompts
+  tab) and choose whether the chat also uses the shared bot-wide set; `/prompt` picks from the combined
+  pool. Members can suggest prompts, which the chat's admins accept or reject. A chat's prompt can stay in
+  the chat or be submitted to the shared set (super-admins accept or reject). A community shares one set.
+  - Categories are free-form, named in English, with an optional Ukrainian alias (`horror` / `жахи`);
+    `/prompt жахи` works.
+  - Image prompts work the same way: an admin sends a picture, and the bot uploads it to the chat's
+    folder on Google Drive (needs Drive write access for the bot's account, an ops item).
+  - The Google Sheet and Drive folders are imported once into the shared set when the settings move to the
+    database, and the sheet is retired; `/reload` goes with it.
 
 ### Phase 5: achievements (v4.1)
 - **Achievements** (9), made and awarded by hand. No rules, no automation, and no tie to sprints, works
