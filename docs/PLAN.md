@@ -192,13 +192,27 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   board is edited when they arrive, so someone in the zone can keep writing.
 - **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
   it reacts), and confirmations are ephemeral where Telegram allows.
-- **`/mystats`**: the private view (ephemeral in groups): each work with its goal and month total, the
+- **`/me`** (was `/mystats`): the private view (ephemeral in groups): each work with its goal and month total, the
   streak with the last 7 days (gaps within 3 days can be filled from there), completed sprints and
   minutes, visibility. Buttons for `/progress`, works and settings. No rankings or comparisons.
 - **Your data**: `/export` and `/forgetme` come out of preview and are found in `/mystats` → Settings →
   My data (the commands stay as fallbacks, off the group menu). Export covers works, goals and
   `/progress` entries as well as sprints; deletion covers works too. The first sprint you join says
   once that your numbers are stored and where to export or delete them. `/sprinthelp` is removed.
+- **Join card**: starting or joining a sprint shows your works as toggles (ephemeral, or a reply only you
+  can press), on for the works kept for the next sprint. Turning one off applies to this sprint only; the
+  card can be reopened from the sprint message (`[My works]`) at any time, and a work added mid-sprint
+  has its link counted when added. The sprint message lists who is in and, for public writers, their
+  works: names for works marked public (off by default), otherwise a count. Private writers show no
+  works.
+- **Bragging**: `/progress` with no arguments posts one public line with your progress for the shortest
+  calendar period that has any (today, this week, this month, this year), plus the goal and streak where
+  they apply. It's your choice to post, so it shows private writers' numbers too. A %-only writer gets
+  sprints and minutes. With arguments, `/progress` reports quietly.
+- **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/words` (`/wc` and `/stats`
+  stay as hidden aliases). Every command gets a Ukrainian alias (`/слова`, `/спринт`, `/прогрес`, …).
+  Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
+  sees all messages (privacy mode off, or the bot is an admin); they aren't in the menu.
 - **`/top`**: total minutes of completed sprints in the chat over N days, private writers included (minutes
   reveal nothing about the work). You get credit from when you joined: joining 20 minutes into a
   30-minute sprint gives 10.
