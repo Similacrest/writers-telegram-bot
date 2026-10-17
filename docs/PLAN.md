@@ -251,11 +251,18 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   shared set (super-admins approve). Image prompts can stay on Drive.
 
 ### Phase 5: achievements (v4.1)
-- **Achievements** (9), made and awarded by hand: chat admins create one in the web app (a name, a
-  pictogram, an optional description) and award it to a member, or take it back. No rules, no
-  automation, and no tie to sprints, works or stats. Awarding posts one line in the chat
-  (`🦉 Taras отримує «Нічна сова»`); earned achievements are listed in `/me`. Achievements belong to the
-  community where there is one, otherwise to the chat. No XP.
+- **Achievements** (9), made and awarded by hand. No rules, no automation, and no tie to sprints, works
+  or stats. No XP.
+- Each achievement is a name, an optional description and a **sticker** in the chat's (or community's)
+  sticker pack. The bot creates the pack (`createNewStickerSet`, `<name>_by_<bot>`, owned by the admin who
+  set it up) and adds a sticker when an admin creates an achievement in the web app or sends the bot a
+  sticker or image for it. A matching **custom emoji** set is possible (`sticker_type = custom_emoji`)
+  so achievements can appear inline in `/me` and on boards; whether the bot may send custom emoji in its
+  messages is to be checked against the Bot API when this is built.
+- **Awarding by command** (chat admins): reply to the member's message with `/award`, then pick the
+  achievement from buttons, or `/award <name>`; `/unaward` takes it back. The bot posts the sticker and one
+  line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/me`.
+- Achievements belong to the community where there is one, otherwise to the chat.
 
 ### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.2)
 - A Discord parity pass once the Telegram sprint redesign has settled: the same flow with Discord's
