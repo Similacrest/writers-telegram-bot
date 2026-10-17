@@ -129,22 +129,20 @@ Health check, error alerts, JSON logs and backups are on. `/export` and `/forget
 - Backups via `scripts/backup_db.py` (scheduling it is on the ops side).
 - `/export` (CSV of your sprints, sent privately) and `/forgetme` (with a confirmation step).
 
-### Phase 2: personal progress (built in v3.3, behind `PREVIEW_FEATURES` since v3.3.2)
-Everything in this phase is off by default while the commands are redesigned; the code, tables and tests
-stay, and `PREVIEW_FEATURES=1` turns it all on for testing.
-- **Per-user time zone** (15): `/tz Europe/Kyiv` or `/tz Kyiv`, defaulting to `BOT_TIMEZONE`.
-- **Goals** (2): `/goal daily 500`, `/goal monthly 20000`. They count words reported after sprints, on the
-  day the sprint started, in the writer's time zone. Reaching a goal is announced once per day or month,
-  and progress is in `/mystats`.
-- **Streaks** (3): days in a row with reported words, in `/mystats`. No reminders.
-- **Personal bests** (5): most words in one sprint and fastest sprint (sprints of 5 minutes or more),
-  announced when beaten. Your first sprint doesn't count as a record.
-- **Ephemeral replies** (16), Bot API 10.2: personal replies in groups go only to that person when Telegram
-  allows it, and fall back to a normal reply otherwise. PTB 22.8 has no methods for this yet, so the calls
-  are made directly (`telegram_bot/ephemeral.py`). Ephemeral commands are opt-in (`EPHEMERAL_COMMANDS`)
-  until they've been tried in a real group.
-- **Google Docs word count** (18): documents shared as "anyone with the link", through the plain-text
-  export. No Google credentials are needed, and private documents are reported as not shared.
+### Phase 2: personal progress (built in v3.3, behind `PREVIEW_FEATURES`; partly superseded)
+Built and kept behind `PREVIEW_FEATURES` until phase 3 replaces it. The October 2026 review changed it:
+- **Per-user time zone** (15): cancelled. `/tz` goes; everything personal uses one bot-wide day that
+  starts at 03:00 Kyiv time.
+- **Goals** (2): reworked as goals on a work (phase 3).
+- **Streaks** (3): reworked in phase 3, with late reports up to 3 days back.
+- **Personal bests** (5): cancelled.
+- **Ephemeral replies** (16), Bot API 10.2: kept. Personal replies in groups go only to that person when
+  Telegram allows it, and fall back to a normal reply otherwise. PTB 22.8 has no methods for this yet, so
+  the calls are made directly (`telegram_bot/ephemeral.py`). Ephemeral commands are opt-in
+  (`EPHEMERAL_COMMANDS`) until they've been tried in a real group; phase 3 depends on them.
+- **Google Docs word count** (18): kept, and on by default from phase 3 with the other link sources.
+  Documents shared as "anyone with the link", through the plain-text export. No Google credentials are
+  needed, and private documents are reported as not shared.
 
 ### Phase 3: sprint redesign (v3.4)
 Decided in the October 2026 roadmap review; nothing here has been tried with a focus group yet. Writers
@@ -153,12 +151,25 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 (WriteFreely, Ellipsus, Google Docs) come out of `PREVIEW_FEATURES`.
 - **Minimal settings store first**: per user, board visibility, progress unit and the current works; per
   chat, the default unit. The rest of the settings store is in phase 4.
-- **No reporting commands**: `/join` and `/words` are removed. You join with the button and report by
-  replying to the sprint message (`500`, `+300`, a link) or with the buttons at the end. Richer input goes
+- **One reporting command**: `/join` and `/words` are removed. You join with the button and report by
+  replying to the sprint message (`500`, `+300`, a link) or with the buttons at the end. `/progress`
+  covers everything else (below). Richer input goes
   in a small sprint panel (a Mini App, the first piece of the phase 4 dashboard).
 - **Works**: a name and an optional link. One sprint can have several works. Whether a work carries over
   to your next sprint is your choice (a "keep for next sprint" toggle). The work's link is counted again
   at the end, as sprint links are now. Progress per work over time comes later.
+- **Goals belong to a work**: "Novel, 1,000 words a day" or "Thesis, 20,000 this month". No work, no goal.
+  Sprints and `/progress` both count towards it. A goal reached during a sprint goes on that sprint's
+  board summary line (without the number for private writers); otherwise only the writer is told, in
+  private. The bot never asks for progress.
+- **`/progress`**: inside or outside a sprint, in DM or a group (reply ephemeral or deleted there):
+  `+400`, a total, or the work's link, optionally for a named work, and optionally for an earlier day
+  up to 3 days back (`/progress +400 yesterday`). During a sprint you joined, it is also your report.
+- **Streaks**: days in a row with writing: a completed sprint in any chat, a `/progress` update, or growth
+  of a linked work (its link is re-counted once a day at reset). Late updates up to 3 days back fill the
+  gap, so missing a chat sprint or forgetting to report doesn't break a streak, and there are no
+  reminders.
+- **Day boundary**: one bot-wide day starting at 03:00 Kyiv time, for goals, streaks and `/top`.
 - **Units**: words or %, chosen per person, with a chat default (replaces the per-chat `/sprintmode`).
 - **Outcomes**: a number, **Done ✓** (no number), or **Didn't make it ✗**. A sprint counts as completed
   with any positive progress: words or % above 0, or Done. A 0, ✗ or no report doesn't count.
