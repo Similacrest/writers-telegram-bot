@@ -149,12 +149,18 @@ Decided in the October 2026 roadmap review; nothing here has been tried with a f
 join and report with replies and buttons, nobody is pushed to share their work or to compete, and the
 chat stays quiet. It replaces the preview reporting flow. Before the redesign, the extra link sources
 (WriteFreely, Ellipsus, Google Docs) come out of `PREVIEW_FEATURES`.
+- **Web app from the start**: the bot serves one web app, opened as a Telegram Mini App (Mini App
+  `initData`, validated on the server) or as a plain website with Telegram Login and, later, Discord
+  OAuth as the fallback. In this phase it holds the sprint panel and your works; phase 4 grows it into
+  the dashboard. It needs public HTTPS into the homelab (a reverse proxy or a tunnel), an ops decision that
+  now has to be made before this phase. Since Bot API 10.2, Mini App methods only work on the Mini App's
+  own domain, so the app has a fixed domain of its own.
 - **Minimal settings store first**: per user, board visibility, progress unit and the current works; per
   chat, the default unit. The rest of the settings store is in phase 4.
 - **One reporting command**: `/join` and `/words` are removed. You join with the button and report by
   replying to the sprint message (`500`, `+300`, a link) or with the buttons at the end. `/progress`
   covers everything else (below). Richer input goes
-  in a small sprint panel (a Mini App, the first piece of the phase 4 dashboard).
+  in the sprint panel of the web app (below).
 - **Works**: a name and an optional link. One sprint can have several works. Whether a work carries over
   to your next sprint is your choice (a "keep for next sprint" toggle). The work's link is counted again
   at the end, as sprint links are now. Progress per work over time comes later.
@@ -218,27 +224,26 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   reveal nothing about the work). You get credit from when you joined: joining 20 minutes into a
   30-minute sprint gives 10.
 
-### Phase 4: settings store and dashboard (v4.0)
-- **Settings in the database** instead of environment variables and the config sheet: per chat (welcome
-  text, slogan replies on/off, report window, default sprint length, broadcast opt-out, achievements on/off)
-  and per user (time zone, goals, visibility on boards). The sheet stays as a one-time import source.
-- **Prompt database**: prompts and categories in SQLite, imported from the current sheet. Chats use the
-  shared set or their own. Image prompts can stay on Drive.
-- **Communities** (the data model, for Telegram alone to begin with): `communities` and `community_chats`
-  tables; super-admins link chats to a community (`/community`, later in the dashboard). Information is
-  shared per community: boards and `/top`, prompt sets, announcements and `/broadcast` by community, and
-  settings that a community's chats inherit. Telegram's own Communities (Bot API 10.2) are used as a source
-  for linking chats once the calls are made directly, the way ephemeral messages are in
-  `telegram_bot/ephemeral.py`.
-- **Dashboard** (17), a Telegram Mini App served by the bot:
-  - for everyone: your sprints, reports and stats with charts; time zone and goals; export and delete
-    your data;
-  - for chat admins: the chat's options, its prompt set (add, edit, delete, import from a sheet), and
-    its achievements.
-  - Telegram users sign in through Mini App `initData`, validated on the server. Admin rights are checked
-    with `getChatMember` on every change. Discord users get the same pages later through Discord OAuth.
-  - Needs public HTTPS into the homelab (a reverse proxy or a tunnel); that's an ops decision before this
-    phase starts.
+### Phase 4: settings store, communities and dashboard (v4.0)
+- **Settings in the database** instead of environment variables and the config sheet, per chat: welcome
+  text, slogan replies on/off, default sprint length, default unit, how long late reports are accepted,
+  deleting report messages, broadcast opt-out, achievements on/off. Chat admins change them in the web app
+  (`/settings` opens it). Per-user settings arrived in phase 3. The sheet stays as a one-time import source.
+- **Communities** (Telegram first): `communities` and `community_chats` tables. A chat that belongs to a
+  Telegram Community (Bot API 10.2: the bot can see a chat's community through `getChat` and its service
+  messages; exact fields to be checked against the changelog when built) is linked automatically, with the
+  calls made directly as in `telegram_bot/ephemeral.py`. Super-admins can also link chats by hand
+  (`/community`, or in the web app), for groups that don't use Telegram Communities. Shared per community:
+  `/top`, prompt sets, broadcasts by community, and settings the community's chats inherit.
+- **Dashboard**: the phase 3 web app grows:
+  - for everyone: your works, sprints and progress with charts, the streak calendar (with backfill for the
+    last 3 days), visibility, export and deletion;
+  - for chat admins: the chat's settings, its prompt set and its achievements.
+  - Admin rights are checked with `getChatMember` on every change. Discord users sign in with Discord OAuth.
+- **Prompt databases per chat** (not a priority; last in this phase or later): prompts and categories in
+  SQLite, imported from the current sheet. Chat admins manage their chat's own set, and choose whether the
+  chat also uses the shared bot-wide set. A new prompt can stay private to the chat or be submitted to the
+  shared set (super-admins approve). Image prompts can stay on Drive.
 
 ### Phase 5: achievements (v4.1)
 - **Achievements** (9), defined by chat admins in the dashboard: a name and a rule from a fixed set (total
