@@ -59,7 +59,7 @@
 
 16. **Percent sprints**: a chat setting (`/sprintmode percent`, chat admins) where people report how much of
     their task they finished (`40%`) instead of words. The board shows percentages; these sprints don't
-    count towards word stats and `/top`. Settings live in a new `chat_settings` table, which phase 3 builds
+    count towards word stats and `/top`. Settings live in a new `chat_settings` table, which phase 4 builds
     on.
 
 ## v3.3.3: v2 features by default
@@ -78,7 +78,7 @@ of phase 1 stay on. The bot still records the chats it is in, so the registry is
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
 rows in the database (`platform = discord`) and its own boards. Missing: per-server settings, which
 today come from environment variables and the shared Google Sheet. They arrive with the settings store in
-phase 3.
+phase 4.
 
 **E2. One community on a Telegram group (or several) and a Discord server, with shared boards.**
 - A *community* groups chats across platforms: `communities(id, name)` and
@@ -88,7 +88,7 @@ phase 3.
   code, `/link <code>` on the other side joins both accounts to one `person_id`. Nobody is merged by
   matching names.
 - `/top` and `/mystats` in a linked chat count every chat of the community and add up a person's
-  accounts. Goals, streaks and achievements (phases 2 and 4) are kept per person.
+  accounts. Goals, streaks and achievements (phases 2 and 5) are kept per person.
 - Shared sprints (one sprint posted on both sides, people joining from either) need both adapters to share
   one sprint engine. Simplest: run both clients in one process, with one `SprintManager` and a presenter that
   fans out to every chat of the community. Until then each side runs its own sprints, and only the boards
@@ -146,7 +146,35 @@ stay, and `PREVIEW_FEATURES=1` turns it all on for testing.
 - **Google Docs word count** (18): documents shared as "anyone with the link", through the plain-text
   export. No Google credentials are needed, and private documents are reported as not shared.
 
-### Phase 3: settings store and dashboard (v4.0)
+### Phase 3: sprint redesign (v3.4)
+Decided in the October 2026 roadmap review; nothing here has been tried with a focus group yet. Writers
+join and report with replies and buttons, nobody is pushed to share their work or to compete, and the
+chat stays quiet. It replaces the preview reporting flow. Before the redesign, the extra link sources
+(WriteFreely, Ellipsus, Google Docs) come out of `PREVIEW_FEATURES`.
+- **Minimal settings store first**: per user, board visibility, progress unit and the current works; per
+  chat, the default unit. The rest of the settings store is in phase 4.
+- **No reporting commands**: `/join` and `/words` are removed. You join with the button and report by
+  replying to the sprint message (`500`, `+300`, a link) or with the buttons at the end. Richer input goes
+  in a small sprint panel (a Mini App, the first piece of the phase 4 dashboard).
+- **Works**: a name and an optional link. One sprint can have several works. Whether a work carries over
+  to your next sprint is your choice (a "keep for next sprint" toggle). The work's link is counted again
+  at the end, as sprint links are now. Progress per work over time comes later.
+- **Units**: words or %, chosen per person, with a chat default (replaces the per-chat `/sprintmode`).
+- **Outcomes**: a number, **Done ✓** (no number), or **Didn't make it ✗**. A sprint counts as completed
+  with any positive progress: words or % above 0, or Done. A 0, ✗ or no report doesn't count.
+- **Visibility**: public (the default) or private. Private numbers count towards your own stats, and the
+  board shows ✓ in their place. Joining never needs you to share anything.
+- **Board**: a words section and a % section, each sorted high to low, then ✓ and ✗. No medals and no
+  winner. Records and goals go in one summary line on the board, not separate posts.
+- **No fixed report window**: late reports are accepted until your next sprint or about 12 hours, and the
+  board is edited when they arrive, so someone in the zone can keep writing.
+- **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
+  it reacts), and confirmations are ephemeral where Telegram allows.
+- **`/top`**: total minutes of completed sprints in the chat over N days, private writers included (minutes
+  reveal nothing about the work). You get credit from when you joined: joining 20 minutes into a
+  30-minute sprint gives 10.
+
+### Phase 4: settings store and dashboard (v4.0)
 - **Settings in the database** instead of environment variables and the config sheet: per chat (welcome
   text, slogan replies on/off, report window, default sprint length, broadcast opt-out, achievements on/off)
   and per user (time zone, goals, visibility on boards). The sheet stays as a one-time import source.
@@ -168,15 +196,17 @@ stay, and `PREVIEW_FEATURES=1` turns it all on for testing.
   - Needs public HTTPS into the homelab (a reverse proxy or a tunnel); that's an ops decision before this
     phase starts.
 
-### Phase 4: achievements (v4.1)
+### Phase 5: achievements (v4.1)
 - **Achievements** (9), defined by chat admins in the dashboard: a name and a rule from a fixed set (total
   words, words in one sprint, streak length, number of sprints, a goal reached). A few defaults per chat,
   which admins can switch off. Earned achievements are listed in `/mystats` and announced once in the chat.
   No XP and no random awards.
 
-### Phase 5: one community across Telegram and Discord (v4.2)
-- E1 per-server settings come with phase 3.
-- E2: Discord chats join the communities from phase 3, `/link` for accounts, shared boards, then shared
+### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.2)
+- A Discord parity pass once the Telegram sprint redesign has settled: the same flow with Discord's
+  buttons and modals, tested in a real server.
+- E1 per-server settings come with phase 4.
+- E2: Discord chats join the communities from phase 4, `/link` for accounts, shared boards, then shared
   sprints with both adapters in one process.
 - E3: Matterbridge configuration and setup notes on top of E2.
 
