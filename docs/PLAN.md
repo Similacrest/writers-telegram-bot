@@ -225,10 +225,15 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   30-minute sprint gives 10.
 
 ### Phase 4: settings store, communities and dashboard (v4.0)
-- **Settings in the database** instead of environment variables and the config sheet, per chat: welcome
-  text, slogan replies on/off, default sprint length, default unit, how long late reports are accepted,
-  deleting report messages, broadcast opt-out, achievements on/off. Chat admins change them in the web app
-  (`/settings` opens it). Per-user settings arrived in phase 3. The sheet stays as a one-time import source.
+- **Settings in the database** instead of environment variables and the config sheet, per chat, changed by
+  chat admins in the web app (`/settings` opens it); per-user settings arrived in phase 3:
+  - sprints: default length, default unit (when % is on), works on/off (off also means no goals on the
+    board), private ✓ reports on/off, % unit on/off;
+  - in the chat: work names on the sprint message, `/top` on/off, deleting report messages;
+  - achievements on/off (phase 5).
+  `EXTRAS` features (welcome text, slogans) have no per-chat settings. There is no broadcast opt-out:
+  `/broadcast` reaches every chat, except that a community gets it only in its largest chat. The sheet
+  stays as a one-time import source.
 - **Communities** (Telegram first): `communities` and `community_chats` tables. A chat that belongs to a
   Telegram Community (Bot API 10.2: the bot can see a chat's community through `getChat` and its service
   messages; exact fields to be checked against the changelog when built) is linked automatically, with the
