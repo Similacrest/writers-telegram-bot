@@ -253,11 +253,12 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 ### Phase 5: achievements (v4.1)
 - **Achievements** (9), made and awarded by hand. No rules, no automation, and no tie to sprints, works
   or stats. No XP.
-- Each achievement is a name, an optional description and a **sticker** in the chat's (or community's)
-  sticker pack. The bot creates the pack (`createNewStickerSet`, `<name>_by_<bot>`, owned by the admin who
-  set it up) and adds a sticker when an admin creates an achievement in the web app or sends the bot a
-  sticker or image for it. A matching **custom emoji** set is possible (`sticker_type = custom_emoji`)
-  so achievements can appear inline in `/me` and on boards; whether the bot may send custom emoji in its
+- Each achievement is a name, an optional description and a **sticker**. The chat admins own the sticker
+  pack and manage it themselves (through @Stickers); the bot only stores which sticker belongs to which
+  achievement (the set name and the sticker's `file_unique_id`). To create an achievement, an admin sends
+  the bot a sticker from the pack with a name, in the web app or in chat. If a sticker is removed from
+  the pack, the achievement keeps its name and the bot asks for a new sticker. The pack can also be a
+  custom emoji pack, so achievements appear inline in `/me`; whether the bot may send custom emoji in its
   messages is to be checked against the Bot API when this is built.
 - **Awarding by command** (chat admins): reply to the member's message with `/award`, then pick the
   achievement from buttons, or `/award <name>`; `/unaward` takes it back. The bot posts the sticker and one
