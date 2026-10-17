@@ -301,24 +301,22 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 
 ### Architecture: modules
 The bot is built from modules that can be served as one bot or as several, set in a config file.
-- **Modules**: `greeter`, `prompts`, `wordcount`, `sprints`, `works`, `dice`, `achievements`, `extras`
-  (smash, imafan, slogans), `admin` (chat list, broadcasts), `data` (export, deletion). Each one brings
+- **Modules**: `prompts`, `wordcount`, `sprints` (works are a feature flag of this module), `greeter`
+  (welcome messages), `dice`, `achievements`, `extras` (`/smash`, `/imafan`, slogans, the `/start`
+  greeting). Each one brings
   its handlers, commands (menu, `/help`, Ukrainian aliases), settings, migrations and web app pages, and
   adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
   shows only what its modules do.
-- **Shared core**, not a module: storage (one database for every bot), the settings store, people and
-  accounts, communities, ephemeral replies, the web app server.
-- **Dependencies** are declared: required, or optional (sprints uses works when available; without
-  works the join card is a plain Join button).
-- **Calls between modules** go through a service interface. Within one process it's a direct call; when the
-  modules run in different bots or processes, the same interface is served over an internal,
-  authenticated API. That way a reply to the sprint bot can still record progress on a work kept by the
-  works bot.
+- **Shared core**, in every bot: storage (one database for every bot), the settings store, people and
+  accounts, communities, ephemeral replies, the web app server, admin (chat list, broadcasts) and your
+  data (export, deletion).
+- Modules don't call each other; they share only the core and the database.
 - **Config file** (TOML): each bot names its modules and its targets, Telegram and/or Discord, each with
   its own token:
   ```toml
   [bots.main]
-  modules = ["prompts", "wordcount", "sprints", "works", "achievements", "dice"]
+  modules = ["prompts", "wordcount", "sprints", "achievements", "dice"]
+  sprints = { works = true }
   telegram = { token = "env:TG_MAIN" }
   discord = { token = "env:DISCORD_MAIN" }
 
