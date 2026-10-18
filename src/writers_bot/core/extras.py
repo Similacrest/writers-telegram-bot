@@ -1,14 +1,16 @@
-"""Small chat extras carried over from the v2 ``extended`` branch: dice rolls, keyboard smash, slogan replies."""
+"""Small chat extras carried over from the v2 ``extended`` branch: dice rolls and keyboard smash."""
 
-import html
 import random
 import re
 from dataclasses import dataclass
 from secrets import SystemRandom
 
+from .fmt import Formatter
+from .i18n import Markup, t
+
 _rng = SystemRandom()
 
-# /d20, /2d6, /r 3d8+2, /roll d20adv Ініціатива, /4к6mi2 (Cyrillic к works too)
+# /d20, /2d6, /r 3d8+2, /roll d20adv Initiative, /4k6mi2 (the Cyrillic letter ka works too; i18n: input syntax)
 ROLL_RE = re.compile(r"^/(?:r(?:oll)?\s*)?(\d*)[dDкК](\d+)(mi-?\d+)?(adv|dis)?([bm+\-]\d+)?(?:@\w+)?(.*)$", re.DOTALL)
 MAX_DICE = 500
 MAX_SIDES = 2**31 - 1
@@ -40,29 +42,29 @@ def parse_roll(text: str) -> Roll | None:
         minimum = 1
     bonus = int(m[5].replace("b", "").replace("m", "-")) if m[5] else 0
     notation = f"{m[1]}d{m[2]}{m[3] or ''}{m[4] or ''}{m[5] or ''}"
-    return Roll(count, sides, minimum, m[4], bonus, m[6].strip() or "Результат", notation)
+    return Roll(count, sides, minimum, m[4], bonus, m[6].strip() or t("dice.result"), notation)
 
 
-def _throw(roll: Roll) -> tuple[int, str]:
+def _throw(f: Formatter, roll: Roll) -> tuple[int, Markup]:
     pool = [_rng.randint(roll.minimum, roll.sides) for _ in range(roll.count)]
-    shown = ", ".join(
-        f"<b>{v}</b>" if v == roll.sides else f"<u>{v}</u>" if v == roll.minimum else str(v) for v in pool
+    shown = f.join(
+        [f.bold(v) if v == roll.sides else Markup(f"<u>{v}</u>") if v == roll.minimum else str(v) for v in pool]
     )
     bonus = f"{roll.bonus:+d}" if roll.bonus else ""
     total = sum(pool) + roll.bonus
-    return total, f"<code>{html.escape(roll.notation)}</code> <b>{total}</b>: [{shown}]{bonus}"
+    return total, Markup(f"{f.code(roll.notation)} {f.bold(total)}: [{shown}]{bonus}")
 
 
-def roll_html(roll: Roll) -> str:
-    caption = f"<b>{html.escape(roll.caption)}</b> "
-    first_total, first = _throw(roll)
+def roll_html(f: Formatter, roll: Roll) -> str:
+    caption = f"{f.bold(roll.caption)} "
+    first_total, first = _throw(f, roll)
     if not roll.mode:
         return caption + first
-    second_total, second = _throw(roll)
+    second_total, second = _throw(f, roll)
     keep_first = first_total >= second_total if roll.mode == "adv" else first_total <= second_total
     kept, dropped = (first, second) if keep_first else (second, first)
     best = max(first_total, second_total) if roll.mode == "adv" else min(first_total, second_total)
-    return f"{caption}\n<b>{best}</b>\n{kept}\n<s>{dropped}</s>"
+    return f"{caption}\n{f.bold(best)}\n{kept}\n<s>{dropped}</s>"
 
 
 _KEYBOARD = ["qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"]
@@ -85,12 +87,3 @@ def smash() -> str:
             col = min(len(_KEYBOARD[row]) - 1, max(0, col))
         out.append(_KEYBOARD[row][col])
     return "".join(out)
-
-
-def slogan_reply(text: str) -> str | None:
-    lowered = (text or "").lower()
-    if "слава україні" in lowered:
-        return "<i>Героям Слава!</i>"
-    if "слава нації" in lowered:
-        return random.choices(["<i>Смерть ворогам!</i>", "Пизда ᵖосійській ᶲедерації!"], weights=[0.8, 0.2])[0]
-    return None

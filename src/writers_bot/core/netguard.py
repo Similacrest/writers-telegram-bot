@@ -18,6 +18,8 @@ from dataclasses import dataclass
 import httpcore
 import httpx
 
+from .i18n import t
+
 USER_AGENT = "writers-bot/3 (+https://github.com/Similacrest/writers-telegram-bot)"
 MAX_REDIRECTS = 5
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
@@ -52,13 +54,13 @@ def is_public_address(addr: str) -> bool:
 
 def check_url(url: httpx.URL) -> None:
     if url.scheme != "https":
-        raise BlockedURLError("only https links are supported")
+        raise BlockedURLError(t("links.https_only"))
     if url.port not in (None, 443):
-        raise BlockedURLError("non-standard ports are not allowed")
+        raise BlockedURLError(t("links.port"))
     if not url.host:
-        raise BlockedURLError("link has no host")
+        raise BlockedURLError(t("links.no_host"))
     if url.userinfo:
-        raise BlockedURLError("links with credentials are not allowed")
+        raise BlockedURLError(t("links.credentials"))
 
 
 async def resolve_public(host: str, port: int) -> str:
@@ -70,13 +72,13 @@ async def resolve_public(host: str, port: int) -> str:
         try:
             infos = await asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM)
         except socket.gaierror as e:
-            raise FetchError(f"cannot resolve {host}") from e
+            raise FetchError(t("links.resolve", host=host)) from e
         addresses = list(dict.fromkeys(str(info[4][0]) for info in infos))
     if not addresses:
-        raise FetchError(f"cannot resolve {host}")
+        raise FetchError(t("links.resolve", host=host))
     for addr in addresses:
         if not is_public_address(addr):
-            raise BlockedURLError(f"{host} resolves to a non-public address")
+            raise BlockedURLError(t("links.private_address", host=host))
     return addresses[0]
 
 
@@ -95,7 +97,7 @@ class GuardedBackend(httpcore.AsyncNetworkBackend):
         )
 
     async def connect_unix_socket(self, *args, **kwargs):  # pragma: no cover - never used
-        raise BlockedURLError("unix sockets are not allowed")
+        raise BlockedURLError(t("links.blocked"))
 
     async def sleep(self, seconds: float) -> None:
         await self._inner.sleep(seconds)
@@ -133,9 +135,9 @@ class SafeFetcher:
             async with asyncio.timeout(self._timeout * 2):
                 return await self._get(httpx.URL(url), max_bytes=max_bytes, accept=accept)
         except TimeoutError as e:
-            raise FetchError("timed out") from e
+            raise FetchError(t("links.timeout")) from e
         except httpx.InvalidURL as e:
-            raise BlockedURLError("invalid link") from e
+            raise BlockedURLError(t("links.invalid")) from e
 
     async def _get(self, url: httpx.URL, *, max_bytes: int, accept: str) -> FetchResult:
         for _ in range(MAX_REDIRECTS + 1):
@@ -145,17 +147,17 @@ class SafeFetcher:
                     if response.is_redirect:
                         location = response.headers.get("location")
                         if not location:
-                            raise FetchError("redirect without location")
+                            raise FetchError(t("links.bad_redirect"))
                         url = url.join(location)
                         continue
                     declared = response.headers.get("content-length")
                     if declared and declared.isdigit() and int(declared) > max_bytes:
-                        raise FetchError("page is too large")
+                        raise FetchError(t("links.too_large"))
                     body = bytearray()
                     async for chunk in response.aiter_bytes():
                         body += chunk
                         if len(body) > max_bytes:
-                            raise FetchError("page is too large")
+                            raise FetchError(t("links.too_large"))
                     return FetchResult(
                         url=str(url),
                         status_code=response.status_code,
@@ -163,5 +165,5 @@ class SafeFetcher:
                         content=bytes(body),
                     )
             except httpx.HTTPError as e:
-                raise FetchError(str(e) or type(e).__name__) from e
-        raise FetchError("too many redirects")
+                raise FetchError(t("links.network", error=str(e) or type(e).__name__)) from e
+        raise FetchError(t("links.redirects"))

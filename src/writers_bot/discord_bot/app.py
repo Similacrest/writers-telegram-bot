@@ -1,65 +1,45 @@
-"""Discord bot: the same prompts, word counter and sprints as Telegram, as slash commands and buttons.
+"""Discord target of a bot: slash commands and buttons for the modules that work there (prompts,
+wordcount, sprints, smash). The full Discord pass (works, Ukrainian command names, achievements, linked
+channels) is phase 6; until then this follows the shared core and the redesigned sprint flow.
 
-Runs as its own process (``writers-bot-discord``) with ``DISCORD_TOKEN``. It needs no privileged
-intents: reports come through ``/words`` or the report button's modal instead of plain replies.
+It needs no privileged intents: reports come through the Report button's modal (a field per work) or
+``/progress``, never by reading messages.
 """
 
+import asyncio
 import contextlib
 import io
 import logging
-import os
-from datetime import datetime, timedelta, tzinfo
+import time
+from datetime import timedelta
 
 import discord
 from discord import app_commands
 
-from .. import __version__
-from ..config import ConfigError, DiscordSettings
+from ..botconfig import BotConfig
 from ..core import sprint as sp
-from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
-from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
-from ..core.ops import HealthServer, setup_logging
-from ..core.personal import Personal
-from ..core.prompts import PromptsStore, PromptsUnavailableError
-from ..core.render import goals_text, report_text, sprint_text, text_stats_text, top_text, user_stats_text
-from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
-from ..core.storage import Storage
+from ..core.board import board_text, confirmation, minutes_top_text, sprint_message
+from ..core.days import bot_day
+from ..core.export import export_person
+from ..core.fmt import MarkdownFormatter
+from ..core.i18n import t
+from ..core.links import LinkError
+from ..core.models import ChatKey, Outcome, Sprint, SprintStatus, Unit
+from ..core.prompts import PromptsUnavailableError
+from ..core.render import sprint_text, text_stats_text
+from ..core.reporting import ChatOptions, Reporting, Status
+from ..core.reportparse import parse
+from ..core.sources import find_url, source_locative
+from ..core.stats import history, top_minutes
 from ..core.wordcount import count_words, text_stats
+from ..services import BotServices
 
 logger = logging.getLogger(__name__)
 
 PLATFORM = "discord"
 LANG = "ua"
-REPORT_HINT = "Натисніть «Звітувати» або надішліть /words 500 (чи посилання на текст)."
-PERCENT_HINT = "Натисніть «Звітувати» або надішліть /words 40%."
-
-
-def hint(sprint: Sprint) -> str:
-    return PERCENT_HINT if sprint.unit == SprintUnit.PERCENT else REPORT_HINT
-
-
 NO_PINGS = discord.AllowedMentions.none()
 PING_USERS = discord.AllowedMentions(users=True, roles=False, everyone=False)
-
-
-class MarkdownFormatter:
-    def __init__(self, tz: tzinfo):
-        self.tz = tz
-
-    def escape(self, text: str) -> str:
-        return discord.utils.escape_mentions(discord.utils.escape_markdown(str(text)))
-
-    def bold(self, text: str) -> str:
-        return f"**{self.escape(text)}**"
-
-    def code(self, text: str) -> str:
-        return f"`{text.replace('`', 'ˋ')}`"
-
-    def mention(self, user_id: str, name: str) -> str:
-        return f"<@{int(user_id)}>"
-
-    def time(self, when: datetime) -> str:
-        return f"<t:{int(when.timestamp())}:t>"  # rendered in each reader's local time
 
 
 def chat_key(channel_id: int) -> ChatKey:
@@ -73,7 +53,7 @@ def user_ref(user: discord.abc.User) -> sp.UserRef:
 
 class SprintButton(
     discord.ui.DynamicItem[discord.ui.Button],
-    template=r"sp:(?P<action>join|leave|report|repeat):(?P<a>\d+)(?::(?P<b>\d+))?",
+    template=r"sp:(?P<action>join|leave|report|repeat|done|fail):(?P<a>\d+)(?::(?P<b>\d+))?",
 ):
     """Persistent button: works after restarts because its state lives in the custom id."""
 
@@ -99,41 +79,30 @@ def _view(*buttons: SprintButton) -> discord.ui.View:
     return view
 
 
-def sprint_view(sprint: Sprint) -> discord.ui.View | None:
-    if sprint.is_active:
-        return _view(
-            SprintButton("join", sprint.id, label="Долучитися", style=discord.ButtonStyle.success),
-            SprintButton("leave", sprint.id, label="Вийти/скасувати", style=discord.ButtonStyle.danger),
-        )
-    if sprint.status == SprintStatus.CANCELLED:
-        return _view(SprintButton("repeat", sprint.planned_duration, sprint.delay, label="Повторити"))
-    return None
+class ReportModal(discord.ui.Modal):
+    """A field per work in the sprint (a Discord modal holds up to five, as many as a person's works)."""
 
-
-def report_view(sprint: Sprint) -> discord.ui.View:
-    repeat = SprintButton("repeat", sprint.planned_duration, 0, label="Ще раз")
-    if sprint.status == SprintStatus.REPORTING:
-        return _view(SprintButton("report", sprint.id, label="Звітувати", style=discord.ButtonStyle.primary), repeat)
-    return _view(repeat)
-
-
-class ReportModal(discord.ui.Modal, title="Звіт за спринт"):
-    value = discord.ui.TextInput(
-        label="Ваш результат", placeholder="500 слів, =12500, посилання або 40%", max_length=500
-    )
-
-    def __init__(self, bot: "WritersDiscordBot", sprint_id: int):
-        super().__init__()
-        self.bot, self.sprint_id = bot, sprint_id
+    def __init__(self, bot: "DiscordBot", sprint: Sprint, labels: list[tuple[int | None, str]]):
+        super().__init__(title=t("discord.report_title"))
+        self.bot, self.sprint = bot, sprint
+        self.fields: list[tuple[int | None, discord.ui.TextInput]] = []
+        for work_id, label in labels[:5]:
+            field = discord.ui.TextInput(
+                label=label[:45], placeholder=t("discord.report_placeholder"), required=False, max_length=200
+            )
+            self.add_item(field)
+            self.fields.append((work_id, field))
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await self.bot.handle_report(interaction, str(self.value), self.sprint_id)
+        await self.bot.submit_report(interaction, self.sprint, [(w, str(f.value)) for w, f in self.fields])
 
 
 class DiscordSprintPresenter:
-    def __init__(self, client: discord.Client, fmt: MarkdownFormatter):
+    def __init__(self, client: discord.Client, fmt: MarkdownFormatter, reports: bool, now):
         self.client = client
         self.fmt = fmt
+        self.reports = reports
+        self.now = now
 
     async def _channel(self, sprint: Sprint):
         cid = int(sprint.key.chat_id)
@@ -153,84 +122,120 @@ class DiscordSprintPresenter:
         with contextlib.suppress(discord.HTTPException):
             await (message.pin() if pin else message.unpin())
 
+    def main_view(self, sprint: Sprint) -> discord.ui.View | None:
+        if sprint.is_active:
+            return _view(
+                SprintButton("join", sprint.id, label=t("sprint.button_join"), style=discord.ButtonStyle.success),
+                SprintButton("leave", sprint.id, label=t("sprint.button_leave"), style=discord.ButtonStyle.danger),
+            )
+        if sprint.status == SprintStatus.CANCELLED:
+            return _view(
+                SprintButton(
+                    "repeat", sprint.planned_duration, sprint.delay, label=t("sprint.button_repeat_cancelled")
+                )
+            )
+        return None
+
+    def board_view(self, sprint: Sprint) -> discord.ui.View:
+        repeat = SprintButton("repeat", sprint.planned_duration, 0, label=t("sprint.button_repeat"))
+        if sprint.status == SprintStatus.REPORTING and self.reports:
+            return _view(
+                SprintButton("report", sprint.id, label=t("sprint.button_report"), style=discord.ButtonStyle.primary),
+                SprintButton("done", sprint.id, label=t("sprint.button_done")),
+                SprintButton("fail", sprint.id, label=t("sprint.button_failed")),
+                repeat,
+            )
+        return _view(repeat)
+
+    def main(self, sprint: Sprint) -> str:
+        if self.reports:
+            return sprint_message(self.fmt, sprint, self.now(), hint="sprint.hint_running_discord")
+        return sprint_text(self.fmt, sprint, self.now())
+
+    def board(self, sprint: Sprint) -> str:
+        return board_text(self.fmt, sprint, self.now(), mention=True, hint="board.hint_discord")
+
     async def show(self, sprint: Sprint, event: sp.SprintEvent, origin=None) -> None:
-        now = sp.utc_now()
-        main = sprint_text(self.fmt, sprint, now)
         channel = await self._channel(sprint)
         E = sp.SprintEvent
         if event == E.CREATED:
-            msg = await channel.send(main, view=sprint_view(sprint), allowed_mentions=NO_PINGS)
+            msg = await channel.send(self.main(sprint), view=self.main_view(sprint), allowed_mentions=NO_PINGS)
             sprint.refs["msg"] = msg.id
             await self._pin(msg, True)
         elif event == E.STARTED:
             old = sprint.refs.get("msg")
-            msg = await channel.send(main, view=sprint_view(sprint), allowed_mentions=PING_USERS)
+            msg = await channel.send(self.main(sprint), view=self.main_view(sprint), allowed_mentions=PING_USERS)
             sprint.refs["msg"] = msg.id
             if old:
                 with contextlib.suppress(discord.HTTPException):
                     await channel.get_partial_message(old).delete()
             await self._pin(msg, True)
-        elif event in (E.TICK, E.PARTICIPANTS_CHANGED):
-            await self._edit(sprint, "msg", main, sprint_view(sprint))
-        elif event == E.CANCELLED:
-            await self._edit(sprint, "msg", main, sprint_view(sprint))
-            if sprint.refs.get("msg"):
+        elif event in (E.TICK, E.PARTICIPANTS_CHANGED, E.CANCELLED):
+            await self._edit(sprint, "msg", self.main(sprint), self.main_view(sprint))
+            if event == E.CANCELLED and sprint.refs.get("msg"):
                 await self._pin(channel.get_partial_message(sprint.refs["msg"]), False)
         elif event == E.FINISHED:
-            await self._edit(sprint, "msg", main, None)
+            await self._edit(sprint, "msg", self.main(sprint), None)
             if sprint.refs.get("msg"):
                 await self._pin(channel.get_partial_message(sprint.refs["msg"]), False)
-            msg = await channel.send(
-                report_text(self.fmt, sprint, now, hint(sprint)), view=report_view(sprint), allowed_mentions=PING_USERS
-            )
+            if not self.reports:
+                if not sprint.stopped_early:
+                    msg = await channel.send(
+                        self.main(sprint), view=self.board_view(sprint), allowed_mentions=NO_PINGS
+                    )
+                    sprint.refs["finish"] = msg.id
+                return
+            msg = await channel.send(self.board(sprint), view=self.board_view(sprint), allowed_mentions=PING_USERS)
             sprint.refs["finish"] = msg.id
         elif event in (E.REPORT_UPDATED, E.CLOSED):
-            await self._edit(sprint, "finish", report_text(self.fmt, sprint, now, hint(sprint)), report_view(sprint))
+            await self._edit(sprint, "finish", self.board(sprint), self.board_view(sprint))
 
 
-class WritersDiscordBot:
-    def __init__(self, settings: DiscordSettings):
-        self.settings = settings
-        common = settings.common
+class DiscordBot:
+    def __init__(self, config: BotConfig, services: BotServices):
+        self.config = config
+        self.settings = config.discord
+        self.services = services
+        self.storage = services.storage
+        self.people = services.people
         intents = discord.Intents.none()
         intents.guilds = True
         self.client = discord.Client(intents=intents, allowed_mentions=NO_PINGS)
         self.client.writers = self
         self.tree = app_commands.CommandTree(self.client)
-        self.fmt = MarkdownFormatter(common.timezone)
-        self.storage = Storage(common.db_path)
-        self.prompts = PromptsStore(common.google)
-        self.fetcher: SafeFetcher | None = None
-        self.sprints = sp.SprintManager(
-            self.storage,
-            DiscordSprintPresenter(self.client, self.fmt),
-            platform=PLATFORM,
-            report_window=common.report_window,
-            count_link=self.count_link,
-        )
-        self.personal = Personal(self.storage, PLATFORM, common.timezone)
-        self.health: HealthServer | None = None
+        self.fmt = MarkdownFormatter(self.settings.common.timezone)
+        options = config.options("sprints")
+        self.reports = config.has("sprints") and bool(options.get("reports"))
+        self.works_on = self.reports and bool(options.get("works"))
+        self.percent_on = self.reports and bool(options.get("percent"))
+        self.engine = None
+        self.rep = None
+        if config.has("sprints") and self.storage is not None:
+            self.engine = sp.SprintManager(
+                self.storage,
+                DiscordSprintPresenter(self.client, self.fmt, self.reports, sp.utc_now),
+                platform=PLATFORM,
+                report_window=sp.LATE_REPORTS if self.reports else self.settings.common.report_window,
+                reports=self.reports,
+            )
+            self.rep = Reporting(
+                self.storage,
+                self.people,
+                services.works,
+                self.engine,
+                services.links if self.works_on else None,
+                works_enabled=self.works_on,
+            )
+            if self.reports:
+                self.engine.after_finish = self.rep.after_finish
         self.client.setup_hook = self.setup_hook
+        self.started = time.monotonic()
         self._register_commands()
 
     async def setup_hook(self) -> None:
-        self.fetcher = SafeFetcher()
-        await self.storage.open()
-        if self.settings.common.health_port:
-            common = self.settings.common
-            self.health = HealthServer(common.health_host, common.health_port, self.health_status)
-            try:
-                await self.health.start()
-            except OSError as e:
-                logger.warning("health endpoint not started: %s", e)
-                self.health = None
         self.client.add_dynamic_items(SprintButton)
-        await self.sprints.restore()
-        if self.prompts.enabled:
-            try:
-                await self.prompts.load()
-            except Exception:
-                logger.exception("could not load prompts")
+        if self.engine is not None:
+            await self.engine.restore()
         for guild_id in self.settings.guild_ids:
             guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
@@ -238,21 +243,17 @@ class WritersDiscordBot:
         if not self.settings.guild_ids:
             await self.tree.sync()
 
-    async def health_status(self) -> dict:
-        await self.storage.ping()
-        return {
-            "ok": self.client.is_ready() and not self.client.is_closed(),
-            "version": __version__,
-            "open_sprints": len(self.sprints._sprints),
-        }
+    async def start(self) -> None:
+        await self.client.login(self.settings.token)
+        self._task = asyncio.create_task(self.client.connect(), name=f"discord-{self.config.name}")
 
-    async def close(self) -> None:
-        if self.health:
-            await self.health.stop()
-        await self.sprints.shutdown()
-        if self.fetcher:
-            await self.fetcher.aclose()
-        await self.storage.close()
+    async def stop(self) -> None:
+        if self.engine is not None:
+            await self.engine.shutdown()
+        await self.client.close()
+
+    def health(self) -> dict:
+        return {"ok": self.client.is_ready() and not self.client.is_closed(), "last_update_s": None}
 
     # --- helpers ---------------------------------------------------------------------------------
 
@@ -265,14 +266,11 @@ class WritersDiscordBot:
         perms = interaction.permissions
         return bool(perms.manage_messages or perms.administrator)
 
-    async def reply(self, interaction: discord.Interaction, text: str, *, ephemeral: bool = False) -> None:
+    async def reply(self, interaction: discord.Interaction, text: str, *, ephemeral: bool = False, **kwargs) -> None:
         if interaction.response.is_done():
-            await interaction.followup.send(text, ephemeral=ephemeral, allowed_mentions=NO_PINGS)
+            await interaction.followup.send(text, ephemeral=ephemeral, allowed_mentions=NO_PINGS, **kwargs)
         else:
-            await interaction.response.send_message(text, ephemeral=ephemeral, allowed_mentions=NO_PINGS)
-
-    async def count_link(self, url: str) -> int:
-        return count_words((await fetch_linked_text(self.fetcher, url)).text)
+            await interaction.response.send_message(text, ephemeral=ephemeral, allowed_mentions=NO_PINGS, **kwargs)
 
     @staticmethod
     async def defer(interaction: discord.Interaction) -> None:
@@ -280,127 +278,110 @@ class WritersDiscordBot:
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True, thinking=True)
 
-    async def start_sprint(self, interaction: discord.Interaction, duration: int, delay: int, link: str = "") -> None:
+    async def chat_options(self, key: ChatKey) -> ChatOptions:
+        settings = self.services.shared.extra.get("settings")
+        if settings is not None:
+            return await settings.sprint_options(key, works=self.works_on, percent=self.percent_on)
+        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id) if self.percent_on else Unit.WORDS
+        return ChatOptions(works=self.works_on, percent=self.percent_on, default_unit=unit)
+
+    # --- sprints ---------------------------------------------------------------------------------
+
+    async def start_sprint(self, interaction: discord.Interaction, duration: int, delay: int) -> None:
         await self.defer(interaction)
         key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
+        kwargs = {}
+        if self.reports:
+            kwargs = {"prepare": self.rep.preparer(user), "refs": {"opts": (await self.chat_options(key)).to_refs()}}
         try:
-            unit = await self.storage.sprint_unit(PLATFORM, key.chat_id)
-            await self.sprints.start(key, user, duration, delay, unit=unit)
+            await self.engine.start(key, user, duration, delay, **kwargs)
         except sp.SprintAlreadyRunningError:
-            await self.reply(interaction, "Спринт вже запущено.", ephemeral=True)
+            await self.reply(interaction, t("sprint.already_running"), ephemeral=True)
             return
         except sp.InvalidSprintParamsError as e:
             await self.reply(interaction, str(e), ephemeral=True)
             return
-        text = "Спринт створено."
-        if url := find_url(link):
-            try:
-                outcome = await self.sprints.report(
-                    key, user, sp.ReportInput(sp.ReportKind.LINK, url=url), self.count_link
-                )
-            except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-                text += f" Не вдалося прочитати посилання: {e}"
-            else:
-                if outcome.counted is not None:
-                    text += f" У тексті зараз {outcome.counted} сл., після спринту порахую ще раз."
-        await self.reply(interaction, text, ephemeral=True)
-
-    async def join_sprint(self, interaction: discord.Interaction, link: str = "") -> None:
-        await self.defer(interaction)
-        key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
-        result, _ = await self.sprints.join(key, user)
-        if result == sp.JoinResult.CLOSED:
-            await self.reply(interaction, "Зараз немає спринту, до якого можна долучитися.", ephemeral=True)
-            return
-        text = "Додано до спринту." if result == sp.JoinResult.JOINED else "Ви вже у спринті."
-        if url := find_url(link):
-            try:
-                outcome = await self.sprints.report(
-                    key, user, sp.ReportInput(sp.ReportKind.LINK, url=url), self.count_link
-                )
-            except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-                text += f" Не вдалося прочитати посилання: {e}"
-            else:
-                if outcome.counted is not None:
-                    text += f" У тексті зараз {outcome.counted} сл., після спринту порахую ще раз."
-        await self.reply(interaction, text, ephemeral=True)
+        await self.reply(interaction, t("discord.sprint_created"), ephemeral=True)
 
     async def on_button(self, interaction: discord.Interaction, action: str, a: int, b: int | None) -> None:
-        if not self.allowed(interaction):
-            await self.reply(interaction, "Бот недоступний на цьому сервері.", ephemeral=True)
+        if not self.allowed(interaction) or self.engine is None:
+            await self.reply(interaction, t("discord.not_here"), ephemeral=True)
             return
         key, user = chat_key(interaction.channel_id), user_ref(interaction.user)
         if action == "join":
             await self.defer(interaction)
-            result, _ = await self.sprints.join(key, user, a)
-            text = {
-                sp.JoinResult.JOINED: "Додано до спринту!",
-                sp.JoinResult.ALREADY: "Ви вже у спринті!",
-                sp.JoinResult.CLOSED: "Цей спринт уже завершився.",
-            }[result]
-            await self.reply(interaction, text, ephemeral=True)
+            prepare = self.rep.preparer(user) if self.reports else None
+            result, _ = await self.engine.join(key, user, a, prepare=prepare)
+            keys = {
+                sp.JoinResult.JOINED: "sprint.joined",
+                sp.JoinResult.ALREADY: "sprint.already_in",
+                sp.JoinResult.CLOSED: "sprint.over",
+            }
+            await self.reply(interaction, t(keys[result]), ephemeral=True)
         elif action == "leave":
 
             async def admin() -> bool:
                 return self.is_admin(interaction)
 
             await self.defer(interaction)
-            result, _ = await self.sprints.leave_or_cancel(key, user, admin, a)
-            text = {
-                sp.LeaveResult.LEFT: "Вас вилучено зі спринту",
-                sp.LeaveResult.CANCELLED: "Спринт скасовано",
-                sp.LeaveResult.STOPPED: "Спринт зупинено. Можна звітувати про слова.",
-                sp.LeaveResult.NOT_ALLOWED: "Ви не маєте права скасувати спринт",
-                sp.LeaveResult.NOT_PARTICIPANT: "Ви не у спринті",
-                sp.LeaveResult.CLOSED: "Цей спринт уже завершився.",
-            }[result]
-            await self.reply(interaction, text, ephemeral=True)
+            result, _ = await self.engine.leave_or_cancel(key, user, admin, a)
+            keys = {
+                sp.LeaveResult.LEFT: "sprint.left",
+                sp.LeaveResult.CANCELLED: "sprint.cancelled",
+                sp.LeaveResult.STOPPED: "sprint.stopped_reports" if self.reports else "sprint.stopped",
+                sp.LeaveResult.NOT_ALLOWED: "sprint.not_allowed",
+                sp.LeaveResult.NOT_PARTICIPANT: "sprint.not_in",
+                sp.LeaveResult.CLOSED: "sprint.over",
+            }
+            await self.reply(interaction, t(keys[result]), ephemeral=True)
         elif action == "report":
-            sprint = self.sprints.get(a)
+            sprint = self.engine.get(a)
             if sprint is None or sprint.status != SprintStatus.REPORTING:
-                await self.reply(interaction, "Звіти для цього спринту вже закрито.", ephemeral=True)
+                await self.reply(interaction, t("sprint.reports_closed"), ephemeral=True)
                 return
-            await interaction.response.send_modal(ReportModal(self, a))
+            p = sprint.participants.get(str(interaction.user.id))
+            if p is None:
+                await self.reply(interaction, t("sprint.not_in"), ephemeral=True)
+                return
+            labels = [(w.work_id, w.label or t("discord.report_label")) for w in p.works.values()] or [
+                (None, t("discord.report_label"))
+            ]
+            await interaction.response.send_modal(ReportModal(self, sprint, labels))
+        elif action in ("done", "fail"):
+            sprint = self.engine.get(a)
+            if sprint is None:
+                await self.reply(interaction, t("sprint.reports_closed"), ephemeral=True)
+                return
+            outcome = Outcome.DONE if action == "done" else Outcome.FAILED
+            result = await self.rep.set_outcome(sprint, user, outcome)
+            key = "report.done_toast" if outcome == Outcome.DONE else "report.failed_toast"
+            await self.reply(interaction, t(key) if result.ok else t("sprint.not_in"), ephemeral=True)
         elif action == "repeat":
             await self.start_sprint(interaction, a, b or 0)
 
-    async def handle_report(self, interaction: discord.Interaction, text: str, sprint_id: int | None) -> None:
-        report = sp.parse_report(text, find_url)
-        if report is None:
-            await self.reply(interaction, "Надішліть число слів (напр. 500) або посилання на текст.", ephemeral=True)
-            return
+    async def submit_report(
+        self, interaction: discord.Interaction, sprint: Sprint, values: list[tuple[int | None, str]]
+    ) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
-        try:
-            outcome = await self.sprints.report(
-                chat_key(interaction.channel_id), user_ref(interaction.user), report, self.count_link, sprint_id
-            )
-        except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-            await self.reply(interaction, f"Не вдалося прочитати посилання: {e}", ephemeral=True)
-            return
-        S = sp.ReportStatus
-        texts = {
-            S.NO_SPRINT: "Немає спринту, до якого можна звітувати.",
-            S.NEED_BASELINE: "Спершу задайте стартову кількість або надішліть просто число написаних слів.",
-            S.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як =12000.",
-            S.TOO_MANY: "Забагато для одного спринту (відсотки: від 0 до 100).",
-            S.PERCENT_ONLY: "Тут звітують відсотком зробленого, напр. 40%.",
-        }
-        if outcome.status in texts:
-            text = texts[outcome.status]
-        elif outcome.status == S.BASELINE:
-            text = f"Стартова кількість: {outcome.participant.start_words} сл."
-        elif outcome.sprint.unit == SprintUnit.PERCENT:
-            text = f"Записано: {outcome.participant.words}%."
-        else:
-            text = f"Записано: {outcome.participant.words} сл." + (
-                f" (у тексті {outcome.counted})" if outcome.counted is not None else ""
-            )
-        await self.reply(interaction, text, ephemeral=True)
-        if outcome.status == S.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
-            notes = await self.personal.report_notes(str(interaction.user.id), outcome.sprint.id, sp.utc_now())
-            if notes and interaction.channel is not None:
-                with contextlib.suppress(discord.HTTPException):
-                    await interaction.channel.send(f"{interaction.user.mention}: " + " ".join(notes))
+        user = user_ref(interaction.user)
+        texts = []
+        for work_id, value in values:
+            value = value.strip()
+            if not value:
+                continue
+            parsed = parse(value, find_url, today=bot_day(sp.utc_now()), allow_day=False)
+            if parsed is None:
+                texts.append(t("report.nothing"))
+                continue
+            choice = {i: work_id for i in range(len(parsed.items))} if work_id is not None else None
+            result = await self.rep.report(sprint, user, parsed, choice)
+            if result.status == Status.AMBIGUOUS:
+                texts.append(t("discord.ambiguous"))
+            elif result.ok:
+                texts.append(confirmation(self.fmt, result.changes, result.outcome))
+            else:
+                texts.append(t("report.nothing") if result.status == Status.NOTHING else t("discord.report_error"))
+        await self.reply(interaction, "\n".join(texts) or t("report.nothing"), ephemeral=True)
 
     # --- commands --------------------------------------------------------------------------------
 
@@ -409,204 +390,158 @@ class WritersDiscordBot:
 
         async def check(interaction: discord.Interaction) -> bool:
             if not bot.allowed(interaction):
-                await bot.reply(interaction, "Бот недоступний на цьому сервері.", ephemeral=True)
+                await bot.reply(interaction, t("discord.not_here"), ephemeral=True)
                 return False
             return True
 
         tree.interaction_check = check
+        sheet = self.services.sheet
 
-        async def category_autocomplete(interaction, current: str):
-            cats = bot.prompts.text_categories(LANG)
-            return [app_commands.Choice(name=c, value=c) for c in cats if current.lower() in c.lower()][:25]
+        if self.config.has("prompts"):
 
-        async def image_autocomplete(interaction, current: str):
-            cats = bot.prompts.image_categories()
-            return [app_commands.Choice(name=c, value=c) for c in cats if current.lower() in c.lower()][:25]
+            async def category_autocomplete(interaction, current: str):
+                cats = sheet.text_categories(LANG) if sheet else []
+                return [app_commands.Choice(name=c, value=c) for c in cats if current.lower() in c.lower()][:25]
 
-        @tree.command(name="prompt", description="Випадковий текстовий промпт")
-        @app_commands.describe(category="Категорія (необов'язково)")
-        @app_commands.autocomplete(category=category_autocomplete)
-        async def prompt(interaction: discord.Interaction, category: str | None = None):
-            try:
-                cat = None
-                if category:
-                    cat = bot.prompts.find_category(LANG, category)
-                    if cat is None:
-                        cats = ", ".join(bot.prompts.text_categories(LANG)) or "—"
-                        await bot.reply(interaction, f"Немає такої категорії. Доступні: {cats}", ephemeral=True)
-                        return
-                result = bot.prompts.random_text(LANG, cat)
-            except PromptsUnavailableError:
-                await bot.reply(interaction, "Промпти зараз недоступні.", ephemeral=True)
-                return
-            await bot.reply(
-                interaction, "\n".join(f"{bot.fmt.bold(k)}: {bot.fmt.escape(v)}" for k, v in result.items())
-            )
+            async def image_autocomplete(interaction, current: str):
+                cats = sheet.image_categories() if sheet else []
+                return [app_commands.Choice(name=c, value=c) for c in cats if current.lower() in c.lower()][:25]
 
-        @tree.command(name="image", description="Випадковий промпт-зображення")
-        @app_commands.autocomplete(category=image_autocomplete)
-        async def image(interaction: discord.Interaction, category: str | None = None):
-            try:
-                cat, num, img = bot.prompts.random_image(category)
-            except PromptsUnavailableError:
-                await bot.reply(interaction, "Зображення зараз недоступні.", ephemeral=True)
-                return
-            link = img.get("webContentLink") or img.get("webViewLink") or ""
-            await bot.reply(interaction, f"{bot.fmt.escape(cat)} #{num}\n{link}")
-
-        @tree.command(name="wc", description="Порахувати слова в тексті чи за посиланням")
-        @app_commands.describe(text="Текст або посилання (Телеграф, WriteFreely, Ellipsus)")
-        async def wc(interaction: discord.Interaction, text: str):
-            url = find_url(text)
-            if url and count_words(text.replace(url, "")) < 20:
-                await interaction.response.defer(thinking=True)
+            @tree.command(name="prompt", description=t("commands.prompt"))
+            @app_commands.autocomplete(category=category_autocomplete)
+            async def prompt(interaction: discord.Interaction, category: str | None = None):
                 try:
-                    linked = await fetch_linked_text(bot.fetcher, url)
-                except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-                    await bot.reply(interaction, f"Не вдалося прочитати посилання: {e}")
+                    if sheet is None:
+                        raise PromptsUnavailableError
+                    cat = None
+                    if category:
+                        cat = sheet.find_category(LANG, category)
+                        if cat is None:
+                            cats = ", ".join(sheet.text_categories(LANG)) or "—"
+                            await bot.reply(interaction, t("prompts.no_category", categories=cats), ephemeral=True)
+                            return
+                    result = sheet.random_text(LANG, cat)
+                except PromptsUnavailableError:
+                    await bot.reply(interaction, t("prompts.unavailable"), ephemeral=True)
                     return
                 await bot.reply(
-                    interaction, text_stats_text(bot.fmt, text_stats(linked.text), source_locative(linked.source))
+                    interaction, "\n".join(f"{bot.fmt.bold(k)}: {bot.fmt.escape(v)}" for k, v in result.items())
                 )
-                return
-            await bot.reply(interaction, text_stats_text(bot.fmt, text_stats(text)))
 
-        @tree.command(name="sprint", description="Почати спринт")
-        @app_commands.describe(
-            duration="Тривалість, хвилин",
-            delay="Затримка до початку, хвилин",
-            link="Посилання на текст: бот порахує, скільки слів додалося",
-        )
+            @tree.command(name="image", description=t("commands.image"))
+            @app_commands.autocomplete(category=image_autocomplete)
+            async def image(interaction: discord.Interaction, category: str | None = None):
+                try:
+                    if sheet is None:
+                        raise PromptsUnavailableError
+                    cat, num, img = sheet.random_image(category)
+                except PromptsUnavailableError:
+                    await bot.reply(interaction, t("prompts.images_unavailable"), ephemeral=True)
+                    return
+                link = img.get("webContentLink") or img.get("webViewLink") or ""
+                await bot.reply(interaction, f"{bot.fmt.escape(cat)} #{num}\n{link}")
+
+        if self.config.has("wordcount"):
+
+            @tree.command(name="count", description=t("commands.count"))
+            async def count(interaction: discord.Interaction, text: str):
+                url = find_url(text)
+                links = bot.services.links
+                if url and links is not None and count_words(text.replace(url, "")) < 20:
+                    await interaction.response.defer(thinking=True)
+                    try:
+                        linked = await links.fetch(url)
+                    except LinkError as e:
+                        await bot.reply(interaction, t("common.link_error", error=e))
+                        return
+                    await bot.reply(
+                        interaction, text_stats_text(bot.fmt, text_stats(linked.text), source_locative(linked.source))
+                    )
+                    return
+                await bot.reply(interaction, text_stats_text(bot.fmt, text_stats(text)))
+
+        if self.config.has("smash"):
+            from ..core import extras
+
+            @tree.command(name="smash", description=t("commands.smash"))
+            async def smash(interaction: discord.Interaction):
+                await bot.reply(interaction, bot.fmt.code(extras.smash()))
+
+        if self.engine is None:
+            return
+
+        @tree.command(name="sprint", description=t("commands.sprint"))
         async def sprint_cmd(
             interaction: discord.Interaction,
             duration: app_commands.Range[int, sp.MIN_SPRINT, sp.MAX_SPRINT] = sp.DEFAULT_SPRINT,
             delay: app_commands.Range[int, sp.MIN_SPRINT_DELAY, sp.MAX_SPRINT_DELAY] = sp.DEFAULT_SPRINT_DELAY,
-            link: str = "",
         ):
-            await bot.start_sprint(interaction, duration, delay, link)
+            await bot.start_sprint(interaction, duration, delay)
 
-        @tree.command(name="sprintmode", description="Звіти після спринтів: слова чи відсоток зробленого")
-        @app_commands.choices(
-            mode=[
-                app_commands.Choice(name="слова", value="words"),
-                app_commands.Choice(name="відсоток зробленого", value="percent"),
-            ]
-        )
-        async def sprintmode_cmd(interaction: discord.Interaction, mode: app_commands.Choice[str]):
-            if not bot.is_admin(interaction):
-                await bot.reply(interaction, "Змінювати це можуть лише адміни.", ephemeral=True)
+        if not self.reports:
+            return
+
+        @tree.command(name="progress", description=t("commands.progress"))
+        async def progress(interaction: discord.Interaction, value: str = ""):
+            await bot.defer(interaction)
+            user = user_ref(interaction.user)
+            if not value.strip():
+                person = await bot.people.person_id(PLATFORM, user.user_id, user.name)
+                h = await history(bot.storage, person)
+                today = bot_day(sp.utc_now())
+                text = bot.fmt.t(
+                    "progress.summary",
+                    today=bot.fmt.plural(h.words(today, today), "words"),
+                    week=bot.fmt.plural(h.words(today - timedelta(days=today.weekday()), today), "words"),
+                    month=bot.fmt.plural(h.words(today.replace(day=1), today), "words"),
+                )
+                await bot.reply(interaction, text, ephemeral=True)
                 return
-            await bot.storage.set_chat_setting(PLATFORM, str(interaction.channel_id), "sprint_unit", mode.value)
-            await bot.reply(interaction, f"Готово. З наступного спринту звітують: {mode.name}.", ephemeral=True)
+            parsed = parse(value, find_url, today=bot_day(sp.utc_now()), allow_day=True)
+            if parsed is None:
+                await bot.reply(interaction, t("progress.usage"), ephemeral=True)
+                return
+            sprint = None if parsed.day else bot.engine.current_for(user.user_id, chat_key(interaction.channel_id))
+            if sprint is not None:
+                result = await bot.rep.report(sprint, user, parsed)
+            else:
+                result = await bot.rep.progress(
+                    user, parsed, chat_id=str(interaction.channel_id), percent=bot.percent_on
+                )
+            if result.ok:
+                await bot.reply(interaction, confirmation(bot.fmt, result.changes, result.outcome), ephemeral=True)
+            elif result.status == Status.AMBIGUOUS:
+                await bot.reply(interaction, t("discord.ambiguous"), ephemeral=True)
+            else:
+                await bot.reply(interaction, t("discord.report_error"), ephemeral=True)
 
-        @tree.command(name="join", description="Долучитися до спринту")
-        @app_commands.describe(link="Посилання на текст: бот порахує, скільки слів додалося")
-        async def join_cmd(interaction: discord.Interaction, link: str = ""):
-            await bot.join_sprint(interaction, link)
-
-        @tree.command(name="words", description="Звіт про слова: 500, =12500 або посилання")
-        @app_commands.describe(
-            value="Число написаних слів, =загальна кількість або посилання; порожньо — перерахувати"
-        )
-        async def words(interaction: discord.Interaction, value: str = ""):
-            await bot.handle_report(interaction, value, None)
-
-        @tree.command(name="mystats", description="Моя статистика спринтів")
-        async def mystats(interaction: discord.Interaction):
-            user_id = str(interaction.user.id)
-            stats = await bot.storage.user_stats(PLATFORM, user_id)
-            progress = await bot.personal.progress(user_id, sp.utc_now())
-            await bot.reply(
-                interaction, user_stats_text(bot.fmt, interaction.user.display_name, stats, progress), ephemeral=True
+        @tree.command(name="top", description=t("commands.top"))
+        async def top(interaction: discord.Interaction, days: app_commands.Range[int, 1, 366] = 30):
+            entries = await top_minutes(
+                bot.storage, PLATFORM, [str(interaction.channel_id)], sp.utc_now() - timedelta(days=days)
             )
+            await bot.reply(interaction, minutes_top_text(bot.fmt, entries, days))
 
-        @tree.command(name="tz", description="Мій часовий пояс (для цілей і днів поспіль)")
-        @app_commands.describe(zone="Напр. Europe/Kyiv або Kyiv; порожньо — показати")
-        async def tz_cmd(interaction: discord.Interaction, zone: str = ""):
-            text = await bot.personal.tz_command(str(interaction.user.id), zone, sp.utc_now())
-            await bot.reply(interaction, text, ephemeral=True)
-
-        @tree.command(name="goal", description="Цілі на день і місяць")
-        @app_commands.choices(
-            period=[
-                app_commands.Choice(name="на день", value="daily"),
-                app_commands.Choice(name="на місяць", value="monthly"),
-            ]
-        )
-        @app_commands.describe(words="Скільки слів; 0 — прибрати ціль")
-        async def goal_cmd(
-            interaction: discord.Interaction,
-            period: app_commands.Choice[str] | None = None,
-            words: app_commands.Range[int, 0, 1_000_000] | None = None,
-        ):
-            user_id = str(interaction.user.id)
-            if period is not None and words is not None:
-                await bot.personal.goal_command(user_id, [period.value, str(words) if words else "off"], sp.utc_now())
-            progress = await bot.personal.progress(user_id, sp.utc_now())
-            await bot.reply(interaction, goals_text(bot.fmt, progress), ephemeral=True)
-
-        @tree.command(name="export", description="Мої спринти у файлі CSV")
+        @tree.command(name="export", description=t("commands.export"))
         async def export_cmd(interaction: discord.Interaction):
-            data, count = await bot.personal.export_csv(str(interaction.user.id))
+            person = await bot.people.find(PLATFORM, str(interaction.user.id))
+            if person is None:
+                await bot.reply(interaction, t("data.empty"), ephemeral=True)
+                return
+            data, count = await export_person(bot.storage, bot.people, bot.services.works, person)
             if not count:
-                await bot.reply(interaction, "У вас ще немає спринтів.", ephemeral=True)
+                await bot.reply(interaction, t("data.empty"), ephemeral=True)
                 return
             await interaction.response.send_message(
-                f"Ваші спринти: {count}.", file=discord.File(io.BytesIO(data), "sprints.csv"), ephemeral=True
+                t("data.caption", count=count),
+                file=discord.File(io.BytesIO(data), "my-writing-data.zip"),
+                ephemeral=True,
             )
 
-        @tree.command(name="forgetme", description="Видалити всі мої звіти, статистику й налаштування")
-        @app_commands.describe(confirm="Напишіть ТАК, щоб підтвердити")
+        @tree.command(name="forgetme", description=t("commands.forgetme"))
         async def forgetme_cmd(interaction: discord.Interaction, confirm: str = ""):
-            if confirm.strip().lower() not in {"так", "yes"}:
-                await bot.reply(
-                    interaction,
-                    "Це видалить усі ваші звіти, статистику, цілі й часовий пояс, і це не можна скасувати. "
-                    "Щоб підтвердити: /forgetme confirm:ТАК",
-                    ephemeral=True,
-                )
+            if confirm.strip().casefold() not in {w.casefold() for w in t("discord.confirm_words").split()}:
+                await bot.reply(interaction, t("discord.forget_confirm"), ephemeral=True)
                 return
-            removed = await bot.storage.forget_user(PLATFORM, str(interaction.user.id))
-            await bot.reply(interaction, f"Готово. Видалено записів про спринти: {removed}.", ephemeral=True)
-
-        @tree.command(name="top", description="Топ за словами в цьому каналі")
-        async def top(interaction: discord.Interaction, days: app_commands.Range[int, 1, 366] = 30):
-            entries = await bot.storage.top(PLATFORM, str(interaction.channel_id), sp.utc_now() - timedelta(days=days))
-            await bot.reply(interaction, top_text(bot.fmt, entries, days))
-
-        @tree.command(name="reload", description="Перезавантажити промпти (адміни)")
-        async def reload(interaction: discord.Interaction):
-            if not bot.is_admin(interaction):
-                await bot.reply(interaction, "Перезавантажувати можуть лише адміни.", ephemeral=True)
-                return
-            await interaction.response.defer(ephemeral=True, thinking=True)
-            try:
-                await bot.prompts.load()
-            except Exception as e:
-                logger.exception("reload failed")
-                await bot.reply(interaction, f"Не вдалося перезавантажити: {type(e).__name__}", ephemeral=True)
-                return
-            await bot.reply(interaction, "Перезавантажено!", ephemeral=True)
-
-    def run(self) -> None:
-        original_close = self.client.close
-
-        async def close():
-            await self.close()
-            await original_close()
-
-        self.client.close = close
-        self.client.run(self.settings.token, log_handler=None)
-
-
-def main() -> None:
-    setup_logging(os.environ.get("LOG_FORMAT", "text").strip().lower())
-    try:
-        settings = DiscordSettings.from_env()
-    except ConfigError as e:
-        raise SystemExit(f"config error: {e}") from None
-    WritersDiscordBot(settings).run()
-
-
-if __name__ == "__main__":
-    main()
+            removed = await bot.people.forget_account(PLATFORM, str(interaction.user.id))
+            await bot.reply(interaction, t("data.forgotten", count=removed), ephemeral=True)

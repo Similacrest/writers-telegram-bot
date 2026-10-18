@@ -1,0 +1,1 @@
+"""The smash module."""

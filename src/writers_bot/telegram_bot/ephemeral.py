@@ -2,25 +2,32 @@
 
 Ephemeral messages are visible only to one member of a group. Telegram accepts them within 15 seconds of
 that user's button press (with its ``callback_query_id``) or ephemeral command (replying to its
-``ephemeral_message_id``), or at any time when the bot is a chat administrator. Every helper here
-returns ``False`` instead of raising, so callers fall back to an ordinary message.
+``ephemeral_message_id``), or at any time when the bot is a chat administrator. They can carry an inline
+keyboard and be edited or deleted with their ``ephemeral_message_id``. Every helper here returns a falsy
+value instead of raising, so callers fall back to an ordinary message.
 """
 
 import logging
 import warnings
 
-from telegram import Bot, BotCommand, Message
+from telegram import Bot, BotCommand, InlineKeyboardMarkup, Message
 from telegram.error import TelegramError
 
 logger = logging.getLogger(__name__)
 
 
 def incoming_ephemeral_id(message: Message | None) -> int | None:
-    """``ephemeral_message_id`` of an ephemeral command (PTB keeps unknown fields in ``api_kwargs``)."""
+    """``ephemeral_message_id`` of an ephemeral message (PTB keeps unknown fields in ``api_kwargs``)."""
     if message is None:
         return None
     value = (message.api_kwargs or {}).get("ephemeral_message_id")
     return int(value) if isinstance(value, int) else None
+
+
+async def _call(bot: Bot, method: str, params: dict):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # PTB warns when do_api_request is used for a method it knows
+        return await bot.do_api_request(method, api_kwargs=params)
 
 
 async def send_ephemeral(
@@ -33,7 +40,10 @@ async def send_ephemeral(
     reply_to_ephemeral: int | None = None,
     parse_mode: str | None = "HTML",
     message_thread_id: int | None = None,
-) -> bool:
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> int | None:
+    """Send an ephemeral message; returns its ``ephemeral_message_id`` (or -1 if Telegram didn't say), or
+    None if it couldn't be sent."""
     params: dict = {"receiver_user_id": user_id}
     if callback_query_id:
         params["callback_query_id"] = callback_query_id
@@ -42,15 +52,60 @@ async def send_ephemeral(
         # PTB's ReplyParameters requires a message_id, which an ephemeral reply doesn't have.
         extra["reply_parameters"] = {"ephemeral_message_id": reply_to_ephemeral}
     try:
-        await bot.send_message(
+        sent = await bot.send_message(
             chat_id,
             text,
             parse_mode=parse_mode,
             message_thread_id=message_thread_id,
+            reply_markup=reply_markup,
             api_kwargs=extra,
         )
     except TelegramError as e:
         logger.debug("ephemeral message to %s in %s failed: %s", user_id, chat_id, e)
+        return None
+    return incoming_ephemeral_id(sent) or -1
+
+
+async def edit_ephemeral(
+    bot: Bot,
+    chat_id: int,
+    user_id: int,
+    ephemeral_id: int,
+    text: str,
+    *,
+    parse_mode: str | None = "HTML",
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> bool:
+    params = {
+        "chat_id": chat_id,
+        "receiver_user_id": user_id,
+        "ephemeral_message_id": ephemeral_id,
+        "text": text,
+        "link_preview_options": {"is_disabled": True},
+    }
+    if parse_mode:
+        params["parse_mode"] = parse_mode
+    if reply_markup is not None:
+        params["reply_markup"] = reply_markup.to_dict()
+    try:
+        await _call(bot, "editEphemeralMessageText", params)
+    except TelegramError as e:
+        if "not modified" in str(e).lower():
+            return True
+        logger.debug("editing ephemeral %s for %s failed: %s", ephemeral_id, user_id, e)
+        return False
+    return True
+
+
+async def delete_ephemeral(bot: Bot, chat_id: int, user_id: int, ephemeral_id: int) -> bool:
+    try:
+        await _call(
+            bot,
+            "deleteEphemeralMessage",
+            {"chat_id": chat_id, "receiver_user_id": user_id, "ephemeral_message_id": ephemeral_id},
+        )
+    except TelegramError as e:
+        logger.debug("deleting ephemeral %s for %s failed: %s", ephemeral_id, user_id, e)
         return False
     return True
 
@@ -66,9 +121,7 @@ async def set_commands(bot: Bot, commands: list[BotCommand], scope: dict, epheme
         for c in commands
     ]
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # PTB suggests set_my_commands, which can't send is_ephemeral
-            await bot.do_api_request("setMyCommands", api_kwargs={"commands": payload, "scope": scope})
+        await _call(bot, "setMyCommands", {"commands": payload, "scope": scope})
     except TelegramError as e:
         logger.warning("setMyCommands with ephemeral commands failed: %s", e)
         return False

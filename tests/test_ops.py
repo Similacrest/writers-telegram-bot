@@ -81,18 +81,21 @@ async def test_health_server():
 
 
 def test_discord_command_tree_builds(monkeypatch, tmp_path):
-    from writers_bot.config import DiscordSettings
-    from writers_bot.discord_bot.app import WritersDiscordBot
+    from writers_bot.botconfig import from_env
+    from writers_bot.discord_bot.app import DiscordBot
+    from writers_bot.services import Services
 
     monkeypatch.setenv("DISCORD_TOKEN", "x")
     monkeypatch.setenv("DB_PATH", str(tmp_path / "d.sqlite3"))
     monkeypatch.setenv("PREVIEW_FEATURES", "1")
-    bot = WritersDiscordBot(DiscordSettings.from_env())
+    config = from_env("discord")
+    services = Services.build(config)
+    bot = DiscordBot(config.bots["main"], services.for_bot(config.bots["main"]))
     names = {c.name for c in bot.tree.get_commands()}
-    assert {"sprint", "join", "words", "mystats", "tz", "goal", "export", "forgetme", "sprintmode"} <= names
+    assert {"prompt", "image", "count", "sprint", "progress", "top", "export", "forgetme"} <= names
     payload = {c.name: c.to_dict(bot.tree) for c in bot.tree.get_commands()}
-    goal_opts = {o["name"]: o for o in payload["goal"]["options"]}
-    assert goal_opts["words"]["max_value"] == 1_000_000 and not goal_opts["words"].get("required")
+    sprint_opts = {o["name"]: o for o in payload["sprint"]["options"]}
+    assert sprint_opts["duration"]["max_value"] == 120
 
 
 def test_discord_needs_preview_features(monkeypatch):

@@ -1,6 +1,10 @@
 import re
+from zoneinfo import ZoneInfo
 
-from writers_bot.core.extras import parse_roll, roll_html, slogan_reply, smash
+from writers_bot.core.extras import parse_roll, roll_html, smash
+from writers_bot.core.fmt import HtmlFormatter
+
+F = HtmlFormatter(ZoneInfo("Europe/Kyiv"))
 
 
 def test_parse_roll():
@@ -18,17 +22,15 @@ def test_parse_roll():
 def test_roll_html_bounds_and_escaping():
     r = parse_roll("/3d6 <script>")
     for _ in range(50):
-        out = roll_html(r)
+        out = roll_html(F, r)
         total = int(re.search(r"</code> <b>(-?\d+)</b>", out)[1])
         assert 3 <= total <= 18
     assert "&lt;script&gt;" in out and "<script>" not in out
-    adv = roll_html(parse_roll("/d20adv"))
+    adv = roll_html(F, parse_roll("/d20adv"))
     assert "<s>" in adv
 
 
-def test_smash_and_slogans():
+def test_smash():
     for _ in range(50):
         s = smash()
         assert 9 <= len(s) <= 21 and all(c in "qwertyuiop[]asdfghjkl;'zxcvbnm,./" for c in s)
-    assert slogan_reply("Слава Україні!") == "<i>Героям Слава!</i>"
-    assert slogan_reply("привіт") is None

@@ -2,11 +2,11 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
+from writers_bot.core.fmt import HtmlFormatter
 from writers_bot.core.models import ChatKey, Participant, Sprint, SprintStatus
 from writers_bot.core.prompts import PromptsStore, parse_config_rows, parse_prompt_columns
-from writers_bot.core.render import report_text, sprint_text
+from writers_bot.core.render import sprint_text
 from writers_bot.telegram_bot.app import chat_key, command_args_text
-from writers_bot.telegram_bot.presenter import HtmlFormatter
 
 NOW = datetime(2026, 10, 13, 12, 0, tzinfo=UTC)
 
@@ -60,16 +60,6 @@ def test_sprint_text_escapes_names_and_uses_local_time():
     assert "50%" in text
 
 
-def test_report_text_leaderboard():
-    fmt = HtmlFormatter(ZoneInfo("Europe/Kyiv"))
-    sprint = make_sprint(SprintStatus.REPORTING, name="Ann")
-    sprint.participants["2"] = Participant("2", "Bob", NOW, words=900, reported_at=NOW)
-    sprint.participants["1"].words, sprint.participants["1"].reported_at = 300, NOW
-    text = report_text(fmt, sprint, NOW)
-    assert text.index("Bob") < text.index("Ann")
-    assert "30.0 сл/хв" in text and "1200 слів" in text
-
-
 def test_command_args_text_handles_utf16_offsets():
     entity = SimpleNamespace(type="bot_command", offset=0, length=len("/wc@bot"))
     message = SimpleNamespace(text="/wc@bot 🙂 два слова", caption=None, entities=[entity], caption_entities=[])
@@ -86,29 +76,13 @@ def test_chat_key_only_uses_topic_threads():
     assert chat_key(inaccessible) == chat_key(reply_thread)
 
 
-def test_percent_report_text():
-    from datetime import UTC, datetime
-    from zoneinfo import ZoneInfo
-
-    from writers_bot.core.models import ChatKey, Participant, Sprint, SprintStatus, SprintUnit
-    from writers_bot.core.render import report_text
-    from writers_bot.telegram_bot.presenter import HtmlFormatter
-
-    now = datetime(2026, 10, 13, 12, tzinfo=UTC)
-    sprint = Sprint(1, ChatKey("t", "-1"), SprintStatus.REPORTING, 10, 10, 0, "1", now, now, now,
-                    report_until=now, unit=SprintUnit.PERCENT,
-                    participants={"1": Participant("1", "Ann", now, words=40, reported_at=now)})  # fmt: skip
-    text = report_text(HtmlFormatter(ZoneInfo("Europe/Kyiv")), sprint, now)
-    assert "<b>40%</b>" in text and "сл/хв" not in text and "Разом" not in text and "відсотків" in text
-
-
 async def test_finish_without_reports_looks_like_v2():
     from datetime import UTC, datetime, timedelta
     from types import SimpleNamespace
 
     from writers_bot.core.models import ChatKey, Participant, Sprint, SprintStatus
     from writers_bot.core.sprint import SprintEvent
-    from writers_bot.telegram_bot.presenter import TelegramSprintPresenter
+    from writers_bot.modules.sprints.presenter import TelegramSprintPresenter
 
     calls = []
 

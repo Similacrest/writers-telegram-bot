@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from writers_bot.core import netguard
+from writers_bot.core.i18n import t
 from writers_bot.core.netguard import (
     BlockedURLError,
     FetchError,
@@ -120,7 +121,7 @@ async def test_redirect_loop_stops():
     def handler(request):
         return httpx.Response(302, headers={"location": "/again"})
 
-    with pytest.raises(FetchError, match="too many redirects"):
+    with pytest.raises(FetchError, match=t("links.redirects")):
         await mock_fetcher(handler).get("https://example.com/")
 
 
@@ -128,5 +129,5 @@ async def test_size_cap():
     def handler(request):
         return httpx.Response(200, content=b"x" * 2000)
 
-    with pytest.raises(FetchError, match="too large"):
+    with pytest.raises(FetchError, match=t("links.too_large")):
         await mock_fetcher(handler).get("https://example.com/", max_bytes=1000)

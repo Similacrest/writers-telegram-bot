@@ -1,0 +1,657 @@
+# User-facing texts of the bot (Ukrainian).
+#
+# Every key has a comment saying where the text appears. Placeholders in {braces} are filled in by the
+# bot; keep them (you can move them). Formatting (bold, links, mentions) is added by the bot around the
+# placeholders, so write plain text here: <, > and & are fine and are shown as is.
+#
+# A list of strings is either plural forms (1 / 2–4 / 5+), a set of alternatives the bot picks from at
+# random, or a list of words the bot understands in messages (says so in the comment).
+
+[plural]
+# "1 хвилину, 2 хвилини, 5 хвилин": sprint lengths and minutes, as in "Пишемо 30 хвилин"
+minutes = ["хвилину", "хвилини", "хвилин"]
+# word counts: "500 слів", reports, totals, goals
+words = ["слово", "слова", "слів"]
+# /count output: number of characters
+characters = ["символ", "символи", "символів"]
+# /count output: number of letters
+letters = ["літера", "літери", "літер"]
+# number of sprints in /top, /profile and the share line
+sprints = ["спринт", "спринти", "спринтів"]
+# number of works whose titles are hidden, on the sprint message: "Bob — 2 твори"
+works = ["твір", "твори", "творів"]
+# days in a row (streak) in /profile and the share line
+days = ["день", "дні", "днів"]
+
+# ------------------------------------------------------------------------------------------------
+[input]
+# Words the bot understands in reports (replies to sprint messages and /progress). Lower case.
+
+# after a number, mean "words" and are ignored: "500 слів"
+unit_words = ["слів", "слова", "слово", "сл", "сл.", "words", "word", "w"]
+# after a number, mean percent: "50 відсотків"
+percent_words = ["відсотків", "відсотки", "відсоток", "percent", "%"]
+# a report of "Done ✓" without a number
+done_words = ["✓", "✔", "✔️", "✅", "готово", "done", "зроблено"]
+# a report of "didn't make it ✗" (single words)
+failed_words = ["✗", "✘", "❌", "fail", "failed"]
+# the same as phrases (can contain spaces)
+failed_phrases = ["не вийшло", "не встиг", "не встигла", "didn't make it"]
+# today, for /progress
+today_words = ["сьогодні", "today"]
+# yesterday, for /progress
+yesterday_words = ["вчора", "учора", "yesterday"]
+# the day before yesterday, for /progress
+day_before_words = ["позавчора"]
+
+# ------------------------------------------------------------------------------------------------
+[sprint]
+# /sprint with a bad length; {min} and {max} are minutes
+bad_duration = "Довжина спринту має бути цілим числом від {min} до {max} хвилин!"
+# /sprint with a bad delay before the start
+bad_delay = "Затримка до початку спринту має бути цілим числом від {min} до {max} хвилин!"
+# /sprint while one is already planned or running in this chat/topic
+already_running = "Спринт вже запущено."
+
+# Headline of the pinned sprint message before the start; {minutes} is e.g. "2 хвилини"
+head_planned = "Спринт почнеться за {minutes}"
+# The same in the v2 sprint flow (sprints without reports)
+head_planned_v2 = "Спринт почнеться за {minutes}!"
+# Headline while the sprint runs (this message is sent anew at the start, so people get notified)
+head_running = "Спринт розпочався!"
+# Headline when a planned sprint was cancelled before it started
+head_cancelled = "Спринт скасовано до його початку"
+# Headline when a running sprint was stopped early
+head_stopped = "Спринт зупинено"
+# Headline when the sprint ended on time
+head_finished = "Спринт завершено!"
+# Second line of the sprint message, before the start: "Писатимемо 30 хвилин, з 14:00 до 14:30."
+when_planned = "Писатимемо {duration}, з {start} до {end}."
+# Second line while running
+when_running = "Пишемо {duration}, з {start} до {end}."
+# Second line when cancelled
+when_cancelled = "Не писали {duration}, з {start} до {end}."
+# Second line when stopped early ({duration} is how long it actually ran)
+when_stopped = "Писали всього {duration}, з {start} до {end}."
+# Second line when finished
+when_finished = "Писали {duration}, з {start} до {end}."
+# Progress line under the bar while running: "███░░ 20% · ще 24 хв."
+bar = "{bar} {percent}% · ще {left} хв."
+# Bar line in the redesigned sprint message (no percent)
+bar_short = "{bar} ще {left} хв."
+# Heading of the participant list on the sprint message
+participants = "Учасники:"
+# Participant list in the v2 sprint message: "Учасники: Alice, Bob"
+participants_inline = "Учасники: {names}"
+# Starting counts (v3.3 sprints restored from the database): "Старт: Alice — 12000"
+baselines = "Старт: {list}"
+# Hint at the bottom of the sprint message before the start
+hint_planned = "Долучайтеся кнопкою нижче."
+# Hint at the bottom of the sprint message while it runs
+hint_running = "Звіт — відповіддю на це повідомлення або кнопками в кінці."
+# The same on Discord, where the bot doesn't read messages
+hint_running_discord = "Звіт — кнопкою «Звітувати» в кінці або командою /progress."
+# After a name on the sprint message when some of the person's works hide their titles: "Роман, ще 1"
+more_works = "ще {n}"
+
+# Buttons under the sprint message
+button_join = "Долучитися"
+button_leave = "Вийти/скасувати"
+button_my_works = "Мої твори"
+button_panel = "Панель"
+button_repeat_cancelled = "Повторити"
+# Buttons under the board / the v2 "finished" message
+button_repeat = "Ще раз"
+button_report = "Звітувати"
+button_done = "✓ Готово"
+button_failed = "✗ Не вийшло"
+
+# Pop-up after pressing "Долучитися"
+joined = "Додано до спринту!"
+# Pop-up when pressing "Долучитися" again
+already_in = "Ви вже у спринті!"
+# Pop-up when the sprint behind a button is over
+over = "Цей спринт уже завершився."
+# Pop-up after leaving
+left = "Вас вилучено зі спринту"
+# Pop-up after the last participant (or an admin) cancelled a planned sprint
+cancelled = "Спринт скасовано"
+# Pop-up after stopping a running sprint early (v2 flow)
+stopped = "Спринт зупинено"
+# Pop-up after stopping a running sprint early (redesigned flow)
+stopped_reports = "Спринт зупинено. Можна звітувати."
+# Pop-up when someone outside the sprint (not an admin) presses "Вийти/скасувати"
+not_allowed = "Ви не маєте права скасувати спринт"
+# Pop-up for buttons of a sprint you're not in
+not_in = "Ви не у спринті"
+# Pop-up when the reports for a sprint are closed
+reports_closed = "Звіти для цього спринту вже закрито."
+
+# ------------------------------------------------------------------------------------------------
+[board]
+# Title of the board while late reports are still accepted; {span} is "30 хвилин, 14:00–14:30"
+title_open = "Спринт завершено ({span})"
+# Title when the sprint was stopped early
+title_stopped = "Спринт зупинено ({span})"
+# Title once reports are closed
+title_closed = "Підсумки спринту ({span})"
+# Section heading for word counts
+words = "Слова"
+# Section heading for % works: always the share of what each person planned for this sprint
+percent = "% від плану"
+# Total over the words section (only visible numbers)
+total = "Разом: {total}"
+# Goals reached during this sprint, in the summary line: "Цілі досягнуто: Alice — «Роман»"
+goals = "Цілі досягнуто: {list}"
+# A work in the goals line whose title is hidden
+goal_hidden = "ціль"
+# People who joined and haven't reported yet (shown while reports are open)
+writing = "Ще пишуть: {names}"
+# Hint at the bottom while reports are open; {until} is a time
+hint = "Звіт — відповіддю на це повідомлення (500, +300, =5000 чи посилання) або кнопками. Пізні звіти — до {until} чи до вашого наступного спринту."
+# The same on Discord
+hint_discord = "Звіт — кнопкою «Звітувати» (поле на кожен твір), ✓ чи ✗, або /progress. Пізні звіти — до {until} чи до вашого наступного спринту."
+# Final board with no reports at all
+nobody = "Ніхто не прозвітував."
+
+# ------------------------------------------------------------------------------------------------
+[report]
+# The question posted by the "Звітувати" button (a reply prompt; deleted after the answer)
+ask = "{who}, скільки написали? Відповідайте на це повідомлення числом (500), загальною кількістю (=5000) чи посиланням."
+# The same when the person has several works in the sprint
+ask_works = "{who}, скільки за кожен твір ({works})? Напр.: 300 роман 200 есе."
+# Placeholder in the input field for that reply
+placeholder = "500 або посилання"
+# Two works share the unit, so the bot asks where {value} goes (private, with a button per work)
+which_work = "Куди записати {value}?"
+# Button next to the works: give each work its own number
+split = "Розділити"
+# Pop-ups for the ✓ and ✗ buttons on the board
+done_toast = "Записано: готово ✓"
+failed_toast = "Записано: не вийшло ✗"
+# Errors after a report (private)
+not_joined = "Ви не в цьому спринті."
+closed = "Звіти для цього спринту вже закрито: ви вже в новому спринті або минуло 12 годин."
+not_started = "Спринт ще не почався."
+unknown_work = "Не знаю твору «{name}». Твори можна додати в /profile → Твори."
+bad_percent = "Відсотки — від 0 до 100, і лише як число (40%), не =N чи посилання."
+percent_off = "Тут звітують словами."
+too_many = "Забагато для одного спринту."
+link_unknown = "Цього посилання немає у ваших творах. Додайте його до твору: /profile → Твори."
+nothing = "Не зрозумів звіт. Приклади: 500, +300, =5000, 40%, ✓."
+
+# ------------------------------------------------------------------------------------------------
+[progress]
+# /progress without arguments: the private panel
+title = "Ваш прогрес"
+summary = "Сьогодні: {today} · тиждень: {week} · місяць: {month}"
+streak = "Днів поспіль: {days}"
+# A goal line in the panel: "«Роман»: 600 з 1000 слів на день (60%)"
+goal = "{work}: {done} з {goal} {period} ({percent}%)"
+# Bottom of the panel
+hint = "Додати: /progress +400 (або =5000, посилання, ✓), за вчора: /progress +400 вчора."
+# Button that posts one public line with your progress
+share = "Поділитися"
+# Pop-up when there is nothing to share
+nothing_to_share = "Цього року ще нічого немає."
+# /progress with something it doesn't understand
+usage = "Не зрозумів. Приклади: /progress +400, /progress =5000 роман, /progress 40% план, /progress +300 вчора."
+# More than 3 days back
+too_old = "Записати можна лише за останні 3 дні."
+# A % number outside a sprint with no sprint in the last 3 days to correct
+no_percent_sprint = "Відсотки записуються за спринт, а за останні 3 дні спринтів з цим твором немає. Позначити день як робочий: /progress ✓ {name}"
+# Several sprints in the last 3 days: which one to correct
+which_sprint = "Котрий спринт виправити?"
+# Pop-up after marking a day from /profile
+filled = "Позначено ✓"
+
+# ------------------------------------------------------------------------------------------------
+[works]
+# The works menu (private chat with the bot)
+title = "Ваші твори"
+intro = "Натисніть на твір, щоб змінити його. Твори з позначкою беруться в наступний спринт."
+none = "Творів ще немає. Твір — це назва й, за бажання, посилання на текст: тоді бот сам рахує, скільки додалося."
+add = "+ Новий твір"
+# A work in the list: "Роман (слова)"
+list_item = "{name} ({unit}){kept}"
+# After the name of a work that is not taken into the next sprint
+not_kept_mark = " · не в спринт"
+unit_words_short = "слова"
+unit_percent_short = "%"
+# The work's card
+unit_line = "Рахується: {unit}"
+unit_words = "словами"
+unit_percent = "відсотком від плану на спринт"
+link_line = "Посилання: {link}"
+no_link = "Без посилання (звітуєте числами)."
+total_line = "Зараз у тексті: {total}"
+goal_line = "Ціль: {goal} {period}"
+hidden_on = "Назва прихована: інші бачать лише «твір»."
+hidden_off = "Назву видно на повідомленні спринту."
+keep_on = "Береться в наступний спринт."
+keep_off = "Не береться в наступний спринт."
+# Buttons on the card
+rename = "Назва"
+set_link = "Посилання"
+set_goal = "Ціль"
+switch_unit = "Слова / %"
+toggle_hidden = "Приховати назву / показати"
+toggle_keep = "У наступний спринт: так / ні"
+delete = "Видалити"
+delete_yes = "Так, видалити"
+delete_confirm = "Видалити «{name}»? Минулі спринти лишаться в статистиці."
+deleted = "Видалено"
+# Questions (the reply is typed in the private chat)
+ask_name = "Як називається твір?"
+ask_name_placeholder = "Роман"
+ask_link = "Надішліть посилання на текст (Телеграф, Google Docs, WriteFreely, Ellipsus) або «ні», щоб прибрати."
+ask_link_placeholder = "https://…"
+ask_goal = "Яка ціль? Напр.: 1000 на день, 5000 на тиждень, 20000 на місяць. «ні» — прибрати."
+ask_goal_placeholder = "1000 на день"
+# Errors for typed input
+input_error = "{error} Спробуйте ще раз."
+not_a_link = "Це не схоже на посилання."
+goal_format = "Не зрозумів ціль. Приклади: 1000 на день, 5000 на тиждень, 20000 на місяць."
+# Words that mean "no / remove" in answers to these questions
+no_words = ["ні", "no", "немає", "прибрати", "-", "—"]
+# Words for goal periods (after the number)
+period_day = ["на день", "день", "щодня", "в день", "daily", "a day", "per day"]
+period_week = ["на тиждень", "тиждень", "щотижня", "weekly", "a week", "per week"]
+period_month = ["на місяць", "місяць", "щомісяця", "monthly", "a month", "per month"]
+# Errors when adding or renaming a work (works menu, web app)
+empty_name = "Назва не може бути порожньою."
+long_name = "Назва задовга: до {max} символів."
+bad_name = "Назва не може починатися з цифри чи знаків +, =, %."
+too_many = "Можна мати до {max} творів. Видаліть якийсь, щоб додати новий."
+duplicate = "Твір з такою назвою вже є."
+# Setting a goal on a % work
+goal_words_only = "Ціль можна задати лише для твору, який рахується словами."
+# Goal out of range
+goal_range = "Ціль має бути від 1 до {max} слів."
+
+# ------------------------------------------------------------------------------------------------
+[common]
+# A work's name in running text: «Роман»
+quoted = "«{text}»"
+# Pop-up for a button that belongs to someone else's private message
+not_yours = "Ця кнопка не для вас 🙂"
+# Pop-up for a button whose data is gone (after a restart, or too old)
+stale = "Ця кнопка вже неактуальна."
+# Generic "back" button in menus
+back = "← Назад"
+# Generic "close" button that removes a private message
+close = "Закрити"
+# Generic "cancel" button
+cancel = "Скасувати"
+# Reply when a link can't be read; {error} explains why
+link_error = "Не вдалося прочитати посилання: {error}"
+# Reply in chats outside ALLOWED_CHATS
+not_allowed_chat = "Цей бот доступний лише для деяких чатів. Зверніться до автора боту."
+# Reply when a chat-admin-only command is used by someone else
+admins_only = "Це можуть лише адміни чату."
+
+# ------------------------------------------------------------------------------------------------
+[card]
+# First line of the private card after joining a sprint
+joined = "Ви у спринті."
+# When the person has works: the toggles below choose which ones are in this sprint
+pick_works = "Над чим пишете? Позначте твори (запам'ятаю для наступного спринту):"
+# The person hides their numbers
+numbers_hidden = "Ваші числа приховано: на дошці буде ✓."
+# The person hides their numbers, but this chat shows everyone's numbers
+numbers_shown_here = "У цьому чаті числа видно всім, навіть якщо ви їх приховуєте."
+# Said once, in the first sprint someone joins
+data_notice = "Ваші числа зберігаються для вашої статистики. Експорт чи видалення: /profile → Налаштування → Мої дані."
+# Button under the toggles that closes the card
+ok = "Готово"
+# Button that opens the works menu in a private chat with the bot
+manage = "Керувати творами"
+# Toggle button text for a work in the sprint ("✓ Роман") and not in it ("Роман")
+work_on = "✓ {name}"
+work_off = "{name}"
+# Same, for a % work
+work_on_percent = "✓ {name} (%)"
+work_off_percent = "{name} (%)"
+
+# ------------------------------------------------------------------------------------------------
+[confirm]
+# Private confirmation after a report; {list} is e.g. "«Роман»: 500 слів; 40%"
+recorded = "Записано: {list}."
+# Words found behind a link, after the amount: "(у тексті 12000)"
+counted = "(у тексті {n})"
+# The first total (=N or a link) of a work only sets the starting point
+baseline_named = "Запам'ятав загальну кількість для {work}: {total}. Далі рахуватиму приріст."
+baseline = "Запам'ятав загальну кількість: {total}. Далі рахуватиму приріст."
+baseline_plain = "Запам'ятав загальну кількість. Далі рахуватиму приріст."
+# Done ✓ without a number
+done = "готово ✓"
+# Didn't make it ✗
+failed = "не вийшло ✗. Нічого страшного!"
+# Button that takes the report back
+undo = "Скасувати звіт"
+# After pressing it
+undone = "Звіт скасовано."
+# Pop-up when it's too late to undo
+undo_expired = "Скасувати вже не вийде, просто надішліть нове число."
+
+# ------------------------------------------------------------------------------------------------
+[goals]
+# Private message when a goal is reached outside a sprint: "Ціль виконано: «Роман», 1000 з 1000 слів на день."
+reached = "Ціль виконано: {work}, {progress} з {goal} {period}."
+# The work in that message when it has no name
+untitled = "твір"
+# Goal periods
+per_day = "на день"
+per_week = "на тиждень"
+per_month = "на місяць"
+
+# ------------------------------------------------------------------------------------------------
+[top]
+# /top in a chat that turned it off
+off = "У цьому чаті /top вимкнено."
+# /top with nothing to show
+empty = "За останні {days} дн. завершених спринтів немає."
+# /top heading
+title = "Хвилини у спринтах за {days} дн.:"
+# /top line: "Alice — 120 хвилин (4 спринти)"
+line = "{name} — {minutes} ({sprints})"
+
+# ------------------------------------------------------------------------------------------------
+[share]
+# The public line posted with the Share button: "Alice: 1200 слів цього тижня · 5 днів поспіль"
+line = "{name}: {text}"
+words = "{words} {period}"
+# For people who only write % works (no words): sprints and minutes
+sprints = "{sprints} ({minutes}) {period}"
+# Only ✓ marks, no numbers
+writing = "пише {period}"
+# Streak part of the line
+streak = "{days} поспіль"
+# A goal (only a work whose title is shown): "«Роман» 80% цілі"
+goal = "{work} {percent}% цілі"
+# The shortest period with any progress
+period_today = "сьогодні"
+period_week = "цього тижня"
+period_month = "цього місяця"
+period_year = "цього року"
+
+
+# ------------------------------------------------------------------------------------------------
+[links]
+# Heading of /count output for a link: "У Телеграфі:"
+in_telegraph = "У Телеграфі"
+in_ellipsus = "В Ellipsus"
+in_writefreely = "У WriteFreely"
+in_gdocs = "У Google Docs"
+in_other = "У {source}"
+# Why a link couldn't be read (shown after "Не вдалося прочитати посилання:")
+unsupported = "непідтримуваний сайт"
+not_a_post = "сторінка недоступна або це не допис"
+no_text = "на сторінці немає тексту допису"
+not_telegraph = "це не сторінка Телеграфу"
+telegraph_error = "Телеграф відповів помилкою ({error})"
+ellipsus_reader_only = "підтримуються лише публічні посилання Ellipsus Reader (ellipsus.com/read/…)"
+ellipsus_private = "документ не публічний або посилання не існує"
+ellipsus_empty = "Ellipsus не повернув тексту"
+ellipsus_format = "не вдалося розібрати документ Ellipsus"
+not_gdoc = "це не посилання на документ Google Docs"
+gdoc_missing = "документ не знайдено"
+gdoc_private = "документ не відкритий для всіх, хто має посилання"
+unexpected = "сайт відповів щось незрозуміле"
+https_only = "підтримуються лише посилання https"
+port = "нестандартні порти не підтримуються"
+no_host = "у посиланні немає адреси сайту"
+credentials = "посилання з логіном і паролем не підтримуються"
+resolve = "не вдалося знайти сайт {host}"
+private_address = "{host} — не публічна адреса"
+blocked = "таке посилання не підтримується"
+timeout = "сайт не відповів вчасно"
+invalid = "неправильне посилання"
+bad_redirect = "сайт переадресував невідомо куди"
+too_large = "сторінка завелика"
+network = "помилка мережі ({error})"
+redirects = "забагато переадресацій"
+# A link in a report, in a bot that doesn't count links
+not_counted = "посилання тут не рахуються"
+
+# ------------------------------------------------------------------------------------------------
+[commands]
+# Descriptions in Telegram's command menu (the list shown after typing "/")
+help = "Допомога"
+prompt = "Випадковий текстовий промпт"
+image = "Випадковий промпт-зображення"
+count = "Порахувати слова в тексті чи за посиланням"
+sprint = "Почати спринт: /sprint 30 2"
+progress = "Записати прогрес або показати свій"
+profile = "Мій профіль: твори, цілі, дні поспіль"
+top = "Хвилини у спринтах за період"
+export = "Мої дані у файлі"
+forgetme = "Видалити мої дані"
+smash = "Keyboard smash"
+promptstats = "Кількість промптів"
+reload = "Перезавантажити промпти (адміни)"
+settings = "Налаштування чату (адміни)"
+chats = "Адмін: усі чати з ботом"
+broadcast = "Адмін: розсилка (groups / private / all)"
+bcexclude = "Адмін: прибрати чати з розсилок"
+bcinclude = "Адмін: повернути чати до розсилок"
+
+# ------------------------------------------------------------------------------------------------
+[aliases]
+# Ukrainian names of the commands. Telegram doesn't treat Cyrillic as commands, so they only work where
+# the bot sees all messages (privacy mode off, or the bot is an admin). Without the slash.
+prompt = "промпт"
+image = "картинка"
+count = "підрахуй"
+sprint = "спринт"
+progress = "прогрес"
+profile = "профіль"
+top = "топ"
+help = "допомога"
+export = "експорт"
+forgetme = "забудьмене"
+
+# ------------------------------------------------------------------------------------------------
+[help]
+# First line of /help and /start (unless the config sheet has a help_message)
+title = "Бот для письменників"
+# One line per command in /help; shown only for the modules the bot has
+prompt = "/prompt — випадковий текстовий промпт"
+prompt_categories = "/prompt — випадковий текстовий промпт (/prompt <категорія> — з однієї категорії)"
+image = "/image — випадковий промпт-зображення"
+image_categories = "/image — випадковий промпт-зображення (/image <категорія>)"
+count = "/count — порахувати слова (у відповідь на повідомлення, текст після команди або посилання)"
+sprint = "/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2"
+progress = "/progress — записати прогрес (+400, =5000, посилання) або показати свій"
+profile = "/profile — твори, цілі, дні поспіль і налаштування"
+top = "/top [днів] — хвилини у спринтах за період"
+export = "/export — ваші дані у файлі, /forgetme — видалити їх"
+dice = "/d20, /2d6+1, /r 4к6 — кинути кубики"
+smash = "/smash — keyboard smash"
+
+# ------------------------------------------------------------------------------------------------
+[debug]
+# /debuginfo output (for admins and the bot's author)
+chat = "Чат id: {id} ({state})"
+allowed = "авторизований"
+not_allowed = "не авторизований"
+topic = "Тема id: {id}"
+you = "Ваш юзер id: {id}{roles}"
+replied = "Відповідаєте юзеру з id: {id}{marks}{roles}"
+this_bot = " (цей бот)"
+other_bot = " (інший бот)"
+bot_admin = " (адмін боту)"
+chat_admin = " (адмін чату)"
+version = "Версія: {version}, бот: {bot}"
+
+# ------------------------------------------------------------------------------------------------
+[profile]
+# A work in /profile: "«Роман» — 3400 слів цього місяця · 600 з 1000 слів на день"
+work = "{work} — {amount}{goal}{hidden}"
+# Instead of an amount, for a % work
+percent_work = "у відсотках"
+goal = " · {done} з {goal} {period}"
+# Marks a work whose title is hidden from others
+hidden_title = " · назва прихована"
+no_works = "Творів ще немає: додайте їх кнопкою «Твори»."
+month = "Цього місяця: {words}"
+streak = "Днів поспіль: {days}"
+no_streak = "Днів поспіль: поки немає"
+sprints = "Завершених спринтів: {sprints}, {minutes}"
+numbers_hidden = "Ваші числа приховано від інших (на дошці ✓)."
+numbers_shown = "Ваші числа видно на дошці."
+# Buttons
+button_progress = "Прогрес"
+button_works = "Твори"
+# Button to mark a missed day (up to 3 days back) as a writing day: "✓ вт"
+fill = "✓ {day}"
+# Short weekday names for the last-7-days strip in /profile (Monday first)
+weekdays = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
+# /profile heading
+title = "Профіль: {name}"
+# Button that opens the personal settings
+button_settings = "Налаштування"
+
+# ------------------------------------------------------------------------------------------------
+[settings]
+# Heading of the personal settings (from /profile)
+title = "Налаштування"
+# Explains the visibility switch
+hide_explained = "Приховані числа рахуються у вашій статистиці, але на дошці замість них ✓, і вас немає в /top."
+hide_on = "Мої числа: приховано"
+hide_off = "Мої числа: видно"
+hide_on_toast = "Ваші числа приховано"
+hide_off_toast = "Ваші числа видно"
+# Unit for new works
+unit_words = "Нові твори: словами"
+unit_percent = "Нові твори: у відсотках"
+unit_chat = "Нові твори: як у чаті"
+
+# ------------------------------------------------------------------------------------------------
+[data]
+# Button in the personal settings
+button = "Мої дані"
+# The "My data" screen
+menu = "Ваші дані: спринти, твори, прогрес і налаштування. Можна отримати їх файлом або видалити."
+export = "Отримати файлом"
+forget = "Видалити все"
+# Caption of the exported ZIP (sent in the private chat)
+caption = "Ваші дані: {count} записів. Таблиці CSV в архіві ZIP, кодування UTF-8."
+# Pop-up / reply after sending the file
+sent = "Надіслав файл в особисті повідомлення."
+# Nothing stored yet
+empty = "Про вас ще нічого не збережено."
+# The bot can't write to someone who never started it
+open_dm = "Спершу відкрийте особистий чат із ботом (натисніть Start), і я надішлю файл туди."
+# /forgetme in a group
+forget_private = "Видалити свої дані можна в особистому чаті з ботом: /forgetme."
+# Confirmation before deleting
+forget_confirm = "Видалити всі ваші звіти, твори, цілі, прогрес і налаштування? Це не можна скасувати. Звіти у спринтах, що ще тривають, лишаться, поки спринт не закінчиться."
+forget_yes = "Видалити"
+# After deleting
+forgotten = "Готово. Видалено. Записів про спринти: {count}."
+# After cancelling
+kept = "Нічого не видалено."
+
+# ------------------------------------------------------------------------------------------------
+[admin]
+# Super-admin tools (/chats, /broadcast, /bcexclude, /bcinclude), only in a private chat with the bot
+private_only = "Ця команда працює лише в особистому чаті з ботом."
+chats_usage = "Використання: /chats [groups|private|all]"
+no_chats = "Поки що немає записаних чатів."
+chats_title = "Чати з ботом"
+chats_summary = "{title}: {reachable} доступних (груп і каналів: {groups}, особистих: {private}), ще {unreachable} недоступних.\nБот бачить лише чати, з яких отримував повідомлення."
+# Chat types and states in the /chats list
+type_private = "особистий"
+type_group = "група"
+type_channel = "канал"
+status_unknown = ", не перевірено"
+status_left = ", бота немає"
+status_kicked = ", заблоковано"
+status_migrated = ", перенесено"
+excluded_mark = ", без розсилок"
+broadcast_usage = """Використання: у відповідь на повідомлення, яке треба розіслати:
+/broadcast groups — у групи й канали
+/broadcast private — в особисті чати
+/broadcast all — усюди
+
+Або текстом: /broadcast all Текст оголошення. Перед надсиланням бот покаже попередній перегляд і попросить підтвердження.
+
+Чати, позначені через /bcexclude, розсилку не отримують. Спільнота отримує одну розсилку: у свій найбільший чат."""
+broadcast_no_text = "Надішліть команду у відповідь на повідомлення або додайте текст після цілі."
+# Where a broadcast goes, in the confirmation question
+target_groups = "у всі групи й канали"
+target_private = "в усі особисті чати"
+target_all = "в усі чати"
+broadcast_confirm = "Надіслати це повідомлення {target}? Отримувачів: {count}.{note}"
+broadcast_skipped = " Без розсилок: {n}."
+broadcast_send = "Надіслати ({count})"
+broadcast_stale = "Ця розсилка вже неактуальна."
+cancelled_toast = "Скасовано"
+broadcast_cancelled = "Розсилку скасовано."
+broadcast_busy = "Інша розсилка ще триває, зачекайте."
+sending = "Надсилаю…"
+sending_progress = "Надсилаю… {i}/{n}"
+broadcast_done = "Розсилку завершено."
+broadcast_sent = "Надіслано: {sent} з {n}"
+broadcast_gone = "Недоступні (бота видалили чи заблокували): {n}. Їх більше не враховано."
+broadcast_failed = "Помилки: {n} ({details})"
+exclude_usage = "Використання: /bcexclude <id чату> ... прибирає чати з розсилок, /bcinclude <id чату> ... повертає. Id видно в /chats."
+exclude_none = "Зараз виключених чатів немає."
+exclude_list = "Без розсилок:"
+excluded = "Виключено з розсилок: {n}."
+included = "Повернуто до розсилок: {n}."
+unknown_ids = "Невідомих id: {n} (бот їх ще не бачив)."
+
+# ------------------------------------------------------------------------------------------------
+[prompts]
+# /prompt or /image when the Google Sheet isn't loaded
+unavailable = "Промпти зараз недоступні."
+images_unavailable = "Зображення зараз недоступні."
+# /prompt <category> with an unknown category
+no_category = "Немає такої категорії. Доступні: {categories}"
+# /promptstats before anything loaded
+not_loaded = "Промпти не завантажено."
+# /reload by a non-admin
+reload_admins = "Перезавантажувати можуть лише адміни."
+reload_failed = "Не вдалося перезавантажити: {error}"
+reloaded = "Перезавантажено!"
+
+# ------------------------------------------------------------------------------------------------
+[wordcount]
+# /count with nothing to count
+usage = "Надішліть /count у відповідь на повідомлення, або /count <текст чи посилання>."
+
+[dice]
+# Caption of a dice roll when none is given: "/d20" → "Результат 1d20 17"
+result = "Результат"
+
+# ------------------------------------------------------------------------------------------------
+[replies]
+# The v2 slogan replies (replies module with legacy = true): the phrase first, then the answers.
+# Answers are HTML. The bot picks one answer at random, so a repeated answer is more likely.
+legacy_slava_ukraini = ["слава україні", "<i>Героям Слава!</i>"]
+legacy_slava_natsii = ["слава нації", "<i>Смерть ворогам!</i>", "<i>Смерть ворогам!</i>", "<i>Смерть ворогам!</i>", "<i>Смерть ворогам!</i>", "Пизда ᵖосійській ᶲедерації!"]
+
+# ------------------------------------------------------------------------------------------------
+[ops]
+# Error alert sent to the super-admins in private ({text} is the log record)
+alert = "Помилка в боті ({bot})\n\n{text}"
+
+# ------------------------------------------------------------------------------------------------
+[discord]
+# Texts only the Discord bot uses
+not_here = "Бот недоступний на цьому сервері."
+sprint_created = "Спринт створено."
+# Title of the report form (modal)
+report_title = "Звіт за спринт"
+# Field label when the person has no named works in the sprint
+report_label = "Ваш результат"
+report_placeholder = "500, +300, =12500, посилання, 40% або ✓"
+# A number that could go to two works: Discord asks to use the form, which has a field per work
+ambiguous = "У вас кілька творів з однаковою одиницею: скористайтеся кнопкою «Звітувати», там поле на кожен твір."
+report_error = "Не вдалося записати звіт. Приклади: 500, +300, =5000, 40%, ✓."
+# /forgetme without the confirmation
+forget_confirm = "Це видалить усі ваші звіти, твори, цілі й налаштування, і це не можна скасувати. Щоб підтвердити: /forgetme confirm:ТАК"
+# Words accepted as that confirmation, space-separated
+confirm_words = "так yes"

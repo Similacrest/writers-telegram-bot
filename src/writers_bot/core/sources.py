@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import quote, urlsplit
 
+from .i18n import t
 from .netguard import FetchError, SafeFetcher
 
 URL_RE = re.compile(r"https?://[^\s<>\"'«»]+", re.IGNORECASE)
@@ -45,23 +46,23 @@ class UnsupportedLinkError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class LinkedText:
-    source: str  # human-readable platform name
+    source: str  # telegraph, ellipsus, writefreely or gdocs (see source_locative)
     title: str
     text: str
     url: str
 
 
 _LOCATIVE = {
-    "Телеграф": "У Телеграфі",
-    "Ellipsus": "В Ellipsus",
-    "WriteFreely": "У WriteFreely",
-    "Google Docs": "У Google Docs",
+    "telegraph": "links.in_telegraph",
+    "ellipsus": "links.in_ellipsus",
+    "writefreely": "links.in_writefreely",
+    "gdocs": "links.in_gdocs",
 }
 
 
 def source_locative(source: str) -> str:
-    """ "У Телеграфі" for headings like the old /wc output."""
-    return _LOCATIVE.get(source, f"У {source}")
+    """ "У Телеграфі" for the heading of /count output."""
+    return t(_LOCATIVE[source]) if source in _LOCATIVE else t("links.in_other", source=source)
 
 
 def find_url(text: str) -> str | None:
@@ -103,15 +104,15 @@ def telegraph_nodes_to_text(nodes) -> str:
 async def fetch_telegraph(fetcher: SafeFetcher, url: str) -> LinkedText:
     path = urlsplit(url).path.strip("/")
     if not path or "/" in path:
-        raise UnsupportedLinkError("not a Telegraph page")
+        raise UnsupportedLinkError(t("links.not_telegraph"))
     api_url = f"https://api.telegra.ph/getPage/{quote(path)}?return_content=true"
     data = _json(await fetcher.get(api_url, accept="application/json"))
     if not data.get("ok"):
-        raise FetchError(data.get("error") or "Telegraph error")
+        raise FetchError(t("links.telegraph_error", error=data.get("error") or "?"))
     page = data["result"]
     title = page.get("title") or ""
     body = telegraph_nodes_to_text(page.get("content"))
-    return LinkedText("Телеграф", title, f"{title}\n{body}" if title else body, url)
+    return LinkedText("telegraph", title, f"{title}\n{body}" if title else body, url)
 
 
 # --- Ellipsus ----------------------------------------------------------------------------------------
@@ -150,28 +151,28 @@ def _xml_text(node) -> str:
 async def fetch_ellipsus(fetcher: SafeFetcher, url: str) -> LinkedText:
     match = ELLIPSUS_ID_RE.match(urlsplit(url).path)
     if not match:
-        raise UnsupportedLinkError("only public Ellipsus Reader links (ellipsus.com/read/…) are supported")
+        raise UnsupportedLinkError(t("links.ellipsus_reader_only"))
     link_id = match[1]
     meta_resp, content_resp = await asyncio.gather(
         fetcher.get(f"{ELLIPSUS_API}/{link_id}/resolve", accept="application/json"),
         fetcher.get(f"{ELLIPSUS_API}/{link_id}/content", accept="application/json", max_bytes=20 * 1024 * 1024),
     )
     if content_resp.status_code in (401, 403, 404):
-        raise FetchError("документ не публічний або посилання не існує")
+        raise FetchError(t("links.ellipsus_private"))
     meta = _json(meta_resp) if meta_resp.status_code == 200 else {}
     content = _json(content_resp).get("content")
     if not content:
-        raise FetchError("Ellipsus returned no content")
+        raise FetchError(t("links.ellipsus_empty"))
     try:
         update = base64.b64decode(content, validate=True)
     except ValueError as e:
-        raise FetchError("unexpected Ellipsus content format") from e
+        raise FetchError(t("links.ellipsus_format")) from e
     try:
         body = await asyncio.to_thread(ydoc_update_to_text, update)
     except Exception as e:  # pycrdt raises plain exceptions on malformed updates
-        raise FetchError("could not decode Ellipsus document") from e
+        raise FetchError(t("links.ellipsus_format")) from e
     title = str(meta.get("name") or "")
-    return LinkedText("Ellipsus", title, f"{title}\n{body}" if title else body, url)
+    return LinkedText("ellipsus", title, f"{title}\n{body}" if title else body, url)
 
 
 # --- WriteFreely -------------------------------------------------------------------------------------
@@ -244,22 +245,22 @@ async def fetch_writefreely(fetcher: SafeFetcher, url: str) -> LinkedText:
         url = parts._replace(path=parts.path.rsplit(".", 1)[0], query="", fragment="").geturl()
     resp = await fetcher.get(url, accept="text/html")
     if resp.status_code != 200 or "html" not in resp.content_type:
-        raise UnsupportedLinkError("сторінка недоступна або це не допис")
+        raise UnsupportedLinkError(t("links.not_a_post"))
     parser = _WriteFreelyParser()
     parser.feed(resp.text())
     parser.close()
     if not _is_writefreely_generator(parser.generator):
         parts = urlsplit(resp.url)
         if not await _nodeinfo_says_writefreely(fetcher, f"{parts.scheme}://{parts.netloc}"):
-            raise UnsupportedLinkError("непідтримуваний сайт")
+            raise UnsupportedLinkError(t("links.unsupported"))
     if not parser.parts:
-        raise UnsupportedLinkError("на сторінці немає тексту допису")
+        raise UnsupportedLinkError(t("links.no_text"))
     # Write.as double-escapes some characters (e.g. "&amp;#39;" for an apostrophe), so unescape once more.
     body = html.unescape(_join_blocks(parser.parts))
     title = html.unescape(parser.title.strip())
     if title and not body.startswith(title):
         body = f"{title}\n{body}"
-    return LinkedText("WriteFreely", title, body, resp.url)
+    return LinkedText("writefreely", title, body, resp.url)
 
 
 # --- Google Docs -------------------------------------------------------------------------------------
@@ -268,17 +269,17 @@ async def fetch_writefreely(fetcher: SafeFetcher, url: str) -> LinkedText:
 async def fetch_google_doc(fetcher: SafeFetcher, url: str) -> LinkedText:
     match = GDOCS_ID_RE.match(urlsplit(url).path)
     if not match:
-        raise UnsupportedLinkError("not a Google Docs document link")
+        raise UnsupportedLinkError(t("links.not_gdoc"))
     export = f"https://docs.google.com/document/d/{match[1]}/export?format=txt"
     resp = await fetcher.get(export, accept="text/plain")
     if resp.status_code == 404:
-        raise FetchError("документ не знайдено")
+        raise FetchError(t("links.gdoc_missing"))
     if resp.status_code != 200 or not resp.content_type.startswith("text/plain"):
         # Docs that are not shared by link answer with a redirect to the Google sign-in page.
-        raise FetchError("документ не відкритий для всіх, хто має посилання")
+        raise FetchError(t("links.gdoc_private"))
     text = resp.content.decode("utf-8-sig", errors="replace").replace("\r\n", "\n")
     title = text.split("\n", 1)[0].strip()
-    return LinkedText("Google Docs", title, text, url)
+    return LinkedText("gdocs", title, text, url)
 
 
 # --- dispatch ----------------------------------------------------------------------------------------
@@ -288,9 +289,9 @@ def _json(resp) -> dict:
     try:
         data = json.loads(resp.content)
     except ValueError as e:
-        raise FetchError("unexpected response") from e
+        raise FetchError(t("links.unexpected")) from e
     if not isinstance(data, dict):
-        raise FetchError("unexpected response")
+        raise FetchError(t("links.unexpected"))
     return data
 
 
@@ -302,7 +303,7 @@ async def fetch_linked_text(fetcher: SafeFetcher, url: str, *, all_sources: bool
     if host in TELEGRAPH_HOSTS:
         return await fetch_telegraph(fetcher, url)
     if not all_sources:
-        raise UnsupportedLinkError("непідтримуваний сайт")
+        raise UnsupportedLinkError(t("links.unsupported"))
     if host in ELLIPSUS_HOSTS:
         return await fetch_ellipsus(fetcher, url)
     if host in GDOCS_HOSTS:

@@ -65,7 +65,7 @@ async def test_fetch_telegraph():
     page = {"ok": True, "result": {"title": "Назва", "content": [{"tag": "p", "children": ["три слова тут"]}]}}
     fetcher = fetcher_for({"api.telegra.ph/getPage/Nazva-10-13": httpx.Response(200, json=page)})
     linked = await fetch_linked_text(fetcher, "https://telegra.ph/Nazva-10-13")
-    assert linked.source == "Телеграф"
+    assert linked.source == "telegraph"
     assert count_words(linked.text) == 4
 
 
@@ -100,7 +100,7 @@ async def test_ellipsus_editor_links_are_rejected():
 async def test_fetch_writefreely_html():
     fetcher = fetcher_for({"paper.wf/sim/post": httpx.Response(200, html=WRITEFREELY_HTML)})
     linked = await fetch_linked_text(fetcher, "https://paper.wf/sim/post.md")
-    assert linked.source == "WriteFreely"
+    assert linked.source == "writefreely"
     # title (2) + "Перший абзац" (2) + "Чолов'яга друг" (2); script, header and footer are ignored
     assert count_words(linked.text) == 6, linked.text
 
@@ -138,7 +138,7 @@ async def test_fetch_google_doc():
         }
     )
     linked = await fetch_linked_text(fetcher, f"https://docs.google.com/document/d/{doc}/edit?usp=sharing")
-    assert linked.source == "Google Docs" and linked.title == "Назва"
+    assert linked.source == "gdocs" and linked.title == "Назва"
     assert count_words(linked.text) == 4
 
 
@@ -160,7 +160,7 @@ async def test_only_telegraph_without_all_sources():
     page = {"ok": True, "result": {"title": "Назва", "content": ["слово"]}}
     fetcher = fetcher_for({"api.telegra.ph/getPage/Nazva-10-13": httpx.Response(200, json=page)})
     linked = await fetch_linked_text(fetcher, "https://telegra.ph/Nazva-10-13", all_sources=False)
-    assert linked.source == "Телеграф"
+    assert linked.source == "telegraph"
     for url in (
         "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit",
         "https://ellipsus.com/read/6Wix2TBqszeWlODJo5mkx4",

@@ -1,13 +1,17 @@
-"""Telegram bot: commands, callbacks and application setup."""
+"""One Telegram bot: the small runtime every bot has, plus its modules.
 
+The runtime holds the config, the command menu and /help (assembled from the modules), Ukrainian command
+aliases, the chat allowlist, /start deep links, private asks, and, when the bot has storage, the chat
+registry, /profile, your data (/export, /forgetme) and the super-admin tools.
+"""
+
+import asyncio
 import contextlib
 import logging
-import os
-import random
 import re
 import time
-from datetime import timedelta
-from functools import wraps
+from collections.abc import Awaitable, Callable
+from datetime import datetime
 
 from telegram import (
     BotCommand,
@@ -15,17 +19,20 @@ from telegram import (
     BotCommandScopeAllPrivateChats,
     BotCommandScopeChat,
     Chat,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
     LinkPreviewOptions,
     Message,
     MessageEntity,
-    ReactionTypeEmoji,
     Update,
 )
-from telegram.constants import ChatAction, ChatMemberStatus, ChatType, ParseMode
-from telegram.error import BadRequest, TelegramError
+from telegram.constants import ChatMemberStatus, ChatType, ParseMode
+from telegram.error import TelegramError
 from telegram.ext import (
     AIORateLimiter,
     Application,
+    ApplicationHandlerStop,
+    BaseHandler,
     CallbackQueryHandler,
     ChatMemberHandler,
     CommandHandler,
@@ -35,107 +42,26 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
+from telegram.request import BaseRequest
 
 from .. import __version__
-from ..config import ConfigError, TelegramSettings
-from ..core import extras
-from ..core import sprint as sp
-from ..core.models import ChatKey, Sprint, SprintStatus, SprintUnit
-from ..core.netguard import BlockedURLError, FetchError, SafeFetcher
-from ..core.ops import AlertHandler, HealthServer, setup_logging
-from ..core.prompts import PromptsStore, PromptsUnavailableError
-from ..core.render import text_stats_text, top_text, user_stats_text
-from ..core.sources import UnsupportedLinkError, fetch_linked_text, find_url, source_locative
-from ..core.storage import Storage
-from ..core.wordcount import count_words, text_stats
+from ..botconfig import BotConfig
+from ..core.fmt import HtmlFormatter
+from ..core.i18n import t
+from ..core.models import ChatKey
+from ..core.sprint import utc_now
+from ..services import BotServices
 from .admin import AdminTools
+from .base import Asks, Command, ProfilePart, TelegramModule, button
 from .ephemeral import set_commands
-from .personal import PersonalHandlers
-from .presenter import HtmlFormatter, TelegramSprintPresenter
+from .yourdata import YourData
 
 logger = logging.getLogger(__name__)
 
 PLATFORM = "telegram"
-LANG = "ua"
-LINK_WITH_SHORT_TEXT = 20  # a message that is mostly a link is counted by fetching the link
-# Link previews are on by default, as in v2; these messages turn them off (v2 did for /help and /start).
 NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
-
-DEFAULT_HELP = """<b>Бот для письменників</b>
-
-/prompt — випадковий текстовий промпт
-/image — випадковий промпт-зображення
-/wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф)
-/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2"""
-PREVIEW_HELP = """<b>Бот для письменників</b>
-
-/prompt — випадковий текстовий промпт (/prompt &lt;категорія&gt; — з однієї категорії)
-/image — випадковий промпт-зображення (/image &lt;категорія&gt;)
-/wc — порахувати слова (у відповідь на повідомлення, текст після команди, або посилання на Телеграф, WriteFreely чи Ellipsus)
-/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2
-/sprinthelp — як працюють спринти та звіти про слова
-/goal — цілі на день і місяць, /tz — часовий пояс, /mystats — статистика
-/export — ваші спринти у файлі, /forgetme — видалити свої дані"""
-EXTRAS_HELP = "\n/d20, /2d6+1, /r 4к6 — кинути кубики"
-
-SPRINT_HELP = f"""<b>Спринти</b>
-/sprint [хвилин] [затримка] [посилання] запускає спринт: {sp.MIN_SPRINT}–{sp.MAX_SPRINT} хв., затримка {sp.MIN_SPRINT_DELAY}–{sp.MAX_SPRINT_DELAY} хв., типово {sp.DEFAULT_SPRINT} і {sp.DEFAULT_SPRINT_DELAY}.
-Під спринтом є кнопки, щоб долучитися чи вийти. Долучитися з текстом: /join &lt;посилання&gt; (або /sprint &lt;посилання&gt;, коли спринт уже є). Останній учасник або адмін чату може його скасувати.
-У форумах кожна тема має свій спринт.
-
-<b>Звіти про слова</b>
-Якщо дати посилання на текст до чи під час спринту (/words &lt;посилання&gt; або одразу в /sprint), бот запам'ятає, скільки там слів, і після спринту сам порахує, скільки додалося.
-
-Інакше після спринту відповідайте на повідомлення з результатами або надішліть:
-/words 500, якщо написали 500 слів;
-/words &lt;посилання&gt;, щоб бот порахував слова в тексті;
-/words =12500, загальну кількість слів у рукописі (якщо до спринту задали стартову, напр. /words =12000).
-
-Чат може звітувати не словами, а відсотком зробленого завдання (40%): /sprintmode percent (адміни чату), назад: /sprintmode words.
-
-/mystats показує вашу статистику в цьому чаті, /top [днів] — хто найбільше написав за період (типово 30 днів)."""
-
-COMMANDS = [
-    BotCommand("prompt", "Випадковий текстовий промпт"),
-    BotCommand("image", "Випадковий промпт-зображення"),
-    BotCommand("wc", "Порахувати слова в тексті чи за посиланням"),
-    BotCommand("sprint", "Почати спринт: /sprint 30 2"),
-    BotCommand("join", "Долучитися до спринту: /join [посилання]"),
-    BotCommand("words", "Звіт про слова за спринт"),
-    BotCommand("mystats", "Моя статистика спринтів"),
-    BotCommand("goal", "Цілі: /goal daily 500"),
-    BotCommand("tz", "Мій часовий пояс"),
-    BotCommand("export", "Мої спринти у файлі CSV"),
-    BotCommand("sprintmode", "Звіти словами чи відсотками"),
-    BotCommand("top", "Топ за словами"),
-    BotCommand("sprinthelp", "Як працюють спринти"),
-    BotCommand("help", "Допомога"),
-]
-PRIVATE_ONLY_COMMANDS = [BotCommand("forgetme", "Видалити мої дані")]
-ADMIN_ONLY_COMMANDS = [
-    BotCommand("chats", "Адмін: усі чати з ботом"),
-    BotCommand("broadcast", "Адмін: розсилка (groups / private / all)"),
-    BotCommand("bcexclude", "Адмін: прибрати чати з розсилок"),
-    BotCommand("bcinclude", "Адмін: повернути чати до розсилок"),
-    BotCommand("stats", "Адмін: кількість промптів"),
-    BotCommand("reload", "Адмін: перезавантажити промпти"),
-]
-# Everything that is not in v2 needs PREVIEW_FEATURES.
-V2_COMMANDS = {"prompt", "image", "wc", "sprint", "help", "stats", "reload"}
-EPHEMERAL_COMMANDS = {"words", "join", "mystats", "goal", "tz", "export"}
-
-
-def command_menus(preview: bool) -> tuple[list[BotCommand], list[BotCommand], list[BotCommand]]:
-    """Command menus for groups, private chats and super-admins."""
-
-    def available(commands: list[BotCommand]) -> list[BotCommand]:
-        return [c for c in commands if preview or c.command in V2_COMMANDS]
-
-    group = available(COMMANDS)
-    return group, [*group, *available(PRIVATE_ONLY_COMMANDS)], [*group, *available(ADMIN_ONLY_COMMANDS)]
-
-
-LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
+ALIAS_RE = re.compile(r"^/([^\W\d_A-Za-z][\w'ʼ’]*)(?:@(\w+))?(?:\s+(.*))?$", re.DOTALL)
+COMMAND_RE = re.compile(r"^/(\w+)(?:@\w+)?(?:\s|$)")
 
 
 def chat_key(message: Message) -> ChatKey:
@@ -145,12 +71,12 @@ def chat_key(message: Message) -> ChatKey:
     return ChatKey(PLATFORM, str(message.chat.id), str(thread) if thread else None)
 
 
-def user_ref(user) -> sp.UserRef:
-    return sp.UserRef(str(user.id), user.full_name or user.username or str(user.id))
+def thread_of(message: Message) -> int | None:
+    return message.message_thread_id if getattr(message, "is_topic_message", False) else None
 
 
 def command_args_text(message: Message) -> str:
-    """Text after the leading /command (works for captions too)."""
+    """Text after the leading /command (works for captions and for Ukrainian aliases too)."""
     text = message.text or message.caption or ""
     entities = message.entities if message.text else message.caption_entities
     for entity in entities or ():
@@ -158,111 +84,202 @@ def command_args_text(message: Message) -> str:
             # Entity offsets are in UTF-16 code units.
             encoded = text.encode("utf-16-le")
             return encoded[2 * entity.length :].decode("utf-16-le").strip()
+    if text.startswith("/"):
+        return text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
     return text.strip()
 
 
-def allowed_chat(show_error: bool = False):
-    def decorator(method):
-        @wraps(method)
-        async def wrapper(self: "WritersTelegramBot", update: Update, context: ContextTypes.DEFAULT_TYPE):
-            chat, user = update.effective_chat, update.effective_user
-            if chat is not None and not self.is_allowed(chat, user):
-                if show_error and update.effective_message:
-                    await update.effective_message.reply_text(
-                        "Цей бот доступний лише для деяких чатів. Зверніться до автора боту."
-                    )
-                elif update.callback_query:
-                    await update.callback_query.answer()
-                return None
-            return await method(self, update, context)
-
-        return wrapper
-
-    return decorator
+def display_name(user) -> str:
+    return user.full_name or user.username or str(user.id)
 
 
-class WritersTelegramBot:
-    def __init__(self, settings: TelegramSettings):
-        self.settings = settings
-        common = settings.common
-        self.fmt = HtmlFormatter(common.timezone)
-        self.storage = Storage(common.db_path)
-        self.prompts = PromptsStore(common.google)
-        self.fetcher: SafeFetcher | None = None
-        self.preview = common.preview_features
-        self.presenter = TelegramSprintPresenter(self.fmt, reports=self.preview)
-        self.sprints = sp.SprintManager(
-            self.storage,
-            self.presenter,
-            platform=PLATFORM,
-            report_window=common.report_window,
-            count_link=self.count_link,
-            reports=self.preview,
-        )
-        self.me = None
-        self.admin = AdminTools(self.storage, settings.super_admins)
-        self.personal = PersonalHandlers(self)
+class TelegramBot:
+    def __init__(
+        self,
+        config: BotConfig,
+        services: BotServices,
+        *,
+        now: Callable[[], datetime] = utc_now,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    ):
+        if config.telegram is None:
+            raise ValueError(f"bot {config.name} has no telegram target")
+        self.config = config
+        self.settings = config.telegram
+        self.services = services
+        self.storage = services.storage
+        self.people = services.people
+        self.links = services.links
+        self.now = now
+        self.sleep = sleep  # injected by tests, with ``now``, to drive time
+        self.fmt = HtmlFormatter(self.settings.common.timezone)
+        self.asks = Asks(self)
         self.app: Application | None = None
-        self.alerts: AlertHandler | None = None
-        self.health: HealthServer | None = None
+        self.me = None
         self.started = time.monotonic()
         self.last_update: float | None = None
+        self.admin = AdminTools(self.storage, self.settings.super_admins, self) if self.storage is not None else None
+        self.modules: list[TelegramModule] = []
+        for spec in config.specs():
+            part = spec.part(PLATFORM)
+            if part is not None:
+                self.modules.append(part(self, config.options(spec.name)))
+        self.data = YourData(self) if self.storage is not None and self.personal_data else None
+        self._commands: dict[str, Command] = {}
+        self._aliases: dict[str, Command] = {}
+        self._asks: dict[str, Callable] = {}
+        self._payloads: dict[str, Callable] = {}
+
+    # --- module access -----------------------------------------------------------------------------
+
+    def module(self, name: str) -> TelegramModule | None:
+        return next((m for m in self.modules if m.name == name), None)
+
+    @property
+    def personal_data(self) -> bool:
+        """Does this bot keep data about people that they can export and delete?"""
+        return any(getattr(m, "personal_data", False) for m in self.modules)
+
+    @property
+    def web(self):
+        return self.services.web
+
+    # --- building ----------------------------------------------------------------------------------
+
+    def build(self, *, request: BaseRequest | None = None, updates_request: BaseRequest | None = None) -> Application:
+        builder = (
+            Application.builder()
+            .token(self.settings.token)
+            .defaults(Defaults(parse_mode=ParseMode.HTML, tzinfo=self.settings.common.timezone))
+        )
+        if request is not None:
+            builder = builder.request(request).get_updates_request(updates_request or request)
+        else:
+            builder = builder.rate_limiter(AIORateLimiter(max_retries=3))
+        app = builder.build()
+        self.app = app
+        app.bot_data["writers_bot"] = self
+        self.register(app)
+        return app
+
+    def all_commands(self) -> list[Command]:
+        commands = [
+            Command("start", self.start, help=None),
+            Command("help", self.help, "commands.help", uk="aliases.help"),
+            Command("debuginfo", self.debuginfo),
+        ]
+        for module in self.modules:
+            commands += module.commands()
+        if self.profile_enabled:
+            commands.append(
+                Command(
+                    "profile",
+                    self.profile,
+                    "commands.profile",
+                    uk="aliases.profile",
+                    aliases=("mystats",),
+                    ephemeral=True,
+                    help="help.profile",
+                )
+            )
+        if self.data is not None:
+            commands += self.data.commands()
+        if self.admin is not None and self.config.admin:
+            commands += self.admin.commands()
+        return commands
+
+    @property
+    def profile_enabled(self) -> bool:
+        return self.storage is not None and any(getattr(m, "has_profile", False) for m in self.modules)
+
+    def register(self, app: Application) -> None:
+        app.add_handler(TypeHandler(Update, self.note_update), group=-3)
+        app.add_handler(TypeHandler(Update, self.gate), group=-2)
+        if self.storage is not None:
+            # Chat registry: runs before everything else and never stops other handlers.
+            app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
+            app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
+
+        handlers: list[tuple[BaseHandler, int]] = []
+        for command in self.all_commands():
+            self._commands[command.name] = command
+            names = [command.name, *command.aliases]
+            handlers.append((CommandHandler(names, command.callback), 0))
+            if command.uk:
+                self._aliases[t(command.uk).casefold()] = command
+        if self._aliases:
+            handlers.append((MessageHandler(filters.TEXT & filters.Regex(ALIAS_RE), self.on_alias), 0))
+        for module in self.modules:
+            handlers += module.handlers()
+            self._asks |= module.asks()
+            self._payloads |= module.start_payloads()
+        if self.profile_enabled:
+            self._asks |= self.profile_asks()
+        if self.data is not None:
+            self._asks |= self.data.asks()
+        handlers.append((CallbackQueryHandler(self.on_owned, pattern=r"^u:-?\d+:"), 0))
+        if self.admin is not None and self.config.admin:
+            handlers += self.admin.handlers()
+        for module in self.modules:
+            handlers += getattr(module, "late_handlers", lambda: [])()
+        for handler, group in handlers:
+            app.add_handler(handler, group=group)
+        app.add_error_handler(self.on_error)
 
     # --- lifecycle -------------------------------------------------------------------------------
 
     async def post_init(self, app: Application) -> None:
-        self.app = app
-        self.presenter.bot = app.bot
         self.me = await app.bot.get_me()
-        self.fetcher = SafeFetcher()
-        await self.storage.open()
-        restored = await self.sprints.restore()
-        if restored:
-            logger.info("restored %d open sprints", restored)
-        group_cmds, private_cmds, admin_cmds = command_menus(self.preview)
+        await self.set_menus()
+        for module in self.modules:
+            await module.post_init()
+
+    def menus(self) -> tuple[list[BotCommand], list[BotCommand], list[BotCommand]]:
+        """Command menus for groups, private chats and super-admins."""
+        group, private, admin = [], [], []
+        for c in self.all_commands():
+            if c.description is None:
+                continue
+            entry = BotCommand(c.name, t(c.description))
+            if c.scope == "all":
+                group.append(entry)
+                private.append(entry)
+            elif c.scope == "private":
+                private.append(entry)
+            elif c.scope == "admin":
+                admin.append(entry)
+        return group, private, [*private, *admin]
+
+    async def set_menus(self) -> None:
+        group, private, admin = self.menus()
+        bot = self.app.bot
+        ephemeral = {c.name for c in self.all_commands() if c.ephemeral}
         try:
-            await app.bot.set_my_commands(private_cmds, scope=BotCommandScopeAllPrivateChats())
+            await bot.set_my_commands(private, scope=BotCommandScopeAllPrivateChats())
             if not (
                 self.settings.ephemeral_commands
-                and await set_commands(app.bot, group_cmds, {"type": "all_group_chats"}, EPHEMERAL_COMMANDS)
+                and await set_commands(bot, group, {"type": "all_group_chats"}, ephemeral)
             ):
-                await app.bot.set_my_commands(group_cmds, scope=BotCommandScopeAllGroupChats())
+                await bot.set_my_commands(group, scope=BotCommandScopeAllGroupChats())
         except TelegramError as e:
             logger.warning("set_my_commands failed: %s", e)
         for admin_id in self.settings.super_admins:
             try:
-                await app.bot.set_my_commands(admin_cmds, scope=BotCommandScopeChat(admin_id))
+                await bot.set_my_commands(admin, scope=BotCommandScopeChat(admin_id))
             except TelegramError as e:  # the admin has not started a chat with the bot yet
                 logger.info("no admin command menu for %s: %s", admin_id, e)
-        await self._start_ops()
-        if self.prompts.enabled:
+
+    async def shutdown(self) -> None:
+        for module in self.modules:
             try:
-                await self.prompts.load()
+                await module.shutdown()
             except Exception:
-                logger.exception("could not load prompts; /prompt and /image are unavailable until /reload")
+                logger.exception("module %s failed to shut down", module.name)
+        await self.asks.shutdown()
+        if self.admin is not None:
+            await self.admin.shutdown()
 
-    async def _start_ops(self) -> None:
-        common = self.settings.common
-        if common.error_alerts and self.settings.super_admins:
-            self.alerts = AlertHandler(self._send_alert)
-            self.alerts.start()
-        if common.health_port:
-            self.health = HealthServer(common.health_host, common.health_port, self.health_status)
-            try:
-                await self.health.start()
-            except OSError as e:
-                logger.warning("health endpoint not started: %s", e)
-                self.health = None
-
-    async def _send_alert(self, text: str) -> None:
-        for admin_id in self.settings.super_admins:
-            with contextlib.suppress(TelegramError):
-                await self.app.bot.send_message(
-                    admin_id, f"Помилка в боті\n\n{text}", parse_mode=None, link_preview_options=NO_PREVIEW
-                )
-
-    async def health_status(self) -> dict:
-        await self.storage.ping()
+    def health(self) -> dict:
         updater = self.app.updater if self.app else None
         receiving = (
             self.app is not None
@@ -271,25 +288,14 @@ class WritersTelegramBot:
         )
         return {
             "ok": receiving,
-            "version": __version__,
-            "uptime_s": round(time.monotonic() - self.started),
             "last_update_s": None if self.last_update is None else round(time.monotonic() - self.last_update),
-            "open_sprints": len(self.sprints._sprints),
         }
 
     async def note_update(self, _update: Update, _context) -> None:
         self.last_update = time.monotonic()
 
-    async def post_shutdown(self, _app: Application) -> None:
-        if self.alerts:
-            await self.alerts.stop()
-        if self.health:
-            await self.health.stop()
-        await self.admin.shutdown()
-        await self.sprints.shutdown()
-        if self.fetcher:
-            await self.fetcher.aclose()
-        await self.storage.close()
+    async def on_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logger.error("error while handling %r", update, exc_info=context.error)
 
     # --- permissions -----------------------------------------------------------------------------
 
@@ -301,574 +307,210 @@ class WritersTelegramBot:
             return False
         return self.settings.allow_private or (user is not None and user.id in self.settings.super_admins)
 
-    async def is_chat_admin(self, chat: Chat, user_id: int) -> bool:
+    async def gate(self, update: Update, _context) -> None:
+        """The chat allowlist, before any handler. /forgetme always works: deleting your data."""
+        chat, user = update.effective_chat, update.effective_user
+        if chat is None or self.is_allowed(chat, user) or update.my_chat_member is not None:
+            return
+        message = update.effective_message
+        command = COMMAND_RE.match((message.text or "") if message else "")
+        if command and command[1] == "forgetme":
+            return
+        if update.callback_query is not None:
+            data = update.callback_query.data or ""
+            if data.startswith("u:") and ":fm:" in data:
+                return
+            with contextlib.suppress(TelegramError):
+                await update.callback_query.answer()
+        elif command and command[1] == "start" and message is not None:
+            await message.reply_text(t("common.not_allowed_chat"), parse_mode=None)
+        raise ApplicationHandlerStop
+
+    async def is_chat_admin(self, chat: Chat | int, user_id: int) -> bool:
         if user_id in self.settings.super_admins:
             return True
-        if chat.type == ChatType.PRIVATE:
+        chat_id = chat if isinstance(chat, int) else chat.id
+        if chat_id > 0:
             return False
         try:
-            member = await chat.get_member(user_id)
+            member = await self.app.bot.get_chat_member(chat_id, user_id)
         except TelegramError:
             return False
         return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
 
-    # --- help & prompts --------------------------------------------------------------------------
+    # --- dispatch ------------------------------------------------------------------------------------
+
+    async def on_alias(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Ukrainian command aliases (/промпт, /спринт…). Telegram doesn't treat Cyrillic as commands, so
+        these only reach the bot where it sees all messages."""
+        message = update.effective_message
+        m = ALIAS_RE.match(message.text or "")
+        if not m or (m[2] and self.me and m[2].lower() != self.me.username.lower()):
+            return
+        command = self._aliases.get(m[1].casefold())
+        if command is None:
+            return
+        context.args = (m[3] or "").split()
+        await command.callback(update, context)
+
+    async def on_owned(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        query = update.callback_query
+        _, owner, data = query.data.split(":", 2)
+        if str(query.from_user.id) != owner:
+            await self.asks.toast(query, "common.not_yours")
+            return
+        prefix, _, rest = data.partition(":")
+        handler = self._asks.get(prefix)
+        if handler is None:
+            await self.asks.toast(query, "common.stale")
+            return
+        await handler(query, rest.split(":") if rest else [])
+
+    # --- core commands ---------------------------------------------------------------------------
+
+    def help_text(self) -> str:
+        prompts = self.module("prompts")
+        override = prompts.config_text("help_message") if prompts is not None else None
+        if override:
+            return override
+        lines = [self.fmt.bold(t("help.title")), ""]
+        for c in self.all_commands():
+            if c.help:
+                lines.append(self.fmt.t(c.help))
+        for module in self.modules:
+            lines += [self.fmt.t(key) for key in module.help_keys()]
+        return "\n".join(lines)
 
     async def _reply_html_safe(self, message: Message, text: str, **kwargs) -> None:
         try:
             await message.reply_html(text, **kwargs)
-        except BadRequest as e:
+        except TelegramError as e:
             if "parse" not in str(e).lower():
                 raise
             await message.reply_text(re.sub(r"<[^>]+>", "", text), parse_mode=None, **kwargs)
 
-    @allowed_chat(show_error=True)
-    async def start(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or (PREVIEW_HELP if self.preview else DEFAULT_HELP)
-        greeting = "Я переродився, Райтенчіле!\n\n" if self.settings.extras else ""
-        await self._reply_html_safe(update.effective_message, greeting + text, link_preview_options=NO_PREVIEW)
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        message = update.effective_message
+        if message.chat.type == ChatType.PRIVATE and self.people is not None and message.from_user:
+            person = await self.people.person_id(PLATFORM, str(message.from_user.id), display_name(message.from_user))
+            await self.people.set(person, "can_dm", "1")
+        payload = context.args[0] if context.args else ""
+        if payload:
+            prefix, _, rest = payload.partition("_")
+            handler = self._payloads.get(prefix)
+            if handler is not None:
+                await handler(update, context, rest)
+                return
+        await self._reply_html_safe(message, self.help_text(), link_preview_options=NO_PREVIEW)
 
     async def help(self, update: Update, _context) -> None:
-        text = self.prompts.config_text("help_message") or (
-            (PREVIEW_HELP if self.preview else DEFAULT_HELP) + (EXTRAS_HELP if self.settings.extras else "")
-        )
-        await self._reply_html_safe(update.effective_message, text, link_preview_options=NO_PREVIEW)
-
-    async def sprint_help(self, update: Update, _context) -> None:
-        await update.effective_message.reply_html(SPRINT_HELP)
-
-    @allowed_chat()
-    async def prompt(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        message = update.effective_message
-        query = " ".join(context.args or []) if self.preview else ""  # v2: one prompt from every category
-        try:
-            category = None
-            if query:
-                category = self.prompts.find_category(LANG, query)
-                if category is None:
-                    cats = ", ".join(self.prompts.text_categories(LANG)) or "—"
-                    await message.reply_html(f"Немає такої категорії. Доступні: {self.fmt.escape(cats)}")
-                    return
-            prompt = self.prompts.random_text(LANG, category)
-        except PromptsUnavailableError:
-            await message.reply_text("Промпти зараз недоступні.")
-            return
-        await message.reply_html("\n".join(f"{self.fmt.bold(k)}: {self.fmt.escape(v)}" for k, v in prompt.items()))
-
-    @allowed_chat()
-    async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        message = update.effective_message
-        command = (message.text or message.caption or "").split()[0].split("@")[0].lower()
-        category = command.removeprefix("/image").removeprefix("_") or (
-            context.args[0] if context.args and self.preview else None  # v2 only had /image_<category>
-        )
-        try:
-            cat, num, image = self.prompts.random_image(category)
-        except PromptsUnavailableError:
-            await message.reply_text("Зображення зараз недоступні.")
-            return
-        link = image.get("webContentLink") or image.get("webViewLink") or ""
-        await message.reply_html(
-            f'{self.fmt.escape(cat)} #<a href="{self.fmt.escape(link)}">{num}</a>',
-            link_preview_options=LinkPreviewOptions(is_disabled=False, url=link, prefer_large_media=True)
-            if link
-            else None,
-        )
-
-    @allowed_chat()
-    async def stats(self, update: Update, _context) -> None:
-        stats = self.prompts.stats()
-        text = "\n".join(f"{self.fmt.bold(k)}: {v}" for k, v in stats.items()) or "Промпти не завантажено."
-        await update.effective_message.reply_html(text)
-
-    @allowed_chat(show_error=True)
-    async def reload(self, update: Update, _context) -> None:
-        message = update.effective_message
-        if not await self.is_chat_admin(message.chat, message.from_user.id):
-            await message.reply_text("Перезавантажувати можуть лише адміни.")
-            return
-        try:
-            await self.prompts.load()
-        except Exception as e:
-            logger.exception("reload failed")
-            await message.reply_text(f"Не вдалося перезавантажити: {type(e).__name__}")
-            return
-        await message.reply_text("Перезавантажено!")
+        await self._reply_html_safe(update.effective_message, self.help_text(), link_preview_options=NO_PREVIEW)
 
     async def debuginfo(self, update: Update, _context) -> None:
         message = update.effective_message
         chat, user = message.chat, message.from_user
-        lines = [f"Чат id: {chat.id} ({'авторизований' if self.is_allowed(chat, user) else 'не авторизований'})"]
+        state = t("debug.allowed") if self.is_allowed(chat, user) else t("debug.not_allowed")
+        lines = [t("debug.chat", id=chat.id, state=state)]
         if message.is_topic_message:
-            lines.append(f"Тема id: {message.message_thread_id}")
-        lines.append(f"Ваш юзер id: {user.id}{await self._roles(chat, user.id)}")
+            lines.append(t("debug.topic", id=message.message_thread_id))
+        lines.append(t("debug.you", id=user.id, roles=await self._roles(chat, user.id)))
         replied = message.reply_to_message
         if replied and replied.from_user:
             other = replied.from_user
-            marks = " (цей бот)" if other.id == self.me.id else " (інший бот)" if other.is_bot else ""
-            lines.append(f"Відповідаєте юзеру з id: {other.id}{marks}{await self._roles(chat, other.id)}")
+            marks = t("debug.this_bot") if other.id == self.me.id else t("debug.other_bot") if other.is_bot else ""
+            lines.append(t("debug.replied", id=other.id, marks=marks, roles=await self._roles(chat, other.id)))
+        lines.append(t("debug.version", version=__version__, bot=self.config.name))
         await message.reply_text("\n".join(lines), parse_mode=None)
 
     async def _roles(self, chat: Chat, user_id: int) -> str:
         roles = ""
         if user_id in self.settings.super_admins:
-            roles += " (адмін боту)"
-        if (
-            chat.type != ChatType.PRIVATE
-            and await self.is_chat_admin(chat, user_id)
-            and user_id not in self.settings.super_admins
-        ):
-            roles += " (адмін чату)"
+            roles += t("debug.bot_admin")
+        elif chat.type != ChatType.PRIVATE and await self.is_chat_admin(chat, user_id):
+            roles += t("debug.chat_admin")
         return roles
 
-    # --- extras from the v2 "extended" branch ------------------------------------------------------
+    # --- /profile --------------------------------------------------------------------------------
 
-    @allowed_chat()
-    async def imafan(self, update: Update, _context) -> None:
-        texts = list(self.prompts.config_texts("imafan_message").values())
-        if not texts:
-            return
+    async def profile(self, update: Update, _context) -> None:
         message = update.effective_message
-        name = self.fmt.bold(message.from_user.first_name)
-        await self._reply_html_safe(message, random.choice(texts).replace("{name}", name))
+        text, markup = await self.profile_view(message.from_user, message.chat.type == ChatType.PRIVATE)
+        await self.asks.respond(message, text, markup, delete_command=True)
 
-    @allowed_chat()
-    async def smash(self, update: Update, _context) -> None:
-        await update.effective_message.reply_html(self.fmt.code(extras.smash()))
-
-    @allowed_chat()
-    async def other_command(self, update: Update, _context) -> None:
-        """Commands no other handler took: dice rolls like /d20, /2d6+1, /r 4к6."""
-        message = update.effective_message
-        roll = extras.parse_roll(message.text or message.caption or "")
-        if roll is not None:
-            await message.reply_html(extras.roll_html(roll))
-
-    @allowed_chat()
-    async def on_text(self, update: Update, _context) -> None:
-        if not self.settings.slogan_replies:
-            return
-        message = update.effective_message
-        if reply := extras.slogan_reply(message.text or message.caption or ""):
-            await message.reply_html(reply)
-
-    @allowed_chat()
-    async def welcome(self, update: Update, _context) -> None:
-        """Greets new members in chats that have their own ``welcome_message`` row in the config sheet."""
-        message = update.effective_message
-        text = self.prompts.config_texts("welcome_message").get(str(message.chat_id))
-        people = [u for u in message.new_chat_members or () if not u.is_bot]
-        if not text or not people:
-            return
-        names = ", ".join(f"<b>{u.mention_html()}</b>" for u in people)
-        await self._reply_html_safe(message, text.replace("{name}", names))
-
-    # --- word count ------------------------------------------------------------------------------
-
-    async def count_link(self, url: str) -> int:
-        linked = await fetch_linked_text(self.fetcher, url, all_sources=self.preview)
-        return count_words(linked.text)
-
-    @allowed_chat()
-    async def wordcount(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        message = update.effective_message
-        own = command_args_text(message)
-        replied = message.reply_to_message
-        text = own or ((replied.text or replied.caption or "") if replied else "")
-        if not text:
-            await message.reply_text("Надішліть /wc у відповідь на повідомлення, або /wc <текст чи посилання>.")
-            return
-        url = find_url(text)
-        if url and count_words(text.replace(url, "")) < LINK_WITH_SHORT_TEXT:
-            await context.bot.send_chat_action(
-                message.chat_id,
-                ChatAction.TYPING,
-                message_thread_id=message.message_thread_id if message.is_topic_message else None,
-            )
-            try:
-                linked = await fetch_linked_text(self.fetcher, url, all_sources=self.preview)
-            except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-                await message.reply_text(
-                    f"Не вдалося прочитати посилання: {e}", parse_mode=None, link_preview_options=NO_PREVIEW
-                )
-                return
-            await message.reply_html(
-                text_stats_text(self.fmt, text_stats(linked.text), source_locative(linked.source))
-            )
-            return
-        await message.reply_html(text_stats_text(self.fmt, text_stats(text)))
-
-    # --- sprints ---------------------------------------------------------------------------------
-
-    @staticmethod
-    def _int_arg(args: list[str], index: int, default: int) -> int:
-        try:
-            return int(args[index])
-        except (IndexError, ValueError):
-            return default
-
-    async def _start_sprint(self, message: Message, user, duration: int, delay: int) -> str | None:
-        """Start a sprint; returns an error text or None."""
-        key = chat_key(message)
-        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id) if self.preview else SprintUnit.WORDS
-        try:
-            await self.sprints.start(key, user_ref(user), duration, delay, origin=message, unit=unit)
-        except sp.SprintAlreadyRunningError:
-            return "Спринт вже запущено."
-        except sp.InvalidSprintParamsError as e:
-            return str(e)
-        return None
-
-    @allowed_chat()
-    async def sprint(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """/sprint [minutes] [delay] [link]: a link is counted now and again when the sprint ends."""
-        message = update.effective_message
-        url = find_url(command_args_text(message)) if self.preview else None
-        args = [a for a in context.args or [] if a != url]
-        if url and self.sprints.active(chat_key(message)) is not None:
-            await self._join_with_link(message, url)  # "/sprint <link>" in a running sprint = join with it
-            return
-        duration = self._int_arg(args, 0, sp.DEFAULT_SPRINT)
-        delay = self._int_arg(args, 1, sp.DEFAULT_SPRINT_DELAY)
-        if error := await self._start_sprint(message, message.from_user, duration, delay):
-            await message.reply_text(error)
-            return
-        if url:
-            await self._handle_report(message, url, None, explicit=True)
-
-    @allowed_chat()
-    async def join(self, update: Update, _context) -> None:
-        """/join [link]: join the current sprint, optionally with the text to count."""
-        message = update.effective_message
-        url = find_url(command_args_text(message))
-        if url:
-            await self._join_with_link(message, url)
-            return
-        result, _ = await self.sprints.join(chat_key(message), user_ref(message.from_user))
-        if result == sp.JoinResult.CLOSED:
-            await message.reply_text("Зараз немає спринту, до якого можна долучитися.")
-            return
-        with contextlib.suppress(TelegramError):
-            await message.set_reaction(ReactionTypeEmoji("👍"))
-
-    async def _join_with_link(self, message: Message, url: str) -> None:
-        result, _ = await self.sprints.join(chat_key(message), user_ref(message.from_user))
-        if result == sp.JoinResult.CLOSED:
-            await message.reply_text("Зараз немає спринту, до якого можна долучитися.")
-            return
-        await self._handle_report(message, url, None, explicit=True)
-
-    def _sprint_from_callback(self, data: str) -> int | None:
-        try:
-            return int(data.rsplit(":", 1)[1])
-        except (IndexError, ValueError):
-            return None
-
-    @allowed_chat()
-    async def on_join(self, update: Update, _context) -> None:
-        query = update.callback_query
-        sprint_id = self._sprint_from_callback(query.data) if query.data.startswith("sp:") else None
-        result, _ = await self.sprints.join(chat_key(query.message), user_ref(query.from_user), sprint_id)
-        await query.answer(
-            {
-                sp.JoinResult.JOINED: "Додано до спринту!",
-                sp.JoinResult.ALREADY: "Ви вже у спринті!",
-                sp.JoinResult.CLOSED: "Цей спринт уже завершився.",
-            }[result]
+    async def profile_view(self, user, private: bool) -> tuple[str, InlineKeyboardMarkup]:
+        person = await self.people.person_id(PLATFORM, str(user.id), display_name(user))
+        parts: list[ProfilePart] = []
+        for module in self.modules:
+            part = await module.profile(user, person, private)
+            if part is not None:
+                parts.append(part)
+        lines = [self.fmt.bold(t("profile.title", name=display_name(user)))]
+        rows = []
+        for part in parts:
+            if part.lines:
+                lines += ["", *part.lines]
+            if part.buttons:
+                rows.append(part.buttons)
+        rows.append(
+            [
+                button(t("profile.button_settings"), user.id, "pf:settings"),
+                button(t("common.close"), user.id, "pf:close"),
+            ]
         )
+        return "\n".join(lines), InlineKeyboardMarkup(rows)
 
-    @allowed_chat()
-    async def on_leave(self, update: Update, _context) -> None:
-        query = update.callback_query
-        message = query.message
-        sprint_id = self._sprint_from_callback(query.data) if query.data.startswith("sp:") else None
-        result, _ = await self.sprints.leave_or_cancel(
-            chat_key(message),
-            user_ref(query.from_user),
-            is_admin=lambda: self.is_chat_admin(message.chat, query.from_user.id),
-            sprint_id=sprint_id,
-        )
-        await query.answer(
-            {
-                sp.LeaveResult.LEFT: "Вас вилучено зі спринту",
-                sp.LeaveResult.CANCELLED: "Спринт скасовано",
-                sp.LeaveResult.STOPPED: "Спринт зупинено. Можна звітувати про слова."
-                if self.preview
-                else "Спринт зупинено",
-                sp.LeaveResult.NOT_ALLOWED: "Ви не маєте права скасувати спринт",
-                sp.LeaveResult.NOT_PARTICIPANT: "Ви не у спринті",
-                sp.LeaveResult.CLOSED: "Цей спринт уже завершився.",
-            }[result]
-        )
+    def profile_asks(self) -> dict:
+        return {"pf": self.on_profile_button}
 
-    @allowed_chat()
-    async def on_repeat(self, update: Update, _context) -> None:
-        query = update.callback_query
-        if query.data.startswith("sp:repeat:"):
-            parts = query.data.split(":")
-            duration, delay = int(parts[2]), int(parts[3])
-        else:
-            m = LEGACY_REPEAT_RE.match(query.data)
-            duration = int(m[1]) if m else sp.DEFAULT_SPRINT
-            delay = int(m[2]) if m and m[2] else sp.DEFAULT_SPRINT_DELAY
-        error = await self._start_sprint(query.message, query.from_user, duration, delay)
-        await query.answer(error or "")
+    async def on_profile_button(self, query, args: list[str]) -> None:
+        from .base import Sent
 
-    @allowed_chat()
-    async def on_report_button(self, update: Update, _context) -> None:
-        query = update.callback_query
-        sprint = self.sprints.get(self._sprint_from_callback(query.data) or -1)
-        if sprint is None or sprint.status != SprintStatus.REPORTING:
-            await query.answer("Звіти для цього спринту вже закрито.")
-            return
-        await query.answer()
+        sent = Sent.from_query(query)
+        action = args[0] if args else ""
         user = query.from_user
-        prompt_id = await self.presenter.ask_for_report(sprint, user.id, user.full_name)
-        await self.sprints.update_refs(
-            sprint, lambda refs: refs.setdefault("prompts", {}).update({str(prompt_id): str(user.id)})
-        )
-
-    def _sprint_for_reply(self, message: Message) -> Sprint | None:
-        replied = message.reply_to_message
-        if replied is None or replied.from_user is None or replied.from_user.id != self.me.id:
-            return None
-        rid = replied.message_id
-        return self.sprints.find(
-            lambda s: (
-                s.key.chat_id == str(message.chat_id)
-                and (s.refs.get("finish") == rid or s.refs.get("msg") == rid or str(rid) in s.refs.get("prompts", {}))
-            )
-        )
-
-    @allowed_chat()
-    async def words(self, update: Update, _context) -> None:
-        message = update.effective_message
-        target = self._sprint_for_reply(message)
-        await self._handle_report(message, command_args_text(message), target.id if target else None, explicit=True)
-
-    @allowed_chat()
-    async def on_reply(self, update: Update, _context) -> None:
-        """Plain replies to sprint messages are word reports."""
-        message = update.effective_message
-        target = self._sprint_for_reply(message)
-        if target is None:
+        private = query.message is not None and query.message.chat.type == ChatType.PRIVATE
+        if action == "close":
+            await query.answer()
+            if sent:
+                await self.asks.delete(sent)
             return
-        rid = message.reply_to_message.message_id
-        explicit = str(rid) in target.refs.get("prompts", {})
-        await self._handle_report(message, message.text or "", target.id, explicit=explicit)
-        if explicit:
-            with contextlib.suppress(TelegramError):
-                await message.reply_to_message.delete()
-            await self.sprints.update_refs(target, lambda refs: refs.get("prompts", {}).pop(str(rid), None))
-
-    async def _handle_report(self, message: Message, text: str, sprint_id: int | None, *, explicit: bool) -> None:
-        report = sp.parse_report(text, find_url)
-        if report is None:
-            if explicit:
-                await message.reply_text("Надішліть число слів (напр. 500) або посилання на текст.")
+        if action == "back":
+            await query.answer()
+            text, markup = await self.profile_view(user, private)
+            await self.asks.edit(sent, text, markup)
             return
-        if report.kind == sp.ReportKind.RECOUNT and not explicit:
+        if action == "settings":
+            await query.answer()
+            text, markup = await self.settings_view(user)
+            await self.asks.edit(sent, text, markup)
             return
-        try:
-            outcome = await self.sprints.report(
-                chat_key(message), user_ref(message.from_user), report, self.count_link, sprint_id
-            )
-        except (UnsupportedLinkError, BlockedURLError, FetchError) as e:
-            await message.reply_text(
-                f"Не вдалося прочитати посилання: {e}", parse_mode=None, link_preview_options=NO_PREVIEW
-            )
-            return
-        await self._report_feedback(message, outcome)
+        await self.asks.toast(query, "common.stale")
 
-    async def _report_feedback(self, message: Message, outcome: sp.ReportOutcome) -> None:
-        status = outcome.status
-        texts = {
-            sp.ReportStatus.NO_SPRINT: "Немає спринту, до якого можна звітувати. Звіти приймаються після спринту.",
-            sp.ReportStatus.NEED_BASELINE: "Спершу задайте стартову кількість (до чи під час спринту) або надішліть просто число написаних слів.",
-            sp.ReportStatus.TOO_EARLY: "Спринт ще триває — звітуйте після завершення. Стартову кількість можна задати як /words =12000.",
-            sp.ReportStatus.TOO_MANY: "Забагато для одного спринту."
-            if (outcome.sprint is None or outcome.sprint.unit == SprintUnit.WORDS)
-            else "Відсотки мають бути від 0 до 100.",
-            sp.ReportStatus.PERCENT_ONLY: "У цьому чаті звітують відсотком зробленого, напр. 40%.",
-        }
-        if status in texts:
-            await self.personal.respond(message, texts[status], html=False)
-            return
-        if outcome.counted is not None:
-            prefix = "Стартова кількість" if status == sp.ReportStatus.BASELINE else "У тексті"
-            extra = f", записано {outcome.participant.words}" if status == sp.ReportStatus.REPORTED else ""
-            await self.personal.respond(message, f"{prefix}: {outcome.counted} сл.{extra}", html=False)
-        else:
-            try:
-                await message.set_reaction(ReactionTypeEmoji("👍"))
-            except TelegramError:
-                await self.personal.respond(message, "Записано.", html=False)
-        if status == sp.ReportStatus.REPORTED and outcome.sprint.unit == SprintUnit.WORDS:
-            await self.personal.report_notes(message, outcome.sprint.id)
+    async def settings_view(self, user) -> tuple[str, InlineKeyboardMarkup]:
+        person = await self.people.person_id(PLATFORM, str(user.id), display_name(user))
+        lines = [self.fmt.bold(t("settings.title"))]
+        rows = []
+        for module in self.modules:
+            hook = getattr(module, "settings_rows", None)
+            if hook is not None:
+                text_lines, module_rows = await hook(user, person)
+                lines += text_lines
+                rows += module_rows
+        if self.data is not None:
+            rows.append([button(t("data.button"), user.id, "dt:menu")])
+        rows.append([button(t("common.back"), user.id, "pf:back")])
+        return "\n".join(lines), InlineKeyboardMarkup(rows)
 
-    @allowed_chat()
-    async def sprint_mode(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """/sprintmode [words|percent]: what people report after sprints in this chat (chat admins)."""
-        message = update.effective_message
-        chat_id = str(message.chat_id)
-        current = await self.storage.sprint_unit(PLATFORM, chat_id)
-        arg = (context.args[0].lower() if context.args else "").strip()
-        modes = {
-            "words": SprintUnit.WORDS,
-            "слова": SprintUnit.WORDS,
-            "percent": SprintUnit.PERCENT,
-            "%": SprintUnit.PERCENT,
-            "відсотки": SprintUnit.PERCENT,
-        }
-        names = {SprintUnit.WORDS: "кількість слів", SprintUnit.PERCENT: "відсоток зробленого"}
-        if arg not in modes:
-            await message.reply_text(
-                f"Після спринтів тут звітують: {names[current]}.\n"
-                "Змінити (адміни чату): /sprintmode words або /sprintmode percent."
-            )
-            return
-        if not await self.is_chat_admin(message.chat, message.from_user.id) and message.chat.type != ChatType.PRIVATE:
-            await message.reply_text("Змінювати це можуть лише адміни чату.")
-            return
-        await self.storage.set_chat_setting(PLATFORM, chat_id, "sprint_unit", modes[arg].value)
-        await message.reply_text(f"Готово. З наступного спринту звітують: {names[modes[arg]]}.")
+    async def refresh_settings(self, query) -> None:
+        from .base import Sent
 
-    @allowed_chat()
-    async def tz(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self.personal.tz(update, context)
+        text, markup = await self.settings_view(query.from_user)
+        await self.asks.edit(Sent.from_query(query), text, markup)
 
-    @allowed_chat()
-    async def goal(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self.personal.goal(update, context)
+    # --- helpers for modules -----------------------------------------------------------------------
 
-    @allowed_chat()
-    async def export(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self.personal.export(update, context)
+    def deep_link(self, payload: str) -> str:
+        return f"https://t.me/{self.me.username}?start={payload}"
 
-    async def forgetme(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        await self.personal.forgetme(update, context)  # always allowed: deleting your data
-
-    @allowed_chat()
-    async def mystats(self, update: Update, _context) -> None:
-        message = update.effective_message
-        chat_id = None if message.chat.type == ChatType.PRIVATE else str(message.chat_id)
-        user_id = str(message.from_user.id)
-        stats = await self.storage.user_stats(PLATFORM, user_id, chat_id)
-        progress = await self.personal.personal.progress(user_id, sp.utc_now())
-        await self.personal.respond(message, user_stats_text(self.fmt, message.from_user.full_name, stats, progress))
-
-    @allowed_chat()
-    async def top(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        message = update.effective_message
-        days = min(366, max(1, self._int_arg(context.args or [], 0, 30)))
-        entries = await self.storage.top(PLATFORM, str(message.chat_id), sp.utc_now() - timedelta(days=days))
-        await message.reply_html(top_text(self.fmt, entries, days))
-
-    async def on_error(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        logger.error("error while handling %r", update, exc_info=context.error)
-
-    # --- wiring ----------------------------------------------------------------------------------
-
-    def register(self, app: Application) -> None:
-        image_cmd = filters.Regex(r"^/image(?:_[\w]+)?(?:@\w+)?(?:\s|$)")
-        handlers = [
-            CommandHandler("start", self.start),
-            CommandHandler("help", self.help),
-            CommandHandler(["prompt", "prompt_ua"], self.prompt),
-            MessageHandler(filters.COMMAND & image_cmd, self.image),
-            CommandHandler("wc", self.wordcount),
-            CommandHandler("stats", self.stats),
-            CommandHandler("reload", self.reload),
-            CommandHandler("debuginfo", self.debuginfo),
-            CommandHandler("sprint", self.sprint),
-            CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"),
-            CallbackQueryHandler(self.on_leave, pattern=r"^(sp:leave:\d+|leave_or_cancel_sprint)$"),
-            CallbackQueryHandler(self.on_repeat, pattern=r"^(sp:repeat:\d+:\d+|repeat_last_sprint_\d+(_\d+)?)$"),
-        ]
-        if self.preview:  # everything users see that v2 did not have
-            handlers += [
-                CommandHandler("sprinthelp", self.sprint_help),
-                CommandHandler("words", self.words),
-                CommandHandler("join", self.join),
-                CommandHandler("sprintmode", self.sprint_mode),
-                CommandHandler("mystats", self.mystats),
-                CommandHandler("top", self.top),
-                CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"),
-                MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply),
-                CommandHandler("tz", self.tz),
-                CommandHandler("goal", self.goal),
-                CommandHandler("export", self.export),
-                CommandHandler("forgetme", self.forgetme),
-                CallbackQueryHandler(self.personal.on_forget_button, pattern=r"^fm:(go|no):[0-9a-f]+$"),
-            ]
-        if self.settings.extras:
-            handlers += [
-                CommandHandler("imafan", self.imafan),
-                CommandHandler("smash", self.smash),
-                MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome),
-            ]
-        for handler in handlers:
-            app.add_handler(handler)
-        # Slogan replies in their own group, so a reply that is also a word report gets both.
-        if self.settings.extras:
-            app.add_handler(MessageHandler((filters.TEXT | filters.CAPTION) & ~filters.COMMAND, self.on_text), group=2)
-        app.add_handler(TypeHandler(Update, self.note_update), group=-2)
-        # Chat registry: runs before everything else and never stops other handlers.
-        app.add_handler(TypeHandler(Update, self.admin.track), group=-1)
-        app.add_handler(ChatMemberHandler(self.admin.on_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=1)
-        if self.preview:
-            app.add_handler(CommandHandler("chats", self.admin.chats))
-            app.add_handler(CommandHandler("broadcast", self.admin.broadcast))
-            app.add_handler(CommandHandler("bcexclude", self.admin.exclude))
-            app.add_handler(CommandHandler("bcinclude", self.admin.include))
-            app.add_handler(CallbackQueryHandler(self.admin.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"))
-        # Last in group 0: only commands that no handler above took (dice rolls).
-        if self.settings.extras:
-            app.add_handler(MessageHandler(filters.COMMAND, self.other_command))
-        app.add_error_handler(self.on_error)
-
-
-def build_application(settings: TelegramSettings) -> Application:
-    bot = WritersTelegramBot(settings)
-    app = (
-        Application.builder()
-        .token(settings.token)
-        .rate_limiter(AIORateLimiter(max_retries=3))
-        .defaults(
-            Defaults(
-                parse_mode=ParseMode.HTML,
-                tzinfo=settings.common.timezone,
-            )
-        )
-        .post_init(bot.post_init)
-        .post_shutdown(bot.post_shutdown)
-        .build()
-    )
-    bot.register(app)
-    app.bot_data["writers_bot"] = bot
-    return app
-
-
-def main() -> None:
-    setup_logging(os.environ.get("LOG_FORMAT", "text").strip().lower())
-    try:
-        settings = TelegramSettings.from_env()
-    except ConfigError as e:
-        raise SystemExit(f"config error: {e}") from None
-    app = build_application(settings)
-    if settings.polling:
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
-    else:
-        path = settings.webhook_path
-        app.run_webhook(
-            listen=settings.webhook_listen,
-            port=settings.webhook_port,
-            url_path=path,
-            webhook_url=f"https://{settings.webhook_host}/{path}",
-            secret_token=settings.webhook_secret,
-            allowed_updates=Update.ALL_TYPES,
-        )
-
-
-if __name__ == "__main__":
-    main()
+    def dm_button(self, text_key: str, payload: str) -> InlineKeyboardButton:
+        return InlineKeyboardButton(t(text_key), url=self.deep_link(payload))

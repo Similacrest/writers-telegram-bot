@@ -19,6 +19,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from telegram import (
     Chat,
@@ -34,8 +35,13 @@ from telegram.constants import ChatMemberStatus, ChatType, KeyboardButtonStyle
 from telegram.error import BadRequest, ChatMigrated, Forbidden, RetryAfter, TelegramError
 from telegram.ext import ContextTypes
 
+from ..core.fmt import HtmlFormatter
+from ..core.i18n import t
 from ..core.models import ChatRecord, ChatStatus
 from ..core.storage import Storage
+
+if TYPE_CHECKING:
+    from .app import TelegramBot
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +52,19 @@ PENDING_TTL = 3600
 PROGRESS_EVERY = 5.0  # seconds between progress edits
 LIST_AS_FILE_OVER = 60
 TARGETS = {"groups": False, "private": True, "all": None}
-TARGET_NAMES = {"groups": "у всі групи й канали", "private": "в усі особисті чати", "all": "в усі чати"}
-
-TYPE_LABELS = {"private": "особистий", "group": "група", "supergroup": "група", "channel": "канал"}
-STATUS_LABELS = {
-    ChatStatus.MEMBER: "",
-    ChatStatus.UNKNOWN: ", не перевірено",
-    ChatStatus.LEFT: ", бота немає",
-    ChatStatus.KICKED: ", заблоковано",
-    ChatStatus.MIGRATED: ", перенесено",
+_FMT = HtmlFormatter(UTC)
+TYPE_KEYS = {
+    "private": "admin.type_private",
+    "group": "admin.type_group",
+    "supergroup": "admin.type_group",
+    "channel": "admin.type_channel",
+}
+STATUS_KEYS = {
+    ChatStatus.MEMBER: None,
+    ChatStatus.UNKNOWN: "admin.status_unknown",
+    ChatStatus.LEFT: "admin.status_left",
+    ChatStatus.KICKED: "admin.status_kicked",
+    ChatStatus.MIGRATED: "admin.status_migrated",
 }
 
 
@@ -100,13 +110,30 @@ class BroadcastResult:
 
 
 class AdminTools:
-    def __init__(self, storage: Storage, super_admins: frozenset[int]):
+    def __init__(self, storage: Storage, super_admins: frozenset[int], tbot: "TelegramBot | None" = None):
         self.storage = storage
         self.super_admins = super_admins
+        self.tbot = tbot
         self._seen: dict[int, float] = {}
         self._pending: dict[str, PendingBroadcast] = {}
         self._broadcast_lock = asyncio.Lock()
         self._tasks: set[asyncio.Task] = set()
+        self._fmt = _FMT
+
+    def commands(self):
+        from .base import Command
+
+        return [
+            Command("chats", self.chats, "commands.chats", scope="admin"),
+            Command("broadcast", self.broadcast, "commands.broadcast", scope="admin"),
+            Command("bcexclude", self.exclude, "commands.bcexclude", scope="admin"),
+            Command("bcinclude", self.include, "commands.bcinclude", scope="admin"),
+        ]
+
+    def handlers(self):
+        from telegram.ext import CallbackQueryHandler
+
+        return [(CallbackQueryHandler(self.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"), 0)]
 
     # --- tracking --------------------------------------------------------------------------------
 
@@ -148,7 +175,7 @@ class AdminTools:
         if user is None or user.id not in self.super_admins:
             return False  # stay silent: don't reveal admin commands
         if update.effective_chat.type != ChatType.PRIVATE:
-            await message.reply_text("Ця команда працює лише в особистому чаті з ботом.")
+            await message.reply_text(t("admin.private_only"))
             return False
         return True
 
@@ -160,20 +187,23 @@ class AdminTools:
         message = update.effective_message
         arg = (context.args[0].lower() if context.args else "all").strip()
         if arg not in TARGETS:
-            await message.reply_text("Використання: /chats [groups|private|all]")
+            await message.reply_text(t("admin.chats_usage"))
             return
         chats = await self.storage.list_chats(PLATFORM, private=TARGETS[arg])
         if not chats:
-            await message.reply_text("Поки що немає записаних чатів.")
+            await message.reply_text(t("admin.no_chats"))
             return
 
         reachable = [c for c in chats if c.status in (ChatStatus.MEMBER, ChatStatus.UNKNOWN)]
         groups = [c for c in reachable if not c.is_private]
         private = [c for c in reachable if c.is_private]
-        summary = (
-            f"<b>Чати з ботом</b>: {len(reachable)} доступних (груп і каналів: {len(groups)}, особистих: {len(private)})"
-            f", ще {len(chats) - len(reachable)} недоступних.\n"
-            "Бот бачить лише чати, з яких отримував повідомлення."
+        summary = self._fmt.t(
+            "admin.chats_summary",
+            title=self._fmt.bold(t("admin.chats_title")),
+            reachable=len(reachable),
+            groups=len(groups),
+            private=len(private),
+            unreachable=len(chats) - len(reachable),
         )
         if len(chats) > LIST_AS_FILE_OVER:
             await message.reply_document(InputFile(self._csv(chats), filename="chats.csv"), caption=summary)
@@ -190,11 +220,10 @@ class AdminTools:
         if c.username:
             name += f" (@{self._escape(c.username)})"
         seen = c.last_seen.strftime("%Y-%m-%d") if c.last_seen else "?"
-        excluded = ", без розсилок" if c.broadcast_excluded else ""
-        return (
-            f"{name} ({TYPE_LABELS.get(c.type, c.type)}) <code>{c.chat_id}</code>, {seen}"
-            f"{STATUS_LABELS[c.status]}{excluded}"
-        )
+        excluded = t("admin.excluded_mark") if c.broadcast_excluded else ""
+        status = t(STATUS_KEYS[c.status]) if STATUS_KEYS[c.status] else ""
+        kind = t(TYPE_KEYS[c.type]) if c.type in TYPE_KEYS else c.type
+        return f"{name} ({self._escape(kind)}) <code>{c.chat_id}</code>, {seen}{self._escape(status + excluded)}"
 
     @staticmethod
     def _csv(chats: list[ChatRecord]) -> bytes:
@@ -238,15 +267,7 @@ class AdminTools:
         args = context.args or []
         target = args[0].lower() if args else ""
         if target not in TARGETS:
-            await message.reply_html(
-                "Використання: у відповідь на повідомлення, яке треба розіслати:\n"
-                "<code>/broadcast groups</code> — у групи й канали\n"
-                "<code>/broadcast private</code> — в особисті чати\n"
-                "<code>/broadcast all</code> — усюди\n\n"
-                "Або текстом: <code>/broadcast all Текст оголошення</code>. "
-                "Перед надсиланням бот покаже попередній перегляд і попросить підтвердження.\n\n"
-                "Чати, позначені через <code>/bcexclude</code>, розсилку не отримують."
-            )
+            await message.reply_html(self._fmt.t("admin.broadcast_usage"))
             return
 
         chat_id = message.chat_id
@@ -255,7 +276,7 @@ class AdminTools:
         else:
             text = (message.text or "").split(maxsplit=2)
             if len(text) < 3:
-                await message.reply_text("Надішліть команду у відповідь на повідомлення або додайте текст після цілі.")
+                await message.reply_text(t("admin.broadcast_no_text"))
                 return
             preview = await context.bot.send_message(
                 chat_id, text[2], parse_mode=None, link_preview_options=NO_PREVIEW
@@ -266,19 +287,24 @@ class AdminTools:
         token = secrets.token_hex(6)
         self._expire_pending()
         self._pending[token] = PendingBroadcast(message.from_user.id, target, chat_id, preview.message_id)
-        note = f" Без розсилок: {skipped}." if skipped else ""
+        note = t("admin.broadcast_skipped", n=skipped) if skipped else ""
         await context.bot.send_message(
             chat_id,
-            f"Надіслати це повідомлення {TARGET_NAMES[target]}? Отримувачів: <b>{len(recipients)}</b>.{note}",
+            self._fmt.t(
+                "admin.broadcast_confirm",
+                target=t(f"admin.target_{target}"),
+                count=self._fmt.bold(len(recipients)),
+                note=note,
+            ),
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
-                            f"Надіслати ({len(recipients)})",
+                            t("admin.broadcast_send", count=len(recipients)),
                             callback_data=f"bc:go:{token}",
                             style=KeyboardButtonStyle.SUCCESS,
                         ),
-                        InlineKeyboardButton("Скасувати", callback_data=f"bc:no:{token}"),
+                        InlineKeyboardButton(t("common.cancel"), callback_data=f"bc:no:{token}"),
                     ]
                 ]
             ),
@@ -307,20 +333,17 @@ class AdminTools:
         ids = [a for a in context.args or [] if a.lstrip("-").isdigit()]
         if not ids:
             listed = [c for c in await self.storage.list_chats(PLATFORM) if c.broadcast_excluded]
-            usage = (
-                "Використання: <code>/bcexclude &lt;id чату&gt; ...</code> прибирає чати з розсилок, "
-                "<code>/bcinclude &lt;id чату&gt; ...</code> повертає. Id видно в /chats."
-            )
+            usage = self._fmt.t("admin.exclude_usage")
             if not listed:
-                await message.reply_html(usage + "\n\nЗараз виключених чатів немає.")
+                await message.reply_html(f"{usage}\n\n{self._fmt.t('admin.exclude_none')}")
                 return
-            await self._send_chunks(message, usage + "\n\n<b>Без розсилок:</b>", [self._line(c) for c in listed])
+            head = f"{usage}\n\n{self._fmt.bold(t('admin.exclude_list'))}"
+            await self._send_chunks(message, head, [self._line(c) for c in listed])
             return
         known = await self.storage.set_broadcast_excluded(PLATFORM, ids, excluded)
-        verb = "Виключено з розсилок" if excluded else "Повернуто до розсилок"
-        text = f"{verb}: {known}."
+        text = t("admin.excluded" if excluded else "admin.included", n=known)
         if known < len(ids):
-            text += f" Невідомих id: {len(ids) - known} (бот їх ще не бачив)."
+            text += " " + t("admin.unknown_ids", n=len(ids) - known)
         await message.reply_text(text)
 
     def _expire_pending(self) -> None:
@@ -334,21 +357,21 @@ class AdminTools:
         _, action, token = query.data.split(":", 2)
         pending = self._pending.get(token)
         if query.from_user.id not in self.super_admins or pending is None or pending.admin_id != query.from_user.id:
-            await query.answer("Ця розсилка вже неактуальна.")
+            await query.answer(t("admin.broadcast_stale"))
             with contextlib.suppress(TelegramError):
                 await query.edit_message_reply_markup(None)
             return
         del self._pending[token]
         if action == "no":
-            await query.answer("Скасовано")
-            await query.edit_message_text("Розсилку скасовано.")
+            await query.answer(t("admin.cancelled_toast"))
+            await query.edit_message_text(t("admin.broadcast_cancelled"))
             return
         if self._broadcast_lock.locked():
             self._pending[token] = pending
-            await query.answer("Інша розсилка ще триває, зачекайте.", show_alert=True)
+            await query.answer(t("admin.broadcast_busy"), show_alert=True)
             return
-        await query.answer("Надсилаю…")
-        status = await query.edit_message_text("Надсилаю…")
+        await query.answer(t("admin.sending"))
+        status = await query.edit_message_text(t("admin.sending"))
         task = asyncio.create_task(self._run_broadcast(context.bot, pending, status))
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -364,16 +387,16 @@ class AdminTools:
                 if time.monotonic() - last_progress > PROGRESS_EVERY:
                     last_progress = time.monotonic()
                     with contextlib.suppress(TelegramError):
-                        await status_message.edit_text(f"Надсилаю… {i}/{len(recipients)}")
+                        await status_message.edit_text(t("admin.sending_progress", i=i, n=len(recipients)))
             summary = [
-                "<b>Розсилку завершено.</b>",
-                f"Надіслано: {result.sent} з {len(recipients)}",
+                self._fmt.bold(t("admin.broadcast_done")),
+                t("admin.broadcast_sent", sent=result.sent, n=len(recipients)),
             ]
             if result.gone:
-                summary.append(f"Недоступні (бота видалили чи заблокували): {result.gone}. Їх більше не враховано.")
+                summary.append(t("admin.broadcast_gone", n=result.gone))
             if result.failed:
                 details = ", ".join(f"{k}: {v}" for k, v in result.errors.items())
-                summary.append(f"Помилки: {result.failed} ({self._escape(details)})")
+                summary.append(self._escape(t("admin.broadcast_failed", n=result.failed, details=details)))
             logger.info("broadcast finished: %s", result)
             try:
                 await status_message.edit_text("\n".join(summary))
