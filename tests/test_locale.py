@@ -80,7 +80,7 @@ def test_dynamic_keys_exist(keys):
 
 
 def test_templates_parse():
-    for key, value in texts().items():
+    for value in texts().values():
         for template in value if isinstance(value, list) else [value]:
             list(string.Formatter().parse(str(template)))  # raises on unbalanced braces
 

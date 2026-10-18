@@ -1,12 +1,14 @@
 """Managing works in the private chat with the bot (the web app has the same). In groups the works
 button opens the private chat (``/start works``), since adding a work means typing its name."""
 
+import contextlib
 import re
 import time
 from typing import TYPE_CHECKING
 
 from telegram import ForceReply, InlineKeyboardMarkup, Message, Update
 from telegram.constants import ChatType, KeyboardButtonStyle
+from telegram.error import TelegramError
 from telegram.ext import MessageHandler, filters
 
 from ...core.i18n import t, words
@@ -42,7 +44,8 @@ class WorksMenu:
     def __init__(self, module: "Module"):
         self.module = module
         self.bot = module.bot
-        self._waiting: dict[int, tuple[str, int | None, float]] = {}  # user -> (action, work id, since)
+        # user -> (action, work id, since, the menu message to update, the question message)
+        self._waiting: dict[int, tuple[str, int | None, float, int | None, int | None]] = {}
 
     def handlers(self):
         return [(MessageHandler(_Waiting(self) & ~filters.COMMAND, self.on_input), 0)]
@@ -153,7 +156,7 @@ class WorksMenu:
             return
         if action == "new":
             await query.answer()
-            await self.ask(user, "new", None, "works.ask_name")
+            await self.ask(user, "new", None, "works.ask_name", sent)
             return
         work = await self._own_work(user, args[1]) if len(args) > 1 else None
         if work is None:
@@ -168,6 +171,7 @@ class WorksMenu:
                 action,
                 work.id,
                 {"rename": "works.ask_name", "link": "works.ask_link", "goal": "works.ask_goal"}[action],
+                sent,
             )
             return
         elif action == "unit":
@@ -207,16 +211,18 @@ class WorksMenu:
 
     # --- typed input -------------------------------------------------------------------------------
 
-    async def ask(self, user, action: str, work_id: int | None, key: str) -> None:
-        self._waiting[user.id] = (action, work_id, time.monotonic())
-        await self.bot.app.bot.send_message(
+    async def ask(self, user, action: str, work_id: int | None, key: str, menu: Sent | None) -> None:
+        question = await self.bot.app.bot.send_message(
             user.id, self.bot.fmt.t(key), reply_markup=ForceReply(input_field_placeholder=t(key + "_placeholder"))
         )
+        menu_id = menu.message_id if menu is not None else None
+        self._waiting[user.id] = (action, work_id, time.monotonic(), menu_id, question.message_id)
 
     async def on_input(self, update: Update, _context) -> None:
         message = update.effective_message
         user = message.from_user
-        action, work_id, _ = self._waiting.pop(user.id)
+        action, work_id, _, menu_id, question_id = self._waiting.pop(user.id)
+        bot = self.bot.app.bot
         text = (message.text or "").strip()
         person = await self._person(user)
         try:
@@ -236,11 +242,29 @@ class WorksMenu:
                 elif action == "goal":
                     work = await self.works.set_goal(work, parse_goal(text))
         except (WorkError, ValueError, LinkError) as e:
-            await message.reply_text(t("works.input_error", error=e), parse_mode=None)
-            self._waiting[user.id] = (action, work_id, time.monotonic())  # let them try again
+            # Let them try again: the question shows what was wrong, the wrong answer goes.
+            with contextlib.suppress(TelegramError):
+                await message.delete()
+            if question_id:
+                with contextlib.suppress(TelegramError):
+                    await bot.edit_message_text(
+                        t("works.input_error", error=e), chat_id=user.id, message_id=question_id, parse_mode=None
+                    )
+            self._waiting[user.id] = (action, work_id, time.monotonic(), menu_id, question_id)
             return
+        # The question and the answer go; the menu message shows the result, so the chat stays tidy.
+        for message_id in (question_id, message.message_id):
+            if message_id:
+                with contextlib.suppress(TelegramError):
+                    await bot.delete_message(user.id, message_id)
         view, markup = await self.work_view(user, work)
-        await message.reply_html(view, reply_markup=markup)
+        if menu_id:
+            try:
+                await bot.edit_message_text(view, chat_id=user.id, message_id=menu_id, reply_markup=markup)
+                return
+            except TelegramError:
+                pass
+        await bot.send_message(user.id, view, reply_markup=markup)
 
     async def _set_link(self, work: Work, text: str) -> Work:
         if text.casefold() in words("works.no_words"):

@@ -1,6 +1,6 @@
 [project]
 name = "writers-bot"
-version = "3.3.5"
+version = "3.4.0"
 description = "Telegram (and Discord) bot for writers: prompts, writing sprints with word reports, word counter."
 readme = "README.md"
 license = "GPL-3.0-or-later"

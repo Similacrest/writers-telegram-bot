@@ -194,10 +194,17 @@ class TelegramSprintPresenter:
                 msg = await self._send(sprint, self.main_text(sprint), self.board_keyboard(sprint), reply_to=main)
                 sprint.refs["finish"] = msg.message_id
             return
-        await self._edit(sprint, main, self.main_text(sprint), None)
+        # The board takes the sprint message's place, so a finished sprint leaves one message in the chat.
         await self._unpin(sprint, main)
-        msg = await self._send(sprint, self.board(sprint), self.board_keyboard(sprint), reply_to=main)
+        msg = await self._send(sprint, self.board(sprint), self.board_keyboard(sprint))
         sprint.refs["finish"] = msg.message_id
+        if main:
+            try:
+                await self.bot.delete_message(int(sprint.key.chat_id), main)
+            except TelegramError:
+                await self._edit(sprint, main, self.main_text(sprint), None)
+            else:
+                sprint.refs.pop("msg", None)
 
     async def _edit_board(self, sprint: Sprint, _origin=None) -> None:
         if not sprint.refs.get("finish"):

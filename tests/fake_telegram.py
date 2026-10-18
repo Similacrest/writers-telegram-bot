@@ -108,6 +108,10 @@ class FakeTelegram(BaseRequest):
         self._update_id = itertools.count(1)
         self.blocked_dm: set[int] = set()  # users who never started the bot
         self.app = None
+        self.events: list[str] = []  # a readable transcript, see Harness.transcript()
+
+    def note(self, text: str) -> None:
+        self.events.append(text)
 
     # --- BaseRequest ---------------------------------------------------------------------------------
 
@@ -147,7 +151,8 @@ class FakeTelegram(BaseRequest):
         try:
             result = handler(params)
         except ApiError as e:
-            return 400, json.dumps({"ok": False, "error_code": 400, "description": str(e)}).encode()
+            code = 403 if str(e).startswith("Forbidden") else 400
+            return code, json.dumps({"ok": False, "error_code": code, "description": str(e)}).encode()
         return 200, json.dumps({"ok": True, "result": result}).encode()
 
     # --- helpers -------------------------------------------------------------------------------------
@@ -176,7 +181,7 @@ class FakeTelegram(BaseRequest):
         }
         if m.kind == "text":
             d["text"] = m.text
-        if m.markup:
+        if m.markup and "inline_keyboard" in m.markup:
             d["reply_markup"] = m.markup
         if m.thread_id:
             d["message_thread_id"] = m.thread_id
@@ -250,6 +255,7 @@ class FakeTelegram(BaseRequest):
                 ephemeral_id=next(self._eph),
             )
             self.messages.append(m)
+            self.note(f"  bot → only {receiver} in {chat_id}: {_short(m)}")
             return self._message_dict(m)
         if chat_id > 0 and chat_id in self.blocked_dm:
             raise ApiError("Forbidden: bot can't initiate conversation with a user")
@@ -263,6 +269,7 @@ class FakeTelegram(BaseRequest):
             thread_id=p.get("message_thread_id"),
         )
         self.messages.append(m)
+        self.note(f"  bot → {'DM ' if chat_id > 0 else ''}{chat_id} #{m.message_id}: {_short(m)}")
         return self._message_dict(m)
 
     def _check_ephemeral(self, chat_id, receiver, callback_query_id, reply_eph):
@@ -290,6 +297,7 @@ class FakeTelegram(BaseRequest):
         m.text = p["text"]
         m.markup = self._markup(p)
         m.edits += 1
+        self.note(f"  bot edits #{m.message_id}: {_short(m)}")
         return self._message_dict(m)
 
     def m_editMessageReplyMarkup(self, p):
@@ -306,12 +314,14 @@ class FakeTelegram(BaseRequest):
         m.text = p["text"]
         m.markup = p.get("reply_markup")
         m.edits += 1
+        self.note(f"  bot edits private message for {m.receiver}: {_short(m)}")
         return True
 
     def m_deleteEphemeralMessage(self, p):
         m = self.find_ephemeral(p["chat_id"], p["receiver_user_id"], p["ephemeral_message_id"])
         if m is not None:
             m.deleted = True
+            self.note(f"  bot deletes private message for {m.receiver}")
         return True
 
     def m_deleteMessage(self, p):
@@ -326,6 +336,7 @@ class FakeTelegram(BaseRequest):
         ):
             raise ApiError("Bad Request: message can't be deleted")
         m.deleted = True
+        self.note(f"  bot deletes #{m.message_id} ({'its own' if m.from_bot else m.sender.get('first_name')})")
         return True
 
     def m_pinChatMessage(self, p):
@@ -351,10 +362,13 @@ class FakeTelegram(BaseRequest):
         if isinstance(reaction, str):
             reaction = json.loads(reaction)
         m.reactions = [r.get("emoji") for r in reaction or []]
+        self.note(f"  bot reacts {''.join(m.reactions)} to #{m.message_id}")
         return True
 
     def m_answerCallbackQuery(self, p):
         self.answers[p["callback_query_id"]] = p
+        if p.get("text"):
+            self.note(f"  pop-up: {p['text']}")
         return True
 
     def m_getChatMember(self, p):
@@ -524,6 +538,15 @@ class FakeTelegram(BaseRequest):
 
 class ApiError(Exception):
     pass
+
+
+def _short(m: "Msg", width: int = 160) -> str:
+    import re
+
+    text = re.sub(r"<[^>]+>", "", m.text or f"<{m.kind}>").replace("\n", " ⏎ ")
+    text = text if len(text) <= width else text[: width - 1] + "…"
+    buttons = m.buttons()
+    return text + (f"  {buttons}" if buttons else "")
 
 
 def utc(ts: float) -> datetime:

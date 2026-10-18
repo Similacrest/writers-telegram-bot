@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 PLATFORM = "telegram"
 LEGACY_REPEAT_RE = re.compile(r"^repeat_last_sprint_(\d+)(?:_(\d+))?$")
 CARD_TTL = 3 * 60
+PROMPT_TTL = 5 * 60
 PENDING_TTL = 10 * 60
 TOP_DAYS = 30
 
@@ -337,6 +338,7 @@ class Module(TelegramModule):
         if not worth and not force:
             return False
         p = sprint.participants[str(user.id)]
+        has_works = len(markup.inline_keyboard) > 1
         sent = await self.bot.asks.send(
             int(sprint.key.chat_id),
             user.id,
@@ -346,6 +348,9 @@ class Module(TelegramModule):
             callback_query_id=callback_query_id,
             reply_to=sprint.refs.get("msg"),
             ttl=CARD_TTL,
+            # Works to pick are worth an ordinary message only that person can press; the one-time notice
+            # alone isn't, so it waits for a moment when it can be private.
+            public=has_works or force,
         )
         if sent is not None:
             await self.bot.people.set(p.person_id, DATA_NOTICE, "1")
@@ -577,6 +582,8 @@ class Module(TelegramModule):
         await self.engine.update_refs(
             sprint, lambda refs: refs.setdefault("prompts", {}).update({str(prompt_id): str(user.id)})
         )
+        # An unanswered question shouldn't sit in the chat until the sprint closes.
+        self.bot.asks.expire(Sent(int(sprint.key.chat_id), user.id, message_id=prompt_id), PROMPT_TTL)
 
     async def on_report_button(self, update: Update, _context) -> None:
         query = update.callback_query
@@ -623,6 +630,14 @@ class Module(TelegramModule):
             await self.bot.asks.respond(message, self.bot.fmt.t("progress.usage"), delete_command=True)
             return
         sprint = None if parsed.day is not None else self.engine.current_for(str(user.id), chat_key(message))
+        if (
+            sprint is not None
+            and sprint.status != SprintStatus.RUNNING
+            and sprint.participants[str(user.id)].has_report
+        ):
+            # After the end, /progress is your late report only until you've reported; words written later
+            # are ordinary progress, not the sprint's.
+            sprint = None
         if sprint is not None:
             result = await self.rep.report(sprint, user_ref(user), parsed)
         else:

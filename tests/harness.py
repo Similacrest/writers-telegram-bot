@@ -57,6 +57,23 @@ def settings(db: Path, **overrides) -> TelegramSettings:
     return replace(base, **overrides)
 
 
+class FakeLinks:
+    def __init__(self, counts: dict[str, int]):
+        self.counts = counts
+
+    async def count(self, url: str) -> int:
+        from writers_bot.core.links import LinkError
+
+        if url not in self.counts:
+            raise LinkError("unsupported")
+        return self.counts[url]
+
+    async def fetch(self, url: str):
+        from writers_bot.core.sources import LinkedText
+
+        return LinkedText("telegraph", "", "слово " * await self.count(url), url)
+
+
 class Harness:
     def __init__(self, tbot: TelegramBot, fake: FakeTelegram, clock, services: Services):
         self.tbot = tbot
@@ -102,6 +119,9 @@ class Harness:
         return h
 
     async def close(self) -> None:
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         await self.tbot.shutdown()
         await self.app.shutdown()
         await self.services.stop()
@@ -123,7 +143,10 @@ class Harness:
         m = self.fake._user_message(
             c, user, text, reply_to.message_id if reply_to else None, thread_id, ephemeral=ephemeral, **extra
         )
-        self.log.append(f"{user.first_name}: {text}" + (f"  (↩ {reply_to.text[:30]!r})" if reply_to else ""))
+        where = "DM" if c.id > 0 else str(c.id)
+        line = f"{user.first_name} [{where}]: {text}" + (f"  (↩ {reply_to.text[:30]!r})" if reply_to else "")
+        self.log.append(line)
+        self.fake.note(line)
         await process(self.app, self.fake.message_update(m))
         await self.settle()
         return m
@@ -137,6 +160,7 @@ class Harness:
     async def press(self, user: FakeUser, msg: Msg, button_text: str) -> dict:
         b = msg.button(button_text)
         self.log.append(f"{user.first_name} presses [{b['text']}]")
+        self.fake.note(f"{user.first_name} presses [{b['text']}]")
         if "callback_data" not in b:
             return b
         data = self.fake.callback_update(msg.chat_id, user, msg, b["callback_data"])
@@ -150,8 +174,32 @@ class Harness:
             await asyncio.sleep(0)
 
     async def advance(self, seconds: float) -> None:
+        self.fake.note(f"… {seconds / 60:g} min later")
         await self.clock.advance(seconds)
         await self.settle()
+
+    def transcript(self) -> str:
+        return "\n".join(self.fake.events)
+
+    def mark(self) -> int:
+        """Position in the message log, to count what a step sent."""
+        return len(self.fake.messages)
+
+    def public_since(self, mark: int, chat: int = GROUP) -> list[Msg]:
+        """Public messages the bot sent since ``mark`` that are still in the chat."""
+        return [
+            m
+            for m in self.fake.messages[mark:]
+            if m.chat_id == chat and m.receiver is None and not m.deleted and m.from_bot
+        ]
+
+    def use_links(self, counts: dict[str, int]) -> "FakeLinks":
+        links = FakeLinks(counts)
+        self.tbot.links = links
+        sprints = self.tbot.module("sprints")
+        if sprints is not None:
+            sprints.rep.links = links
+        return links
 
     # --- reading ---------------------------------------------------------------------------------
 

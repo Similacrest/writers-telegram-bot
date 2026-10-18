@@ -73,6 +73,31 @@ broadcasts, and phases 1–2 below. Without the preview a sprint ends as in v2: 
 repeat button and no report window. The rewrite (items 1–6 and 10–11 above, minus Discord) and the ops parts
 of phase 1 stay on. The bot still records the chats it is in, so the registry is complete once `/chats` returns.
 
+## Done in v3.4: the sprint redesign (phase 3)
+
+Built as planned in phase 3 below, with these decisions made while building:
+- **Modules and the config file** (`BOT_CONFIG`, TOML). Without a file, the environment gives one bot with
+  the v2 modules, so the default is still v2; `PREVIEW_FEATURES=1` turns on the redesigned sprints (works,
+  %), the admin tools and the web app. The new `writers-bot` entry point runs every bot of a file in one
+  process; `writers-bot-telegram` and `writers-bot-discord` run one platform.
+- **Texts**: every user-facing text is in `locale/uk.toml` with a comment on where it appears; a test fails
+  on Ukrainian strings in the code, missing keys, or keys without a comment.
+- **One message per finished sprint**: the board replaces the sprint message (which is deleted), instead of
+  a second "finished" message.
+- **The Report button** posts a reply question (Telegram can't force a reply to an ephemeral message); it is
+  deleted after the answer or after 5 minutes.
+- **/progress after a sprint** is your late report only until you've reported; later words are ordinary
+  progress.
+- **Works are managed** in the private chat (the group button opens it) and in the web app; the question
+  and the answer are deleted and the menu message updated, so the chat stays tidy.
+- **Bots without admin rights** confirm reports with a 👍 reaction only (no private confirmation, so no
+  Undo): Telegram allows ephemeral messages at any time only to admins.
+- **The chat's default unit** has no switch yet (it comes with the settings in v4.0); % works are per person.
+- **Discord** runs on the new core with the redesigned flow (the Report button opens a modal with a field
+  per work, `/progress`, `/top`, `/export`, `/forgetme`); works management and the rest of the parity pass
+  stay in phase 6.
+- [WORKFLOW-REVIEW.md](WORKFLOW-REVIEW.md) lists what modelled use of these flows turned up.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
@@ -143,7 +168,7 @@ Built and kept behind `PREVIEW_FEATURES` until phase 3 replaces it. The October 
   Documents shared as "anyone with the link", through the plain-text export. No Google credentials are
   needed, and private documents are reported as not shared.
 
-### Phase 3: sprint redesign (v3.4)
+### Phase 3: sprint redesign (done in v3.4)
 Decided in the October 2026 roadmap review; nothing here has been tried with a focus group yet. Writers
 join and report with replies and buttons, nobody is pushed to share their work or to compete, and the
 chat stays quiet. It replaces the preview reporting flow. It is piloted in one chat first, on a separate

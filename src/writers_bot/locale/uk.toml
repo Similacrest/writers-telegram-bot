@@ -148,7 +148,7 @@ goal_hidden = "ціль"
 # People who joined and haven't reported yet (shown while reports are open)
 writing = "Ще пишуть: {names}"
 # Hint at the bottom while reports are open; {until} is a time
-hint = "Звіт — відповіддю на це повідомлення (500, +300, =5000 чи посилання) або кнопками. Пізні звіти — до {until} чи до вашого наступного спринту."
+hint = "Звіт — відповіддю на це повідомлення (500, +300, =5000, посилання) або кнопками. Пізні звіти — до {until}."
 # The same on Discord
 hint_discord = "Звіт — кнопкою «Звітувати» (поле на кожен твір), ✓ чи ✗, або /progress. Пізні звіти — до {until} чи до вашого наступного спринту."
 # Final board with no reports at all
@@ -549,7 +549,7 @@ forget_private = "Видалити свої дані можна в особис�
 forget_confirm = "Видалити всі ваші звіти, твори, цілі, прогрес і налаштування? Це не можна скасувати. Звіти у спринтах, що ще тривають, лишаться, поки спринт не закінчиться."
 forget_yes = "Видалити"
 # After deleting
-forgotten = "Готово. Видалено. Записів про спринти: {count}."
+forgotten = "Готово, ваші дані видалено."
 # After cancelling
 kept = "Нічого не видалено."
 
