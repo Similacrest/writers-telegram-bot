@@ -315,7 +315,8 @@ The bot is built from modules that can be served as one bot or as several, set i
 - **Shared services**, started only when a bot's modules need them: storage (one database shared by every
   bot), the settings store, people and accounts, communities, ephemeral replies and the web app server.
   Admin (chat registry, chat list, broadcasts) and your data (export, deletion) come with storage; a bot
-  without storage doesn't record its chats and gets no broadcasts. Needs per module:
+  without storage doesn't record its chats and gets no broadcasts. `/broadcast` reaches only the chats of
+  the bot it is sent from. Needs per module:
   `sprints`, `achievements` → storage, settings, people, web app; `greeter`, `replies` → settings;
   `prompts` → its source (the sheet now, storage from phase 4).
 - Modules don't call each other; they share only the core and the database.
