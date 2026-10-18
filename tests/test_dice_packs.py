@@ -104,3 +104,8 @@ def test_the_packs_are_in_order_by_die_with_the_crits_at_the_ends(manifest):
     assert two[0] == "d100_1" and two[99] == "d100_100" and two[100:] == [
         *[f"d4_{v}" for v in range(1, 5)], *[f"d6_{v}" for v in range(1, 7)], *[f"d8_{v}" for v in range(1, 9)], "d2_1", "d2_2",
     ]  # fmt: skip
+
+
+def test_credits_travel_with_the_stickers():
+    text = files("writers_bot.assets.dice_packs").joinpath("CREDITS.md").read_text()
+    assert "Frank Ali" in text and "PD-UA-exempt" in text and "Babylon.js" in text

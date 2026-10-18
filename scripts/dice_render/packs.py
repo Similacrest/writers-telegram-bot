@@ -81,6 +81,7 @@ def main() -> None:
         manifest[key] = rows
         contact_sheet(names, render.OUT / f"contact-sheet-{key}.png")
     (DEST / "__init__.py").write_text("")
+    shutil.copy(render.HERE / "CREDITS.md", DEST / "CREDITS.md")  # the credits of what the stickers are made of
     (DEST / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + "\n")
     total = sum(p.stat().st_size for p in DEST.rglob("*.webm"))
     print(f"{sum(len(v) for v in manifest.values())} stickers, {total // 1024} KB, in {DEST}")

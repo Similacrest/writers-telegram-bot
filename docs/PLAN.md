@@ -194,7 +194,7 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
   that were not rolled faded; crit effects that run through the whole loop and close it; a slower, shorter roll.
 - The bot started using them in v4.2.3 (below).
 
-## Done in v4.2.3: the bot uses the new dice sticker packs
+## Done in v4.2.4: the bot uses the new dice sticker packs (v4.2.3 was never released)
 - The dice module uploads the two packs of v4.2.2 (`dice1_v3_by_<bot>`, `dice2_v3_by_<bot>`, 120 stickers each, in the
   order of `manifest.json`: by die, values ascending, the crit 1 before the crit-less 1 and the crit-less highest
   before the crit highest) and answers rolls by the rules in the README ("Dice stickers"): one or two dice get stickers,
