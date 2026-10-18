@@ -22,6 +22,10 @@ sprints = ["спринт", "спринти", "спринтів"]
 works = ["твір", "твори", "творів"]
 # days in a row (streak) in /profile and the share line
 days = ["день", "дні", "днів"]
+# people who have an achievement: "вже має 3 людини"
+people = ["людина", "людини", "людей"]
+# number of achievements, on the achievement pictures
+achievements = ["досягнення", "досягнення", "досягнень"]
 
 # ------------------------------------------------------------------------------------------------
 [input]
@@ -166,6 +170,11 @@ placeholder = "500 або посилання"
 which_work = "Куди записати {value}?"
 # Button next to the works: give each work its own number
 split = "Розділити"
+# Button under the question: a card to pause works you're not writing now (then the bot asks less)
+pause = "⏸ Пауза…"
+# Tip under the question, the first few times (until the person names works in a report); {split} and
+# {one} are examples made from their own works: "300 Роман 200 Есе", "500 Роман"
+which_work_tip = "Можна одразу: «{split}» або «{one}». А твір, який зараз не пишете, поставте на паузу, і я не питатиму."
 # Pop-ups for the ✓ and ✗ buttons on the board
 done_toast = "Записано: готово ✓"
 failed_toast = "Записано: не вийшло ✗"
@@ -209,13 +218,13 @@ filled = "Позначено ✓"
 [works]
 # The works menu (private chat with the bot)
 title = "Ваші твори"
-intro = "Натисніть на твір, щоб змінити його. Твори з позначкою беруться в наступний спринт."
+intro = "Натисніть на твір, щоб змінити його. Твори на паузі не беруться в спринти. Перемикати можна й у групі: /works."
 none = "Творів ще немає. Твір — це назва й, за бажання, посилання на текст: тоді бот сам рахує, скільки додалося."
 add = "+ Новий твір"
 # A work in the list: "Роман (слова)"
 list_item = "{name} ({unit}){kept}"
-# After the name of a work that is not taken into the next sprint
-not_kept_mark = " · не в спринт"
+# After the name of a paused work (not taken into sprints)
+not_kept_mark = " · на паузі"
 unit_words_short = "слова"
 unit_percent_short = "%"
 # The work's card
@@ -228,15 +237,17 @@ total_line = "Зараз у тексті: {total}"
 goal_line = "Ціль: {goal} {period}"
 hidden_on = "Назва прихована: інші бачать лише «твір»."
 hidden_off = "Назву видно на повідомленні спринту."
-keep_on = "Береться в наступний спринт."
-keep_off = "Не береться в наступний спринт."
+keep_on = "Пишете зараз: береться в спринти."
+keep_off = "На паузі: не береться в спринти й не отримує числа без назви."
 # Buttons on the card
 rename = "Назва"
 set_link = "Посилання"
 set_goal = "Ціль"
 switch_unit = "Слова / %"
 toggle_hidden = "Приховати назву / показати"
-toggle_keep = "У наступний спринт: так / ні"
+# Pause / resume a work
+pause = "⏸ Пауза"
+resume = "▶ Продовжити"
 delete = "Видалити"
 delete_yes = "Так, видалити"
 delete_confirm = "Видалити «{name}»? Минулі спринти лишаться в статистиці."
@@ -295,7 +306,7 @@ admins_only = "Це можуть лише адміни чату."
 # First line of the private card after joining a sprint
 joined = "Ви у спринті."
 # When the person has works: the toggles below choose which ones are in this sprint
-pick_works = "Над чим пишете? Позначте твори (запам'ятаю для наступного спринту):"
+pick_works = "Над чим пишете? Позначте твори (запам'ятаю; решта — на паузі):"
 # The person hides their numbers
 numbers_hidden = "Ваші числа приховано: на дошці буде ✓."
 # The person hides their numbers, but this chat shows everyone's numbers
@@ -312,11 +323,51 @@ work_off = "{name}"
 # Same, for a % work
 work_on_percent = "✓ {name} (%)"
 work_off_percent = "{name} (%)"
+# The switch card outside a sprint (/works in a group, /profile → Твори): a work on, or paused
+work_paused = "⏸ {name}"
+work_paused_percent = "⏸ {name} (%)"
+switch_title = "Над чим пишете зараз"
+switch = "Позначені твори беруться в спринти, і туди йдуть числа без назви. Решта — на паузі. Натисніть, щоб перемкнути."
+switch_none = "Творів ще немає. Додати твір: «Керувати творами» (в особистих)."
+# Pop-ups after switching
+paused = "На паузі ⏸"
+resumed = "Знову пишете ▶"
+
+# ------------------------------------------------------------------------------------------------
+[onboarding]
+# Getting started, in the private chat: a few skippable steps; progress is remembered
+intro = "Налаштуймо все за хвилину: {steps} кроки. Будь-який можна пропустити, а змінити потім — у /profile."
+# Step 1: the first work (the answer is typed)
+ask_work = "{n}/{total}. Над чим пишете? Напишіть назву твору, напр. «Роман». Пишете кілька — інші додасте потім (/works)."
+# Step 2: a goal for that work (typed); the bot tells you here when you reach it
+ask_goal = "{n}/{total}. Ціль для «{work}»? Напр.: 500 на день, 3000 на тиждень, 10000 на місяць. Коли досягнете, я напишу тут."
+# Step 3: whether the board shows your numbers
+ask_privacy = "{n}/{total}. Показувати ваші числа на дошці спринту? Якщо ні, там буде лише ✓, а числа бачите тільки ви."
+show = "Показувати"
+hide = "Лише ✓"
+# Buttons under every step
+skip = "Пропустити"
+later = "Не зараз"
+# After "Не зараз"
+later_text = "Добре. Продовжити можна в /profile."
+# After the last step
+done = "Готово! Далі: /sprint у групі, звіт — відповіддю на дошку спринту, поза спринтом — /progress +400. Твори перемикаються в /works, решта — у /profile."
+# In /profile while not through: "Налаштування: 1 з 3 кроків"
+profile = "Налаштування: {done} з {total} кроків"
+# Button in /profile (and on the join card) that continues it
+continue = "Продовжити налаштування"
+card_button = "Налаштувати (1 хв)"
 
 # ------------------------------------------------------------------------------------------------
 [confirm]
 # Private confirmation after a report; {list} is e.g. "«Роман»: 500 слів; 40%"
 recorded = "Записано: {list}."
+# A % in /progress outside a sprint corrects one of your sprints (a % is a share of the sprint's plan),
+# so the confirmation names it explicitly: "Виправив ваш спринт вчора о 14:00: «План»: 60%."
+corrected = "Виправив ваш спринт {when}: {list}."
+when_today = "сьогодні о {time}"
+when_yesterday = "вчора о {time}"
+when_date = "{date} о {time}"
 # Words found behind a link, after the amount: "(у тексті 12000)"
 counted = "(у тексті {n})"
 # The first total (=N or a link) of a work only sets the starting point
@@ -425,6 +476,7 @@ image = "Випадковий промпт-зображення"
 count = "Порахувати слова в тексті чи за посиланням"
 sprint = "Почати спринт: /sprint 30 2"
 progress = "Записати прогрес або показати свій"
+works = "Над чим пишу: твори й пауза"
 profile = "Мій профіль: твори, цілі, дні поспіль"
 top = "Хвилини у спринтах за період"
 export = "Мої дані у файлі"
@@ -451,6 +503,7 @@ image = "картинка"
 count = "підрахуй"
 sprint = "спринт"
 progress = "прогрес"
+works = "твори"
 profile = "профіль"
 top = "топ"
 help = "допомога"
@@ -473,6 +526,7 @@ count = "/count — порахувати слова (у відповідь на 
 sprint = "/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2"
 progress = "/progress — записати прогрес (+400, =5000, посилання) або показати свій"
 profile = "/profile — твори, цілі, дні поспіль і налаштування"
+works = "/works — над чим пишете зараз (твори на паузі не беруться в спринти); додати твір — в особистих"
 top = "/top [днів] — хвилини у спринтах за період"
 export = "/export — ваші дані у файлі, /forgetme — видалити їх"
 addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
@@ -676,6 +730,10 @@ usage = "Надішліть /count у відповідь на повідомле
 [dice]
 # Caption of a dice roll when none is given: "/d20" → "Результат 1d20 17"
 result = "Результат"
+# A dice command the bot can't read
+error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
+# Too many dice in one roll
+too_many = "Забагато кубиків: до {max} за раз."
 
 # ------------------------------------------------------------------------------------------------
 [replies]
@@ -782,7 +840,7 @@ work_goal = "Ціль"
 work_total = "Зараз у тексті: {total}"
 work_percent = "Рахувати у відсотках"
 work_hide_title = "Приховати назву від інших"
-work_keep = "Брати в наступний спринт"
+work_keep = "Пишу зараз (вимкнено — на паузі)"
 work_delete_confirm = "Видалити «{name}»? Минулі спринти лишаться в статистиці."
 # Progress
 today = "Сьогодні"
@@ -802,6 +860,10 @@ recent_sprints = "Останні спринти"
 when = "Коли"
 minutes = "Хвилин"
 result = "Результат"
+# A dice command the bot can't read
+error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
+# Too many dice in one roll
+too_many = "Забагато кубиків: до {max} за раз."
 # Settings
 hide_numbers = "Приховувати мої числа"
 hide_numbers_hint = "Числа рахуються у вашій статистиці, але на дошці замість них ✓, і вас немає в /top."
@@ -900,12 +962,10 @@ achievements_enabled_help = "Нагороди-стікери від адміні
 # ------------------------------------------------------------------------------------------------
 [achievements]
 # Achievements: made and awarded by chat admins; each is a sticker from the admins' own pack
-title = "Досягнення"
-# A line in /achievements: "«Нічна сова» — пише після півночі (3)"
+# A line in the caption of the /achievements board: "«Нічна сова» — пише після півночі (3)"
 line = "«{name}»{description} ({count})"
 none_yet = "Досягнень ще немає. Адміни створюють їх зі стікера свого набору: /newachievement Назва — опис у відповідь на стікер."
-# /achievements in a private chat
-yours = "Ваші досягнення: {list}"
+# /achievements in a private chat, before the first one
 yours_none = "У вас ще немає досягнень."
 # In /profile
 profile = "Досягнення: {list}"
@@ -935,7 +995,32 @@ off = "Досягнення в цьому чаті вимкнено (/settings).
 sticker_gone = "{who}, стікера для «{achievement}» більше немає в наборі. Надішліть новий стікер у відповідь на це повідомлення."
 sticker_replaced = "Стікер оновлено."
 # The same question in the private chat with the admin (preferred: it doesn't clutter the group)
-sticker_gone_dm = "Стікера для «{achievement}» більше немає у вашому наборі, тож я нагородив без нього. Надішліть мені новий стікер з набору."
+sticker_gone_dm = "Стікера для «{achievement}» більше немає у вашому наборі, тож на картці досягнення була медаль. Надішліть мені новий стікер з набору."
 sticker_placeholder = "стікер"
+# --- the pictures (an "achievement unlocked" card, a person's collection, the community's board) ---
+# Small capitals at the top of the award card
+card_label = "Досягнення отримано"
+# Bottom line of the award card: "Тарас · 18.10.2026 · вже має 3 людини"
+card_footer = "{name} · {date} · {holders}"
+first = "перше таке"
+holders = "вже має {people}"
+# A person's collection: title, "2 з 9", the caption ({list}: the names, or "ще немає"), and the note on achievements they don't have yet
+collection_title = "Досягнення · {name}"
+collection_count = "{earned} з {total}"
+collection_caption = "Досягнення {who}: {list}"
+locked = "ще попереду"
+none_in_caption = "ще немає"
+# The board: title, subtitle ("Спільнота «Письменники» · 9 досягнень"), and the text when nobody has one
+board_title = "Дошка досягнень"
+board_subtitle = "{where} · {count}"
+board_community = "Спільнота «{name}»"
+board_chat = "Цей чат"
+board_empty = "Ще ніхто нічого не отримав."
+# Under the list in the board's caption
+mine_hint = "Свої: /achievements мої (або у відповідь на повідомлення — чужі)."
+# Words after /achievements that mean "mine"
+mine_words = ["мої", "мое", "моє", "me", "mine", "my"]
+# Button in /profile (private chat) that sends your collection
+button = "Мої досягнення"
 # A text instead of the sticker the bot asked for
 send_a_sticker = "Надішліть стікер з набору (не текст)."

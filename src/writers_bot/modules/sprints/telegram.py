@@ -20,7 +20,15 @@ from telegram.error import TelegramError
 from telegram.ext import CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 from ...core import sprint as sp
-from ...core.board import confirmation, goal_dm_text, minutes_top_text, share_line, week_strip, works_card
+from ...core.board import (
+    confirmation,
+    goal_dm_text,
+    minutes_top_text,
+    share_line,
+    sprint_when,
+    week_strip,
+    works_card,
+)
 from ...core.days import bot_day, next_reset
 from ...core.i18n import raw, t
 from ...core.models import ChatKey, Outcome, Sprint, SprintStatus, Unit
@@ -31,6 +39,8 @@ from ...core.sources import find_url
 from ...core.stats import history, top_minutes
 from ...telegram_bot.app import chat_key, command_args_text, display_name, thread_of
 from ...telegram_bot.base import Command, ProfilePart, Sent, TelegramModule, button
+from ...telegram_bot.ephemeral import incoming_ephemeral_id
+from .onboarding import Onboarding
 from .presenter import TelegramSprintPresenter
 from .worksmenu import WorksMenu
 
@@ -42,6 +52,8 @@ CARD_TTL = 3 * 60
 PROMPT_TTL = 5 * 60
 PENDING_TTL = 10 * 60
 TOP_DAYS = 30
+TIP_SPLIT = "tip_split"  # person setting: how often the split / pause tip was shown ("done": they use it)
+TIP_TIMES = 3
 
 
 @dataclass(slots=True)
@@ -101,6 +113,7 @@ class Module(TelegramModule):
         if self.reports:
             self.engine.after_finish = self.rep.after_finish
         self.menu = WorksMenu(self) if self.works_on else None
+        self.onboarding = Onboarding(self) if self.reports else None
         self._pending: dict[str, Pending] = {}
         self._daily: asyncio.Task | None = None
 
@@ -120,11 +133,16 @@ class Module(TelegramModule):
                 ),
                 Command("top", self.top, "commands.top", uk="aliases.top", help="help.top"),
             ]
+        if self.works_on:
+            commands.append(
+                Command("works", self.works_command, "commands.works", uk="aliases.works", help="help.works")
+            )
         return commands
 
     def handlers(self):
         # Typed input for the works menu goes first: it is also a reply (to the bot's question).
-        handlers = self.menu.handlers() if self.menu is not None else []
+        handlers = self.onboarding.handlers() if self.onboarding is not None else []
+        handlers += self.menu.handlers() if self.menu is not None else []
         handlers += [
             (CallbackQueryHandler(self.on_join, pattern=r"^(sp:join:\d+|join_sprint)$"), 0),
             (CallbackQueryHandler(self.on_leave, pattern=r"^(sp:leave:\d+|leave_or_cancel_sprint)$"), 0),
@@ -146,13 +164,26 @@ class Module(TelegramModule):
             "ud": self.on_undo,
             "pg": self.on_panel,
             "st": self.on_setting,
+            "sw": self.on_switch,
         }
         if self.menu is not None:
             asks |= self.menu.asks()
+        if self.onboarding is not None:
+            asks |= self.onboarding.asks()
         return asks if self.reports else {}
 
     def start_payloads(self):
-        return self.menu.start_payloads() if self.menu is not None else {}
+        payloads = self.menu.start_payloads() if self.menu is not None else {}
+        if self.onboarding is not None:
+            payloads |= self.onboarding.start_payloads()
+        return payloads
+
+    async def private_start(self, message: Message) -> None:
+        if self.onboarding is None or self.bot.storage is None:
+            return
+        person = await self.bot.people.person_id(PLATFORM, str(message.from_user.id), display_name(message.from_user))
+        if not await self.onboarding.finished(person):
+            await self.onboarding.next_step(message.from_user, intro=True)
 
     async def post_init(self) -> None:
         self.presenter.bot = self.bot.app.bot
@@ -321,8 +352,12 @@ class Module(TelegramModule):
 
     # --- the join card -------------------------------------------------------------------------------
 
-    async def _card(self, sprint: Sprint, user) -> tuple[str, InlineKeyboardMarkup, bool] | None:
-        """The card's text and buttons, and whether it's worth showing (works to pick, or the notice)."""
+    async def _card(
+        self, sprint: Sprint, user, *, token: str | None = None
+    ) -> tuple[str, InlineKeyboardMarkup, bool] | None:
+        """The card's text and buttons, and whether it's worth showing (the notice, or nothing would be in
+        the sprint although there are works). ``token``: opened from a report waiting for a work (its
+        "Готово" tries the report again)."""
         p = sprint.participants.get(str(user.id))
         if p is None or p.person_id is None:
             return None
@@ -338,15 +373,18 @@ class Module(TelegramModule):
         for w in works:
             on = w.id in p.works
             key = ("card.work_on" if on else "card.work_off") + ("_percent" if w.unit == Unit.PERCENT else "")
-            rows.append([button(t(key, name=w.name), user.id, f"jc:{sprint.id}:{w.id}")])
-        last = [button(t("card.ok"), user.id, f"jc:{sprint.id}:ok")]
-        if self.works_on and not works:
+            data = f"jc:{sprint.id}:{w.id}" + (f":{token}" if token else "")
+            rows.append([button(t(key, name=w.name), user.id, data)])
+        last = [button(t("card.ok"), user.id, f"as:{token}:retry" if token else f"jc:{sprint.id}:ok")]
+        if not await self.onboarding.finished(p.person_id):
+            last.append(self.bot.dm_button("onboarding.card_button", "onboard"))
+        elif self.works_on:
             last.append(self.bot.dm_button("card.manage", "works"))
         rows.append(last)
-        # Worth showing only when there's a choice to make: one kept work is simply in the sprint (the
-        # "Мої твори" button still opens the card).
-        choice = len(works) > 1 or any(not w.keep for w in works)
-        return text, InlineKeyboardMarkup(rows), choice or first_time
+        # Worth showing on its own only when something needs saying: your works are simply in the sprint
+        # (paused ones stay out) and "Мої твори" opens the card. Without any work in it, the card asks.
+        nothing_in = bool(works) and not any(w.id in p.works for w in works)
+        return text, InlineKeyboardMarkup(rows), nothing_in or first_time
 
     async def send_card(
         self, sprint: Sprint, user, *, callback_query_id: str | None = None, force: bool = False
@@ -404,9 +442,78 @@ class Module(TelegramModule):
             await self.bot.asks.toast(query, "common.stale")
             return
         await query.answer()
-        card = await self._card(sprint, query.from_user)
+        card = await self._card(sprint, query.from_user, token=args[2] if len(args) > 2 else None)
         if card is not None and sent is not None:
             await self.bot.asks.edit(sent, card[0], card[1])
+
+    # --- switching works (in the chat too) -----------------------------------------------------------
+
+    def _sprint_here(self, user_id: int, key: ChatKey) -> Sprint | None:
+        """Your sprint in this chat that is still running or taking your report."""
+        sprint = self.engine.current_for(str(user_id), key)
+        return sprint if sprint is not None and sprint.key == key else None
+
+    async def _free_card(self, user, *, token: str | None = None) -> tuple[str, InlineKeyboardMarkup]:
+        """What you're writing now, outside a sprint: works on (taken into sprints, and where numbers
+        without a name go) or paused. Works are added and edited in the private chat."""
+        f = self.bot.fmt
+        person = await self.bot.people.person_id(PLATFORM, str(user.id), display_name(user))
+        works = await self.bot.services.works.for_person(person)
+        if not self.percent_on:
+            works = [w for w in works if w.unit == Unit.WORDS]
+        rows = []
+        for w in works:
+            key = ("card.work_on" if w.keep else "card.work_paused") + ("_percent" if w.unit == Unit.PERCENT else "")
+            rows.append([button(t(key, name=w.name), user.id, f"sw:{w.id}:{token or '-'}")])
+        rows.append(
+            [
+                button(t("card.ok"), user.id, f"as:{token}:retry" if token else "sw:ok"),
+                self.bot.dm_button("card.manage", "works"),
+            ]
+        )
+        text = f.lines([f.bold(t("card.switch_title")), f.t("card.switch" if works else "card.switch_none")])
+        return text, InlineKeyboardMarkup(rows)
+
+    async def works_command(self, update: Update, _context) -> None:
+        """/works: the works menu in the private chat; in a group, the switch card (your sprint's card while
+        you're in one here)."""
+        message = update.effective_message
+        user = message.from_user
+        if message.chat.type == ChatType.PRIVATE:
+            text, markup = await self.menu.list_view(user)
+            await message.reply_html(text, reply_markup=markup)
+            return
+        sprint = self._sprint_here(user.id, chat_key(message))
+        card = await self._card(sprint, user) if sprint is not None else None
+        text, markup = card[:2] if card is not None else await self._free_card(user)
+        await self.bot.asks.respond(message, text, markup, delete_command=True)
+
+    async def on_switch(self, query, args: list[str]) -> None:
+        sent = Sent.from_query(query)
+        user = query.from_user
+        action = args[0] if args else ""
+        if action == "ok":
+            await query.answer()
+            if sent:
+                await self.bot.asks.delete(sent)
+            return
+        if action == "open":  # from /profile in a group
+            await query.answer()
+            sprint = self._sprint_here(user.id, chat_key(query.message)) if query.message else None
+            card = await self._card(sprint, user) if sprint is not None else None
+            text, markup = card[:2] if card is not None else await self._free_card(user)
+            await self.bot.asks.edit(sent, text, markup)
+            return
+        work = await self.bot.services.works.get(int(action)) if action.isdigit() else None
+        person = await self.bot.people.person_id(PLATFORM, str(user.id), display_name(user))
+        if work is None or work.person_id != person:
+            await self.bot.asks.toast(query, "common.stale")
+            return
+        await self.bot.services.works.set_flag(work, "keep", not work.keep)
+        await self.bot.asks.toast(query, "card.resumed" if not work.keep else "card.paused")
+        token = args[1] if len(args) > 1 and args[1] != "-" else None
+        text, markup = await self._free_card(user, token=token)
+        await self.bot.asks.edit(sent, text, markup)
 
     # --- reports -----------------------------------------------------------------------------------
 
@@ -468,18 +575,41 @@ class Module(TelegramModule):
         if not deleted and message.chat.type != ChatType.PRIVATE:
             with contextlib.suppress(TelegramError):
                 await message.set_reaction(ReactionTypeEmoji("👍"))
-        text = confirmation(self.bot.fmt, result.changes, result.outcome)
+        text = self.confirm_text(result)
         markup = (
             InlineKeyboardMarkup([[button(t("confirm.undo"), user.id, f"ud:{result.undo}")]]) if result.undo else None
         )
         if message.chat.type == ChatType.PRIVATE:
             await message.reply_html(text, reply_markup=markup)
         else:
-            # Only privately: an ephemeral message where the bot may send one; else the 👍 is enough.
+            # Only privately: an ephemeral message where the bot may send one; else the 👍 is enough. A %
+            # that corrected an earlier sprint is always confirmed (a short-lived reply if need be), since
+            # nothing else shows where it went.
             await self.bot.asks.send(
-                chat_id, user.id, text, markup, thread_id=thread_of(message), reply_to_ephemeral=None, public=False
+                chat_id,
+                user.id,
+                text,
+                markup,
+                thread_id=thread_of(message),
+                reply_to_ephemeral=incoming_ephemeral_id(message),
+                reply_to=message.message_id if not deleted else None,
+                public=result.corrected is not None,
+                ttl=60,
             )
         await self.dm_goals(user, result, in_sprint=sprint is not None)
+        if self.works_on and any(i.hint for i in parsed.items):
+            person = await self.bot.people.person_id(PLATFORM, str(user.id), display_name(user))
+            if (await self.bot.people.settings(person)).get(TIP_SPLIT) != "done":
+                await self.bot.people.set(person, TIP_SPLIT, "done")  # they know the syntax: no more tips
+
+    def confirm_text(self, result: Result):
+        f = self.bot.fmt
+        corrected = (
+            sprint_when(f, result.corrected, self.bot.settings.common.timezone, self.bot.now())
+            if result.corrected is not None
+            else None
+        )
+        return confirmation(f, result.changes, result.outcome, corrected=corrected)
 
     async def dm_goals(self, user, result: Result, *, in_sprint: bool) -> None:
         """Goals reached outside a sprint are told only to the writer, by DM."""
@@ -519,19 +649,42 @@ class Module(TelegramModule):
         self._pending[token] = pending
         return token
 
+    async def _which_work(self, user, token: str, result: Result, parsed: Parsed, in_sprint: bool):
+        """The question where a number goes: a button per work, "Розділити" in a sprint, "Пауза" (a card to
+        pause works, after which the report is tried again), and the first few times a tip with the syntax
+        that avoids the question."""
+        f = self.bot.fmt
+        item = parsed.items[result.item_index]
+        rows = [[button(w.name or "—", user.id, f"as:{token}:{w.id}") for w in result.candidates[:3]]]
+        second = [button(t("report.pause"), user.id, f"as:{token}:pause")]
+        if in_sprint:
+            second.insert(0, button(t("report.split"), user.id, f"as:{token}:split"))
+        rows.append(second)
+        lines = [f.t("report.which_work", value=item.value if item.value is not None else "")]
+        person = await self.bot.people.person_id(PLATFORM, str(user.id), display_name(user))
+        shown = (await self.bot.people.settings(person)).get(TIP_SPLIT)
+        named = [w.name for w in result.candidates if w.name]
+        if shown != "done" and int(shown or 0) < TIP_TIMES and len(named) >= 2:
+            await self.bot.people.set(person, TIP_SPLIT, str(int(shown or 0) + 1))
+            amount = item.value or 500
+            first = max(1, amount * 3 // 5)
+            lines.append(
+                f.t(
+                    "report.which_work_tip",
+                    split=f"{first} {named[0]} {amount - first} {named[1]}",
+                    one=f"{amount} {named[0]}",
+                )
+            )
+        return "\n".join(lines), InlineKeyboardMarkup(rows)
+
     async def ask_choice(self, message: Message, result: Result, parsed: Parsed, sprint: Sprint | None) -> None:
         user = message.from_user
         pending = Pending(
             user.id, display_name(user), parsed, message.chat_id, sprint.id if sprint else None, result.item_index
         )
         token = self._remember(pending)
-        item = parsed.items[result.item_index]
-        rows = [[button(w.name or "—", user.id, f"as:{token}:{w.id}") for w in result.candidates[:3]]]
-        if sprint is not None:
-            rows[0].append(button(t("report.split"), user.id, f"as:{token}:split"))
-        f = self.bot.fmt
-        text = f.t("report.which_work", value=item.value if item.value is not None else "")
-        sent = await self.bot.asks.respond(message, text, InlineKeyboardMarkup(rows))
+        text, markup = await self._which_work(user, token, result, parsed, sprint is not None)
+        sent = await self.bot.asks.respond(message, text, markup)
         if sent is not None and message.chat.type != ChatType.PRIVATE and await self.deletes_reports(message.chat_id):
             with contextlib.suppress(TelegramError):
                 await message.delete()
@@ -539,7 +692,7 @@ class Module(TelegramModule):
     async def on_choice(self, query, args: list[str]) -> None:
         sent = Sent.from_query(query)
         pending = self._pending.pop(args[0], None) if args else None
-        if pending is None:
+        if pending is None or len(args) < 2:
             await self.bot.asks.toast(query, "common.stale")
             return
         await query.answer()
@@ -550,7 +703,19 @@ class Module(TelegramModule):
             if sprint is not None:
                 await self.ask_report(sprint, query.from_user)
             return
-        pending.choice[pending.item_index] = int(args[1])
+        if args[1] == "pause":  # the works card in place of the question; its "Готово" tries again
+            self._pending[args[0]] = pending
+            sprint = self.engine.get(pending.sprint_id) if pending.sprint_id is not None else None
+            card = (
+                await self._card(sprint, query.from_user, token=args[0])
+                if sprint is not None
+                else await self._free_card(query.from_user, token=args[0])
+            )
+            if card is not None and sent is not None:
+                await self.bot.asks.edit(sent, card[0], card[1])
+            return
+        if args[1] != "retry":
+            pending.choice[pending.item_index] = int(args[1])
         ref = sp.UserRef(str(query.from_user.id), pending.name)
         if pending.sprint_id is not None:
             sprint = self.engine.get(pending.sprint_id)
@@ -562,19 +727,18 @@ class Module(TelegramModule):
             result = await self.rep.progress(
                 ref, pending.parsed, chat_id=str(pending.chat_id), choice=pending.choice, percent=self.percent_on
             )
-        if result.status == Status.AMBIGUOUS:  # a second number with the same question
+        if result.status == Status.AMBIGUOUS:  # a second number with the same question (or still the first)
             pending.item_index = result.item_index
             token = self._remember(pending)
-            rows = [[button(w.name or "—", query.from_user.id, f"as:{token}:{w.id}") for w in result.candidates[:3]]]
-            item = pending.parsed.items[result.item_index]
-            await self.bot.asks.edit(
-                sent, self.bot.fmt.t("report.which_work", value=item.value or ""), InlineKeyboardMarkup(rows)
+            text, markup = await self._which_work(
+                query.from_user, token, result, pending.parsed, pending.sprint_id is not None
             )
+            await self.bot.asks.edit(sent, text, markup)
             return
         if not result.ok:
             await self.bot.asks.edit(sent, self.error_text(result))
             return
-        text = confirmation(self.bot.fmt, result.changes, result.outcome)
+        text = self.confirm_text(result)
         markup = (
             InlineKeyboardMarkup([[button(t("confirm.undo"), query.from_user.id, f"ud:{result.undo}")]])
             if result.undo
@@ -802,7 +966,7 @@ class Module(TelegramModule):
             result = await self.rep.progress(
                 ref, pending.parsed, chat_id=str(pending.chat_id), percent=self.percent_on, sprint_choice=int(args[2])
             )
-            text = confirmation(self.bot.fmt, result.changes, result.outcome) if result.ok else self.error_text(result)
+            text = self.confirm_text(result) if result.ok else self.error_text(result)
             markup = (
                 InlineKeyboardMarkup([[button(t("confirm.undo"), query.from_user.id, f"ud:{result.undo}")]])
                 if result.undo
@@ -873,6 +1037,13 @@ class Module(TelegramModule):
         hides = await self.bot.people.hides_numbers(person_id)
         lines.append(f.t("profile.numbers_hidden" if hides else "profile.numbers_shown"))
         buttons = [button(t("profile.button_progress"), user.id, "pg:open")]
+        if (steps := await self.onboarding.progress(person_id)) is not None:
+            lines.append(f.t("onboarding.profile", done=steps[0], total=steps[1]))
+            buttons.append(
+                button(t("onboarding.continue"), user.id, "ob:next")
+                if private
+                else self.bot.dm_button("onboarding.continue", "onboard")
+            )
         names = raw("profile.weekdays")
         for gap in h.fillable_gaps(today)[:2]:
             buttons.append(button(t("profile.fill", day=names[gap.weekday()]), user.id, f"pg:fill:{gap.isoformat()}"))

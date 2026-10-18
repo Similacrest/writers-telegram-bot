@@ -4,17 +4,25 @@
   or sends the sticker to the bot in private (the bot asks for the name, and for the chat if they
   administer several).
 * **Awarding**: reply to a member's message with ``/award`` (alias ``/нагорода``) and pick from buttons,
-  or ``/award Назва``; ``/unaward`` takes it back. The bot posts the sticker and one line.
-* Before posting, the bot checks the pack (``getStickerSet``); if the sticker is gone, the achievement keeps
-  its name and the awarding admin is asked for a new sticker.
+  or ``/award Назва``; ``/unaward`` takes it back. The bot posts one picture, an "achievement unlocked"
+  card with the sticker as its icon (:mod:`.render`), with one line as its caption.
+* **Listing**: ``/achievements`` in a group is the community's board (a picture: who has the most) with the
+  list as its caption; ``/achievements мої`` (or as a reply to someone) is a person's collection, the
+  achievements they don't have yet greyed out. In the private chat it is your own collection.
+* Before awarding, the bot checks the pack (``getStickerSet``); if the sticker is gone, the achievement keeps
+  its name (the card gets a drawn medal) and the awarding admin is asked for a new sticker.
+
+Outside creating one, the raw sticker is never posted.
 
 The admins own the sticker pack and manage it through @Stickers; the bot only remembers which sticker means
 which achievement. Achievements belong to the community where there is one, otherwise to the chat.
 """
 
+import asyncio
 import contextlib
 import csv
 import io
+import logging
 import re
 import secrets
 import time
@@ -24,12 +32,19 @@ from telegram.constants import ChatType
 from telegram.error import TelegramError
 from telegram.ext import MessageHandler, filters
 
-from ...core.i18n import t
+from ...core.i18n import plural, t, words
 from ...telegram_bot.app import command_args_text, display_name, thread_of
 from ...telegram_bot.base import Command, ProfilePart, Sent, TelegramModule, button
+from . import render
 from .store import AchievementStore, owner_for
 
+logger = logging.getLogger(__name__)
+
 PLATFORM = "telegram"
+PACK_TTL = 10 * 60  # how long a sticker pack is trusted before asking Telegram again
+ICON_CACHE = 300
+COLLECTION_MAX = 30
+CAPTION_MAX = 1024
 PENDING_TTL = 10 * 60
 SEPARATOR = re.compile(r"\s+[—–-]\s+|\n")
 
@@ -61,6 +76,8 @@ class Module(TelegramModule):
         self._awards: dict[str, dict] = {}  # token -> pending award (chat, target, origin)
         self._dm: dict[int, dict] = {}  # user -> a sticker sent in private, waiting for its name / chat
         self._prompts: dict[tuple[int, int], dict] = {}  # (chat, question) -> waiting for a new sticker
+        self._packs: dict[str, tuple[float, object]] = {}  # pack name -> (fetched, StickerSet or None)
+        self._icons: dict[str, bytes | None] = {}  # sticker file_unique_id -> its picture
 
     # --- wiring ----------------------------------------------------------------------------------
 
@@ -281,15 +298,53 @@ class Module(TelegramModule):
             with contextlib.suppress(TelegramError):
                 await message.delete()
 
+    async def _pack(self, name: str, *, fresh: bool = False):
+        cached = self._packs.get(name)
+        if cached is not None and not fresh and time.monotonic() - cached[0] < PACK_TTL:
+            return cached[1]
+        try:
+            pack = await self.bot.app.bot.get_sticker_set(name)
+        except TelegramError:
+            pack = None
+        self._packs[name] = (time.monotonic(), pack)
+        return pack
+
+    async def _in_pack(self, achievement, *, fresh: bool = False):
+        """The achievement's sticker if it is still in the admins' pack, else None."""
+        if not achievement.sticker_set or not achievement.sticker_file_id:
+            return None
+        pack = await self._pack(achievement.sticker_set, fresh=fresh)
+        if pack is None:
+            return None
+        return next((s for s in pack.stickers if s.file_unique_id == achievement.sticker_unique_id), None)
+
     async def sticker_ok(self, achievement) -> bool:
         """Is the sticker still in the admins' pack?"""
-        if not achievement.sticker_set or not achievement.sticker_file_id:
-            return False
-        try:
-            pack = await self.bot.app.bot.get_sticker_set(achievement.sticker_set)
-        except TelegramError:
-            return False
-        return any(s.file_unique_id == achievement.sticker_unique_id for s in pack.stickers)
+        return await self._in_pack(achievement, fresh=True) is not None
+
+    async def icon(self, achievement, *, fresh: bool = False) -> bytes | None:
+        """The picture of the achievement's sticker (a static sticker itself, or an animated one's thumbnail),
+        for the cards; None draws a medal instead."""
+        sticker = await self._in_pack(achievement, fresh=fresh)
+        if sticker is None:
+            return None
+        if sticker.file_unique_id in self._icons:
+            return self._icons[sticker.file_unique_id]
+        source = sticker.thumbnail if (sticker.is_animated or sticker.is_video) else sticker
+        data = None
+        if source is not None:
+            try:
+                file = await self.bot.app.bot.get_file(source.file_id)
+                data = bytes(await file.download_as_bytearray())
+            except TelegramError as e:
+                logger.info("no picture for sticker %s: %s", sticker.file_unique_id, e)
+        if len(self._icons) >= ICON_CACHE:
+            self._icons.pop(next(iter(self._icons)))
+        self._icons[sticker.file_unique_id] = data
+        return data
+
+    def _date(self, when) -> str:
+        return when.astimezone(self.bot.settings.common.timezone).strftime("%d.%m.%Y")
 
     async def give(self, chat_id: int, thread: int | None, admin, target: Message, achievement) -> None:
         f = self.bot.fmt
@@ -308,23 +363,39 @@ class Module(TelegramModule):
                 ttl=60,
             )
             return
-        bot = self.bot.app.bot
         reply = ReplyParameters(target.message_id, allow_sending_without_reply=True)
         sticker = await self.sticker_ok(achievement)
-        if sticker:
-            with contextlib.suppress(TelegramError):
-                await bot.send_sticker(
-                    chat_id, achievement.sticker_file_id, message_thread_id=thread, reply_parameters=reply
-                )
-                reply = None
-        await bot.send_message(
-            chat_id,
-            f.t("achievements.awarded", who=f.mention(str(user.id), display_name(user)), achievement=achievement.name),
-            message_thread_id=thread,
-            reply_parameters=reply,
+        caption = f.t(
+            "achievements.awarded", who=f.mention(str(user.id), display_name(user)), achievement=achievement.name
         )
+        holders = len(await self.store.holders(achievement.id))
+        card = render.AwardCard(
+            t("achievements.card_label"),
+            achievement.name,
+            achievement.description,
+            t(
+                "achievements.card_footer",
+                name=display_name(user),
+                date=self._date(self.bot.now()),
+                holders=t("achievements.first")
+                if holders <= 1
+                else t("achievements.holders", people=plural(holders, "people")),
+            ),
+            await self.icon(achievement) if sticker else None,
+        )
+        await self._send_picture(chat_id, thread, render.award_card, card, caption, reply)
         if not sticker:
             await self.ask_for_sticker(chat_id, thread, admin, achievement)
+
+    async def _send_picture(self, chat_id: int, thread: int | None, draw, data, caption, reply=None) -> None:
+        """One picture with its caption; the caption alone if drawing or sending the picture fails."""
+        bot = self.bot.app.bot
+        try:
+            png = await asyncio.to_thread(draw, data)
+            await bot.send_photo(chat_id, png, caption=caption, message_thread_id=thread, reply_parameters=reply)
+        except Exception:  # never lose the announcement over a picture
+            logger.exception("could not post an achievement picture in %s", chat_id)
+            await bot.send_message(chat_id, caption, message_thread_id=thread, reply_parameters=reply)
 
     async def ask_for_sticker(self, chat_id: int, thread: int | None, admin, achievement) -> None:
         """The sticker is gone from the pack: ask the awarding admin for a new one, privately if the bot can
@@ -406,6 +477,10 @@ class Module(TelegramModule):
     async def on_button(self, query, args: list[str]) -> None:
         sent = Sent.from_query(query)
         f = self.bot.fmt
+        if args[:1] == ["me"] and query.message is not None:  # /profile → Досягнення, in the private chat
+            await query.answer()
+            await self.post_collection(query.message.chat.id, None, query.from_user, None)
+            return
         if len(args) < 2:
             await self.bot.asks.toast(query, "common.stale")
             return
@@ -464,20 +539,87 @@ class Module(TelegramModule):
     # --- listing -----------------------------------------------------------------------------------
 
     async def list_command(self, update: Update, _context) -> None:
+        """In the private chat your collection; in a group the community's board, or someone's collection
+        (``/achievements мої``, or as a reply to their message)."""
         message = update.effective_message
         f = self.bot.fmt
+        thread = thread_of(message)
         if message.chat.type == ChatType.PRIVATE:
-            awards = await self.store.of_user(PLATFORM, str(message.from_user.id))
-            names = ", ".join(f"«{a.achievement.name}»" for a in awards)
-            await message.reply_html(
-                f.t("achievements.yours", list=names) if awards else f.t("achievements.yours_none")
-            )
+            await self.post_collection(message.chat_id, None, message.from_user, None)
             return
-        items = await self.store.of_owner(await self.owner(message.chat_id))
+        owner = await self.owner(message.chat_id)
+        items = await self.store.of_owner(owner)
         if not items:
             await message.reply_html(f.t("achievements.none_yet"))
             return
-        lines = [f.bold(t("achievements.title"))]
+        replied = await self._target(message)
+        arg = command_args_text(message).casefold().strip()
+        if replied is not None or arg in words("achievements.mine_words"):
+            who = replied.from_user if replied is not None else message.from_user
+            await self.post_collection(message.chat_id, thread, who, owner, items)
+            return
+        await self.post_board(message.chat_id, thread, owner, items)
+
+    async def post_collection(self, chat_id: int, thread: int | None, user, owner: str | None, items=None) -> None:
+        """A person's achievements as a picture: of one owner (the ones they lack greyed out), or all of
+        theirs (``owner`` None, in the private chat)."""
+        f = self.bot.fmt
+        awards = await self.store.of_user(PLATFORM, str(user.id))
+        if owner is not None:
+            awards = [a for a in awards if a.achievement.owner == owner]
+        if not awards and owner is None:
+            await self.bot.app.bot.send_message(chat_id, f.t("achievements.yours_none"), message_thread_id=thread)
+            return
+        earned = {a.achievement.id: a for a in awards}
+        cards = [
+            render.Item(
+                a.achievement.name, a.achievement.description, self._date(a.awarded_at), await self.icon(a.achievement)
+            )
+            for a in awards
+        ]
+        total = len(awards)
+        if owner is not None:
+            locked = [a for a in items or [] if a.id not in earned]
+            total = len(earned) + len(locked)
+            cards += [
+                render.Item(a.name, a.description, t("achievements.locked"), await self.icon(a), locked=True)
+                for a in locked
+            ]
+        shown = cards[:COLLECTION_MAX]
+        picture = render.Collection(
+            t("achievements.collection_title", name=display_name(user)),
+            t("achievements.collection_count", earned=len(earned), total=total)
+            if owner is not None
+            else plural(len(earned), "achievements"),
+            shown,
+            len(earned),
+            total if owner is not None else 0,
+        )
+        names = ", ".join(f"«{a.achievement.name}»" for a in awards) or t("achievements.none_in_caption")
+        caption = f.t("achievements.collection_caption", who=f.mention(str(user.id), display_name(user)), list=names)
+        await self._send_picture(chat_id, thread, render.collection, picture, caption)
+
+    async def post_board(self, chat_id: int, thread: int | None, owner: str, items) -> None:
+        """The community's (or chat's) board: who has the most, with their icons; the list in the caption."""
+        f = self.bot.fmt
+        by_id = {a.id: a for a in items}
+        rows = []
+        rank, previous = 0, None
+        for i, (_platform, _user_id, name, ids) in enumerate(await self.store.leaderboard(owner)):
+            if len(ids) != previous:
+                rank, previous = i + 1, len(ids)
+            icons = [await self.icon(by_id[a]) for a in ids if a in by_id]
+            rows.append(render.Row(rank, name or "?", str(len(ids)), icons))
+        communities = self.bot.services.shared.extra.get("communities")
+        community = await communities.of_chat(PLATFORM, str(chat_id)) if communities else None
+        where = t("achievements.board_community", name=community.name) if community else t("achievements.board_chat")
+        board = render.Board(
+            t("achievements.board_title"),
+            t("achievements.board_subtitle", where=where, count=plural(len(items), "achievements")),
+            rows,
+            t("achievements.board_empty"),
+        )
+        lines = []
         for a in items:
             holders = len(await self.store.holders(a.id))
             lines.append(
@@ -488,7 +630,12 @@ class Module(TelegramModule):
                     count=holders,
                 )
             )
-        await message.reply_html("\n".join(lines))
+        hint = f.t("achievements.mine_hint")
+        caption = f.lines(lines)
+        while lines and len(str(caption)) + len(str(hint)) + 2 > CAPTION_MAX:
+            lines.pop()
+            caption = f.lines([*lines, "…"])
+        await self._send_picture(chat_id, thread, render.leaderboard, board, f.lines([caption, "", hint]))
 
     async def profile(self, user, person_id: int | None, private: bool) -> ProfilePart | None:
         if self.store is None:
@@ -497,7 +644,8 @@ class Module(TelegramModule):
         if not awards:
             return None
         names = ", ".join(f"«{a.achievement.name}»" for a in awards)
-        return ProfilePart([self.bot.fmt.t("achievements.profile", list=names)])
+        buttons = [button(t("achievements.button"), user.id, "ac:me")] if private else []
+        return ProfilePart([self.bot.fmt.t("achievements.profile", list=names)], buttons)
 
     # --- your data ---------------------------------------------------------------------------------
 

@@ -13,6 +13,8 @@ dependencies = [
     "google-api-python-client>=2.201.0",
     "google-auth>=2.62.0",
     "aiohttp>=3.12",
+    "pillow>=11",
+    "d20>=1.1.2",
 ]
 
 [project.optional-dependencies]

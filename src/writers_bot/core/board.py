@@ -6,8 +6,9 @@ One line per person per section, summed over their works. No medals and no winne
 numbers get ✓ in place of numbers; works that hide their title are never named in public.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
+from .days import bot_day
 from .fmt import Formatter
 from .i18n import Markup, raw
 from .models import MinutesEntry, Outcome, Participant, Sprint, SprintStatus, Unit
@@ -186,7 +187,23 @@ def works_card(
     return f.lines(lines)
 
 
-def confirmation(f: Formatter, changes: list[Change], outcome: Outcome | None) -> Markup:
+def sprint_when(f: Formatter, at: datetime, tz, now: datetime) -> Markup:
+    """When a sprint started, for a confirmation: "сьогодні о 14:00", "вчора о 14:00", "16.10 о 14:00"."""
+    local, today = at.astimezone(tz), bot_day(now)
+    time = local.strftime("%H:%M")
+    day = bot_day(at)
+    if day == today:
+        return f.t("confirm.when_today", time=time)
+    if day == today - timedelta(days=1):
+        return f.t("confirm.when_yesterday", time=time)
+    return f.t("confirm.when_date", date=local.strftime("%d.%m"), time=time)
+
+
+def confirmation(
+    f: Formatter, changes: list[Change], outcome: Outcome | None, *, corrected: Markup | None = None
+) -> Markup:
+    """The private confirmation of a report. ``corrected``: a % outside a sprint went to the sprint that
+    started then (:func:`sprint_when`), which the confirmation says explicitly."""
     parts, notes = [], []
     for c in changes:
         name = f.t("common.quoted", text=c.label) if c.label else None
@@ -212,7 +229,10 @@ def confirmation(f: Formatter, changes: list[Change], outcome: Outcome | None) -
         parts.append(f.t("confirm.done"))
     if outcome == Outcome.FAILED:
         parts.append(f.t("confirm.failed"))
-    head = f.t("confirm.recorded", list=f.join(parts, "; ")) if parts else None
+    if corrected is not None and parts:
+        head = f.t("confirm.corrected", when=corrected, list=f.join(parts, "; "))
+    else:
+        head = f.t("confirm.recorded", list=f.join(parts, "; ")) if parts else None
     # never an empty message (Telegram refuses those): e.g. the same report again
     return f.join([x for x in [head, *notes] if x], " ") or f.t("confirm.nothing_new")
 

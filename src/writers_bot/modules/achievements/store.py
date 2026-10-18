@@ -167,6 +167,24 @@ class AchievementStore:
         )
         return [Award(a, r["user_id"], r["user_name"], r["chat_id"], parse_dt(r["awarded_at"])) for r in rows]
 
+    async def leaderboard(self, owner: str, limit: int = 10) -> list[tuple[str, str, str | None, list[int]]]:
+        """Who has the most of ``owner``'s achievements: (platform, user id, name, achievement ids, oldest
+        first), most first; ties by who got there first."""
+        rows = await self.storage.fetchall(
+            """SELECT w.platform, w.user_id, w.user_name, w.achievement_id, w.awarded_at FROM awards w
+               JOIN achievements a ON a.id = w.achievement_id
+               WHERE a.owner = ? AND a.deleted = 0 ORDER BY w.awarded_at""",
+            (owner,),
+        )
+        people: dict[tuple[str, str], dict] = {}
+        for r in rows:
+            entry = people.setdefault((r["platform"], r["user_id"]), {"name": None, "ids": [], "last": None})
+            entry["name"] = r["user_name"] or entry["name"]
+            entry["ids"].append(r["achievement_id"])
+            entry["last"] = r["awarded_at"]
+        ranked = sorted(people.items(), key=lambda kv: (-len(kv[1]["ids"]), kv[1]["last"]))
+        return [(k[0], k[1], v["name"], v["ids"]) for k, v in ranked[:limit]]
+
     async def forget(self, platform: str, user_id: str) -> None:
         async with self.storage.tx() as db:
             await db.execute("DELETE FROM awards WHERE platform = ? AND user_id = ?", (platform, user_id))

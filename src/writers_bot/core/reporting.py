@@ -123,6 +123,7 @@ class Result:
     undo: str | None = None
     sprints: list[tuple[int, datetime]] = field(default_factory=list)  # PICK_SPRINT: (sprint id, start)
     day: date | None = None
+    corrected: datetime | None = None  # a % outside a sprint corrected the sprint that started then
 
     @property
     def ok(self) -> bool:
@@ -653,7 +654,8 @@ class Reporting:
         opts = ChatOptions(works=self.works_enabled, percent=percent, default_unit=default_unit)
         all_works = await self.works.for_person(person_id, include_unnamed=True) if self.works_enabled else []
         named = [w for w in all_works if w.name]
-        candidates = named or [w for w in all_works if w.name is None]
+        # Paused works don't take numbers without a name (unless everything is paused).
+        candidates = [w for w in named if w.keep] or named or [w for w in all_works if w.name is None]
         pairs, problem = await self._resolve(parsed.items, person_id, candidates, all_works, opts, choice or {})
         if problem is not None:
             return problem
@@ -696,7 +698,7 @@ class Reporting:
                     Change(work.id, work.name, work.unit, credited, credited, counts.get(id(item)), baseline)
                 )
             if marks and not any(i.op == Op.DONE and i.hint for i in parsed.items) and not pairs:
-                work = await self.works.unnamed(person_id, Unit.WORDS) if not named else named[0]
+                work = await self.works.unnamed(person_id, Unit.WORDS) if not named else candidates[0]
                 undo.entries.append(await self._entry(db, person_id, work, day, 0, EntryKind.MARK, chat_id, now))
                 changes.append(Change(work.id, None, work.unit, None, 0))
         goals = []
@@ -748,7 +750,7 @@ class Reporting:
             return Result(Status.NO_PERCENT_SPRINT, hint=work.name)
         if len(recent) > 1:
             return Result(Status.PICK_SPRINT, sprints=recent, hint=work.name)
-        sprint_id = recent[0][0]
+        sprint_id, started = recent[0]
         open_sprint = self.engine.get(sprint_id)
         if open_sprint is not None:
             p = open_sprint.participants.get(user.user_id)
@@ -765,6 +767,7 @@ class Reporting:
                     open_sprint,
                     [Change(work.id, work.name, Unit.PERCENT, sw.amount, 0)],
                     undo=self._remember(undo),
+                    corrected=started,
                 )
         row = await self.storage.fetchone(
             "SELECT amount FROM sprint_works WHERE sprint_id = ? AND user_id = ? AND work_id = ?",
@@ -778,7 +781,13 @@ class Reporting:
                 "UPDATE sprint_works SET amount = ?, reported_at = ? WHERE sprint_id = ? AND user_id = ? AND work_id = ?",
                 (new, iso(self.now()), sprint_id, user.user_id, work.id),
             )
-        return Result(Status.OK, None, [Change(work.id, work.name, Unit.PERCENT, new, 0)], undo=self._remember(undo))
+        return Result(
+            Status.OK,
+            None,
+            [Change(work.id, work.name, Unit.PERCENT, new, 0)],
+            undo=self._remember(undo),
+            corrected=started,
+        )
 
     # --- recounts --------------------------------------------------------------------------------
 

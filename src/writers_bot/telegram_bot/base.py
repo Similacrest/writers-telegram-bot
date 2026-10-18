@@ -89,6 +89,9 @@ class TelegramModule:
     async def profile(self, user, person_id: int | None, private: bool) -> ProfilePart | None:
         return None
 
+    async def private_start(self, message: Message) -> None:
+        """``/start`` without a payload in the private chat, after the help text."""
+
     async def post_init(self) -> None:
         pass
 

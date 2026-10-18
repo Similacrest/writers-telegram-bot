@@ -1,73 +1,116 @@
 """Small chat extras carried over from the v2 ``extended`` branch: dice rolls and keyboard smash."""
 
+import html
 import random
 import re
 from dataclasses import dataclass
-from secrets import SystemRandom
+
+import d20
 
 from .fmt import Formatter
-from .i18n import Markup, t
+from .i18n import t
 
-_rng = SystemRandom()
-
-# /d20, /2d6, /r 3d8+2, /roll d20adv Initiative, /4k6mi2 (the Cyrillic letter ka works too; i18n: input syntax)
-ROLL_RE = re.compile(
-    r"^/(?:r(?:oll)?\s*)?(\d*)[dDкК](\d+)(mi-?\d+)?(adv|dis)?([bm+\-]\d+)?(?:@\w+)?(.*)$",  # i18n: input syntax
-    re.DOTALL,
-)
+# /d20, /2d6+1, /r 4d6kh3 Ініціатива, /roll d20adv: a command that starts with dice, or /r and /roll. The
+# notation is the d20 library's (keep/drop, exploding, rerolls, arithmetic), plus the v2 forms: the Cyrillic
+# letter ka for d, "adv"/"dis" for the better/worse of two throws, b5/m3 for +5/-3. (i18n: input syntax)
+_DIE = r"\d*[dDкК]\d"  # i18n: input syntax
+ROLL_RE = re.compile(rf"^/(?:r(?:oll)?(?:@\w+)?(?:\s+\S|\s*\()|(?:r(?:oll)?(?:@\w+)?)?{_DIE})", re.IGNORECASE)
+_PREFIX = re.compile(r"^/(?:r(?:oll)?)?(?:@\w+)?\s*", re.IGNORECASE)  # i18n: input syntax
+_MENTION = re.compile(r"^(\S*?)@\w+")
+_MODE = re.compile(r"(?<=\d)(adv|dis)\b", re.IGNORECASE)  # i18n: input syntax
+_LEGACY_BONUS = re.compile(r"(?<=\d)([bm])(\d+)")
+_ROLL20_DROP = re.compile(r"(?<=\d)d([hl]\d+)", re.IGNORECASE)  # 4d6dl1 (Roll20) is d20's 4d6pl1
 MAX_DICE = 500
-MAX_SIDES = 2**31 - 1
+MAX_TOKENS = 12
+
+
+class _Roller(d20.Roller):
+    def __init__(self):
+        super().__init__(d20.RollContext(max_rolls=MAX_DICE))
+
+
+class _Html(d20.MarkdownStringifier):
+    """The roll in Telegram HTML: dropped dice struck through, highest bold, ones underlined."""
+
+    def _stringify(self, node):
+        if not node.kept and not self._context.in_dropped:
+            self._context.in_dropped = True
+            inside = d20.SimpleStringifier._stringify(self, node)
+            self._context.in_dropped = False
+            return f"<s>{inside}</s>"
+        handler = self._nodes[type(node)]
+        inside = handler(node)
+        return f"{inside} {html.escape(node.annotation)}" if node.annotation else inside
+
+    def _str_expression(self, node):
+        return f"{self._stringify(node.roll)} = <b>{int(node.total)}</b>"
+
+    def _str_die(self, node):
+        out = []
+        for val in node.values:
+            inside = self._stringify(val)
+            if val.number == node.size:
+                inside = f"<b>{inside}</b>"
+            elif val.number == 1:
+                inside = f"<u>{inside}</u>"
+            out.append(inside)
+        return ", ".join(out)
 
 
 @dataclass(frozen=True, slots=True)
 class Roll:
-    count: int
-    sides: int
-    minimum: int
+    expression: str  # in d20 notation
     mode: str | None  # "adv", "dis" or None
-    bonus: int
     caption: str
-    notation: str
+
+
+def _normalise(text: str) -> str:
+    text = text.replace("к", "d").replace("К", "d")  # i18n: input syntax
+    text = _ROLL20_DROP.sub(r"p\1", text)
+    return _LEGACY_BONUS.sub(lambda m: ("+" if m[1] == "b" else "-") + m[2], text)
 
 
 def parse_roll(text: str) -> Roll | None:
-    m = ROLL_RE.match((text or "").strip())
-    if not m:
+    """A dice command, or None. A command that looks like dice but isn't a valid roll gives a Roll whose
+    expression is empty (the caller says so)."""
+    text = (text or "").strip()
+    if not ROLL_RE.match(text):
         return None
-    count = int(m[1]) if m[1] else 1
-    if not 0 < count <= MAX_DICE:
-        count = 1
-    sides = int(m[2])
-    if not 0 < sides <= MAX_SIDES:
-        sides = 20
-    minimum = int(m[3][2:]) if m[3] else 1
-    if not -sides <= minimum <= sides:
-        minimum = 1
-    bonus = int(m[5].replace("b", "").replace("m", "-")) if m[5] else 0
-    notation = f"{m[1]}d{m[2]}{m[3] or ''}{m[4] or ''}{m[5] or ''}"
-    return Roll(count, sides, minimum, m[4], bonus, m[6].strip() or t("dice.result"), notation)
-
-
-def _throw(f: Formatter, roll: Roll) -> tuple[int, Markup]:
-    pool = [_rng.randint(roll.minimum, roll.sides) for _ in range(roll.count)]
-    shown = f.join(
-        [f.bold(v) if v == roll.sides else Markup(f"<u>{v}</u>") if v == roll.minimum else str(v) for v in pool]
-    )
-    bonus = f"{roll.bonus:+d}" if roll.bonus else ""
-    total = sum(pool) + roll.bonus
-    return total, Markup(f"{f.code(roll.notation)} {f.bold(total)}: [{shown}]{bonus}")
+    rest = _PREFIX.sub("", text, count=1)
+    rest = _MENTION.sub(r"\1", rest, count=1)  # /d20@writers_bot
+    tokens = rest.split()
+    mode = None
+    for n in range(min(len(tokens), MAX_TOKENS), 0, -1):
+        candidate = _normalise(" ".join(tokens[:n]))
+        found = _MODE.search(candidate)
+        expression = _MODE.sub("", candidate) if found else candidate
+        try:
+            d20.parse(expression)
+        except d20.RollSyntaxError:
+            continue
+        mode = found[1].lower() if found else None
+        caption = " ".join(tokens[n:]) or t("dice.result")
+        return Roll(expression, mode, caption)
+    return Roll("", None, "")
 
 
 def roll_html(f: Formatter, roll: Roll) -> str:
+    if not roll.expression:
+        return f.t("dice.error")
     caption = f"{f.bold(roll.caption)} "
-    first_total, first = _throw(f, roll)
-    if not roll.mode:
-        return caption + first
-    second_total, second = _throw(f, roll)
-    keep_first = first_total >= second_total if roll.mode == "adv" else first_total <= second_total
-    kept, dropped = (first, second) if keep_first else (second, first)
-    best = max(first_total, second_total) if roll.mode == "adv" else min(first_total, second_total)
-    return f"{caption}\n{f.bold(best)}\n{kept}\n<s>{dropped}</s>"
+    roller = _Roller()
+    try:
+        first = roller.roll(roll.expression, stringifier=_Html())
+        if not roll.mode:
+            return caption + first.result
+        second = roller.roll(roll.expression, stringifier=_Html())
+    except d20.TooManyRolls:
+        return f.t("dice.too_many", max=MAX_DICE)
+    except d20.RollError:
+        return f.t("dice.error")
+    better = first.total >= second.total if roll.mode == "adv" else first.total <= second.total
+    kept, dropped = (first, second) if better else (second, first)
+    return f"{caption}\n{f.bold(int(kept.total))}\n{kept.result}\n<s>{dropped.result}</s>"
 
 
 _KEYBOARD = ["qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"]

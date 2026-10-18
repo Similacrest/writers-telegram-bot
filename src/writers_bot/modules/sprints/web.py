@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from aiohttp import web
 
 from ...core import sprint as sp
-from ...core.board import confirmation
+from ...core.board import confirmation, sprint_when
 from ...core.days import bot_day, fillable
 from ...core.fmt import PlainFormatter
 from ...core.i18n import t
@@ -261,7 +261,12 @@ def routes(module: "Module", app: WebApp) -> None:
         if not result.ok:
             raise _result_error(result)
         await module.dm_goals(_UserShim(user), result, in_sprint=False)
-        return web.json_response({"message": confirmation(PLAIN, result.changes, result.outcome)})
+        corrected = (
+            sprint_when(PLAIN, result.corrected, tbot.settings.common.timezone, tbot.now())
+            if result.corrected
+            else None
+        )
+        return web.json_response({"message": confirmation(PLAIN, result.changes, result.outcome, corrected=corrected)})
 
     async def stats(_request: web.Request, user: WebUser) -> web.Response:
         pid = await person(user)

@@ -102,6 +102,9 @@ class FakeTelegram(BaseRequest):
         self.incoming_ephemeral: dict[tuple[int, int], float] = {}  # (chat, ephemeral id) -> time
         self.documents: list[dict] = []
         self.sticker_sets: dict[str, list[dict]] = {}
+        self.files: dict[str, bytes] = {}  # file_id -> content (getFile / download); else a tiny PNG
+        self.photos: list[bytes] = []  # pictures the bot uploaded
+        self._request: RequestData | None = None
         self._ids = itertools.count(100)
         self._eph = itertools.count(1)
         self._qid = itertools.count(1)
@@ -126,7 +129,11 @@ class FakeTelegram(BaseRequest):
         pass
 
     async def do_request(self, url, method, request_data: RequestData | None = None, **_kwargs):
+        if "/file/bot" in url:  # downloading a file found with getFile
+            file_id = url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+            return 200, self.files.get(file_id) or _tiny_png()
         name = url.rsplit("/", 1)[-1]
+        self._request = request_data
         params = dict(request_data.parameters) if request_data is not None else {}
         for key, value in list(params.items()):
             if (
@@ -476,6 +483,40 @@ class FakeTelegram(BaseRequest):
     def m_sendChatAction(self, _p):
         return True
 
+    def m_getFile(self, p):
+        return {
+            "file_id": p["file_id"],
+            "file_unique_id": "f" + p["file_id"],
+            "file_path": f"stickers/{p['file_id']}.webp",
+        }
+
+    def m_sendPhoto(self, p):
+        chat_id = int(p["chat_id"])
+        if chat_id in self.blocked_dm:
+            raise ApiError("Forbidden: bot can't initiate conversation with a user")
+        data = b""
+        files = self._request.multipart_data if self._request is not None else None
+        for _name, value in (files or {}).items():
+            data = value[1] if isinstance(value, tuple) else value
+        self.photos.append(data)
+        reply = p.get("reply_parameters")
+        m = Msg(
+            chat_id,
+            next(self._ids),
+            p.get("caption") or "",
+            self._bot_user(),
+            markup=self._markup(p),
+            kind="photo",
+            reply_to=reply.get("message_id") if isinstance(reply, dict) else None,
+            thread_id=p.get("message_thread_id"),
+        )
+        m.extra["photo"] = [
+            {"file_id": f"PHOTO{m.message_id}", "file_unique_id": f"p{m.message_id}", "width": 1280, "height": 440}
+        ]
+        m.extra["caption"] = m.text
+        self.messages.append(m)
+        return self._message_dict(m)
+
     # --- what users do -------------------------------------------------------------------------------
 
     def _user_message(
@@ -558,3 +599,13 @@ def utc(ts: float) -> datetime:
 
 async def process(app, data: dict) -> None:
     await app.process_update(Update.de_json(data, app.bot))
+
+
+def _tiny_png() -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (8, 8), (200, 120, 40, 255)).save(buf, "PNG")
+    return buf.getvalue()

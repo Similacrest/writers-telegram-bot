@@ -75,8 +75,9 @@ async def test_a03_award_with_buttons(make):
     assert "Яке досягнення для Alice?" in card.text and cmd.deleted
     await h.press(DAN, card, "Нічна сова")
     public = h.public_since(mark)
-    assert [m.kind for m in public] == ["sticker", "text"]  # the sticker and one line
-    assert "Alice</a> отримує «Нічна сова»" in public[1].text
+    assert [m.kind for m in public] == ["photo"]  # one picture: the card, with one line as its caption
+    assert "Alice</a> отримує «Нічна сова»" in public[0].text
+    assert h.fake.photos[-1].startswith(b"\x89PNG") and not h.calls("sendSticker")
     await h.close()
 
 
@@ -108,7 +109,10 @@ async def test_a06_profile_lists_achievements(make):
     await h.dm(ALICE, "/profile")
     assert "Досягнення: «Нічна сова»" in h.dms(ALICE)[-1].text
     await h.dm(ALICE, "/achievements")
-    assert "Ваші досягнення: «Нічна сова»" in h.dms(ALICE)[-1].text
+    assert h.dms(ALICE)[-1].kind == "photo" and "«Нічна сова»" in h.dms(ALICE)[-1].text
+    await h.dm(ALICE, "/profile")
+    await h.press(ALICE, h.dms(ALICE)[-1], "Мої досягнення")
+    assert h.dms(ALICE)[-1].kind == "photo"
     await h.close()
 
 
@@ -133,13 +137,14 @@ async def test_a08_sticker_gone_from_the_pack(make):
     mark = h.mark()
     await h.reply(DAN, post, "/award Нічна сова")
     public = h.public_since(mark)
-    assert [m.kind for m in public] == ["text"] and "отримує «Нічна сова»" in public[0].text  # still awarded, by name
+    assert [m.kind for m in public] == ["photo"] and "отримує «Нічна сова»" in public[0].text  # a medal on the card
     question = h.dms(DAN)[-1]
     assert "більше немає у вашому наборі" in question.text  # asked privately, not in the group
     await h.say(DAN, "", DAN.id, sticker=CAT)
     assert "Стікер оновлено" in h.dms(DAN)[-1].text
     await h.reply(DAN, await h.say(BOB, "привіт"), "/award Нічна сова")
-    assert h.calls("sendSticker")[-1]["sticker"] == "CAT_FILE"
+    assert h.calls("getFile")[-1]["file_id"] == "CAT_FILE"  # the new sticker is the card's icon
+    assert not h.calls("sendSticker")
     await h.close()
 
 

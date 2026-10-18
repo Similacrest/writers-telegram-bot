@@ -417,6 +417,9 @@ class TelegramBot:
                 await handler(update, context, rest)
                 return
         await self._reply_html_safe(message, self.help_text(), link_preview_options=NO_PREVIEW)
+        if message.chat.type == ChatType.PRIVATE and message.from_user:
+            for module in self.modules:
+                await module.private_start(message)
 
     async def help(self, update: Update, _context) -> None:
         await self._reply_html_safe(update.effective_message, self.help_text(), link_preview_options=NO_PREVIEW)

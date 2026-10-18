@@ -18,7 +18,7 @@ from discord import app_commands
 
 from ..botconfig import BotConfig
 from ..core import sprint as sp
-from ..core.board import board_text, confirmation, minutes_top_text, sprint_message
+from ..core.board import board_text, confirmation, minutes_top_text, sprint_message, sprint_when
 from ..core.days import bot_day
 from ..core.export import export_person
 from ..core.fmt import MarkdownFormatter
@@ -509,7 +509,13 @@ class DiscordBot:
                     user, parsed, chat_id=str(interaction.channel_id), percent=bot.percent_on
                 )
             if result.ok:
-                await bot.reply(interaction, confirmation(bot.fmt, result.changes, result.outcome), ephemeral=True)
+                corrected = (
+                    sprint_when(bot.fmt, result.corrected, bot.settings.common.timezone, sp.utc_now())
+                    if result.corrected
+                    else None
+                )
+                text = confirmation(bot.fmt, result.changes, result.outcome, corrected=corrected)
+                await bot.reply(interaction, text, ephemeral=True)
             elif result.status == Status.AMBIGUOUS:
                 await bot.reply(interaction, t("discord.ambiguous"), ephemeral=True)
             else:

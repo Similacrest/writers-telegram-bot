@@ -1,5 +1,5 @@
-"""Managing works in the private chat with the bot (the web app has the same). In groups the works
-button opens the private chat (``/start works``), since adding a work means typing its name."""
+"""Managing works in the private chat with the bot (the web app has the same): adding one means typing its
+name. Switching between works (on / paused) also works in groups, see ``Module.works_command``."""
 
 import contextlib
 import re
@@ -57,9 +57,8 @@ class WorksMenu:
         return {"works": self.on_start}
 
     def entry_button(self, user, private: bool):
-        if private:
-            return button(t("profile.button_works"), user.id, "wk:list")
-        return self.bot.dm_button("profile.button_works", "works")
+        # In a group: what you're writing now (on / paused), right there; adding and editing is private.
+        return button(t("profile.button_works"), user.id, "wk:list" if private else "sw:open")
 
     async def _person(self, user) -> int:
         return await self.bot.people.person_id(PLATFORM, str(user.id), display_name(user))
@@ -119,7 +118,7 @@ class WorksMenu:
         rows.append(
             [
                 button(t("works.toggle_hidden"), uid, f"wk:hide:{wid}"),
-                button(t("works.toggle_keep"), uid, f"wk:keep:{wid}"),
+                button(t("works.pause" if work.keep else "works.resume"), uid, f"wk:keep:{wid}"),
             ]
         )
         rows.append(
