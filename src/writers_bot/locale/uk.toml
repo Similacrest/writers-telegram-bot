@@ -793,8 +793,9 @@ usage = "Надішліть /count у відповідь на повідомле
 result = "Результат"
 # A dice command the bot can't read
 error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
-# Title of the bot's sticker pack for one die (people see it when they open a dice sticker): "Кубик d20"
-pack_title = "Кубик d{sides}"
+# Titles of the bot's two dice sticker packs (people see them when they open a dice sticker)
+pack1_title = "Кубики 1: d20, d12, d10"
+pack2_title = "Кубики 2: d100, d4, d6, d8, монета"
 # Too many dice in one roll
 too_many = "Забагато кубиків: до {max} за раз."
 

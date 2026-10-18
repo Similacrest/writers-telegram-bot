@@ -18,6 +18,7 @@ ROLL_RE = re.compile(rf"^/(?:r(?:oll)?(?:@\w+)?(?:\s+\S|\s*\()|(?:r(?:oll)?(?:@\
 _PREFIX = re.compile(r"^/(?:r(?:oll)?)?(?:@\w+)?\s*", re.IGNORECASE)  # i18n: input syntax
 _MENTION = re.compile(r"^(\S*?)@\w+")
 _MODE = re.compile(r"(?<=\d)(adv|dis)\b", re.IGNORECASE)  # i18n: input syntax
+_FLAGS = {"-s": True, "-q": False}  # i18n: input syntax; -s: stickers even for 3 or 4 dice, -q: no stickers
 _LEGACY_BONUS = re.compile(r"(?<=\d)([bm])(\d+)")
 _ROLL20_DROP = re.compile(r"(?<=\d)d([hl]\d+)", re.IGNORECASE)  # 4d6dl1 (Roll20) is d20's 4d6pl1
 MAX_DICE = 500
@@ -62,6 +63,7 @@ class Roll:
     expression: str  # in d20 notation
     mode: str | None  # "adv", "dis" or None
     caption: str
+    stickers: bool | None = None  # -s: True, -q: False (wins when both are given), nothing: None
 
 
 def _normalise(text: str) -> str:
@@ -78,7 +80,13 @@ def parse_roll(text: str) -> Roll | None:
         return None
     rest = _PREFIX.sub("", text, count=1)
     rest = _MENTION.sub(r"\1", rest, count=1)  # /d20@writers_bot
-    tokens = rest.split()
+    tokens = []
+    stickers = None
+    for word in rest.split():
+        if word.lower() in _FLAGS:  # a flag takes no part in the roll or the caption
+            stickers = _FLAGS[word.lower()] if stickers is None or word.lower() == "-q" else stickers
+        else:
+            tokens.append(word)
     mode = None
     for n in range(min(len(tokens), MAX_TOKENS), 0, -1):
         candidate = _normalise(" ".join(tokens[:n]))
@@ -90,7 +98,7 @@ def parse_roll(text: str) -> Roll | None:
             continue
         mode = found[1].lower() if found else None
         caption = " ".join(tokens[n:]) or t("dice.result")
-        return Roll(expression, mode, caption)
+        return Roll(expression, mode, caption, stickers)
     return Roll("", None, "")
 
 

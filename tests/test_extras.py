@@ -24,6 +24,19 @@ def test_parse_roll():
     assert parse_roll("/words 2d6") is None
 
 
+def test_parse_roll_sticker_flags():
+    """-s asks for stickers, -q silences them; a flag is not part of the roll or the caption, wherever it stands."""
+    assert parse_roll("/d20").stickers is None
+    r = parse_roll("/3d6 -s Атака")
+    assert (r.expression, r.caption, r.stickers) == ("3d6", "Атака", True)
+    assert parse_roll("/d20 -q").stickers is False and parse_roll("/d20 -q").expression == "d20"
+    assert parse_roll("/d20 Атака -Q").stickers is False
+    assert parse_roll("/r -s 2d6+3").expression == "2d6+3"
+    assert parse_roll("/d20adv -s").mode == "adv"
+    assert parse_roll("/3d6 -s -q").stickers is False and parse_roll("/3d6 -q -s").stickers is False  # silence wins
+    assert parse_roll("/d20 -5").stickers is None  # a minus sign with a number is arithmetic
+
+
 def test_roll_html_bounds_and_escaping():
     r = parse_roll("/3d6 <script>")
     for _ in range(50):
@@ -44,17 +57,3 @@ def test_smash():
     for _ in range(50):
         s = smash()
         assert 9 <= len(s) <= 21 and all(c in "qwertyuiop[]asdfghjkl;'zxcvbnm,./" for c in s)
-
-
-def test_dice_sticker_files():
-    """Every result of every die has its sticker, within Telegram's limits for video stickers."""
-    from importlib.resources import files
-
-    from writers_bot.modules.dice.telegram import SIDES
-
-    folder = files("writers_bot.assets.dice")
-    for sides in SIDES:
-        for value in range(1, sides + 1):
-            data = folder.joinpath(f"d{sides}_{value}.webm").read_bytes()
-            assert data[:4] == b"\x1a\x45\xdf\xa3", (sides, value)  # WEBM (EBML)
-            assert len(data) <= 256 * 1024, (sides, value, len(data))

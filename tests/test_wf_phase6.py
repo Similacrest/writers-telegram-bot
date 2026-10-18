@@ -8,6 +8,9 @@ import pytest
 from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
 
+from writers_bot.core.extras import Outcome, Roll
+from writers_bot.modules.dice.telegram import clip_name, manifest
+
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
 ACH = {"achievements": {}, **FULL}
 DICE = {"dice": {"stickers": True}}
@@ -400,6 +403,16 @@ async def test_a07_private_list_when_there_are_none(make):
 # --- dice stickers --------------------------------------------------------------------------------------
 
 
+def clip(sticker_id):
+    """The sticker of a message ("dice1_v3_by_writers_test_bot#17") by its place in the pack: its name, "d20_16"."""
+    pack, number = sticker_id.rsplit("#", 1)
+    return clip_name(manifest()[f"pack{pack[4]}"][int(number) - 1])
+
+
+def clips(messages):
+    return [clip(m.extra["sticker"]) for m in messages if m.kind == "sticker"]
+
+
 async def ready_packs(h):
     module = h.tbot.module("dice")
     if module._packs is not None:
@@ -407,17 +420,18 @@ async def ready_packs(h):
     return module
 
 
-async def test_d01_packs_made_once_and_a_bare_roll_is_a_sticker(make):
+async def test_d01_two_packs_made_once_and_a_bare_roll_is_a_sticker(make):
     h = await make(DICE)
     await ready_packs(h)
     created = h.calls("createNewStickerSet")
-    assert len(created) == 7 and {int(c["user_id"]) for c in created} == {ADMIN.id}
-    assert len(h.fake.sticker_sets["d100_v2_by_writers_test_bot"]) == 100  # 50 at first, the rest added
+    assert len(created) == 2 and {int(c["user_id"]) for c in created} == {ADMIN.id}
+    for name in ("dice1_v3_by_writers_test_bot", "dice2_v3_by_writers_test_bot"):
+        assert len(h.fake.sticker_sets[name]) == 120  # 50 at first, the rest added
     mark = h.mark()
     await h.say(ALICE, "/d20")
     sent = h.public_since(mark)
     assert [m.kind for m in sent] == ["sticker"]
-    assert sent[0].extra["sticker"].startswith("d20_v2_by_writers_test_bot#")
+    assert clips(sent)[0].startswith("d20")
 
 
 async def test_d02_bonus_or_caption_adds_the_line(make):
@@ -429,36 +443,62 @@ async def test_d02_bonus_or_caption_adds_the_line(make):
     assert "Атака" in h.last_public().text
 
 
-async def test_d03_a_sticker_per_die_up_to_the_limit(make):
+async def test_d03_one_or_two_dice_get_stickers_more_only_when_asked(make):
     h = await make(DICE)
     await ready_packs(h)
-    mark = h.mark()
-    await h.say(ALICE, "/2d6")
-    assert [m.kind for m in h.public_since(mark)] == ["sticker", "sticker", "text"]
-    mark = h.mark()
-    await h.say(ALICE, "/d20adv")  # both throws, then the line with the kept one
-    assert [m.kind for m in h.public_since(mark)] == ["sticker", "sticker", "text"]
-    mark = h.mark()
-    await h.say(ALICE, "/5d6")  # more than 4 dice: no flood
-    assert [m.kind for m in h.public_since(mark)] == ["text"]
-    mark = h.mark()
-    await h.say(ALICE, "/r 1d20+1d7")  # a d7 has no stickers: just the line
-    assert [m.kind for m in h.public_since(mark)] == ["text"]
+    kinds = {}
+    for text in (
+        "/2d6",
+        "/d20adv",
+        "/3d6",
+        "/3d6 -s",
+        "/4d6 -s Атака",
+        "/5d6 -s",
+        "/2d6 -q",
+        "/d20 -q",
+        "/r 1d20+1d13",
+    ):
+        mark = h.mark()
+        await h.say(ALICE, text)
+        kinds[text] = [m.kind for m in h.public_since(mark)]
+    assert kinds == {
+        "/2d6": ["sticker", "sticker", "text"],
+        "/d20adv": ["sticker", "sticker", "text"],  # both throws, then the line with the kept one
+        "/3d6": ["text"],
+        "/3d6 -s": ["sticker"] * 3 + ["text"],
+        "/4d6 -s Атака": ["sticker"] * 4 + ["text"],
+        "/5d6 -s": ["text"],  # more than 4 dice: no flood
+        "/2d6 -q": ["text"],  # silenced
+        "/d20 -q": ["text"],
+        "/r 1d20+1d13": ["text"],  # a d13 has no stickers: just the line
+    }
 
 
 async def test_d03b_the_limit_is_configurable(make):
     h = await make({"dice": {"stickers": True, "max_stickers": 1}})
     await ready_packs(h)
+    for text in ("/2d6", "/2d6 -s"):
+        mark = h.mark()
+        await h.say(ALICE, text)
+        assert [m.kind for m in h.public_since(mark)] == ["text"]
     mark = h.mark()
-    await h.say(ALICE, "/2d6")
-    assert [m.kind for m in h.public_since(mark)] == ["text"]
+    await h.say(ALICE, "/d6")
+    assert [m.kind for m in h.public_since(mark)] == ["sticker"]
 
 
-async def test_d04_percentile(make):
+async def test_d04_percentile_and_odd_dice(make):
     h = await make(DICE)
     await ready_packs(h)
+    mark = h.mark()
     await h.say(ALICE, "/d100")
-    assert h.last_public().extra["sticker"].startswith("d100_v2_by_writers_test_bot#")
+    assert clips(h.public_since(mark))[0].startswith("d100_")
+    for sides, even in ((3, "d4_"), (5, "d6_"), (7, "d8_"), (9, "d10_"), (11, "d12")):
+        mark = h.mark()
+        await h.say(ALICE, f"/d{sides}")
+        assert clips(h.public_since(mark))[0].startswith(even), sides
+    mark = h.mark()
+    await h.say(ALICE, "/d2")
+    assert clips(h.public_since(mark))[0].startswith("d2_")  # the coin
 
 
 async def test_d05_no_owner_no_stickers(make):
@@ -470,31 +510,65 @@ async def test_d05_no_owner_no_stickers(make):
     assert [m.kind for m in h.public_since(mark)] == ["text"]
 
 
-async def test_d06_existing_packs_are_reused_incomplete_ones_remade(make, tmp_path, clock):
+async def test_d06_which_stickers_a_roll_gets(make):
+    h = await make(DICE)
+    module = await ready_packs(h)
+    out = lambda *dice: Outcome("x", tuple(dice))  # noqa: E731
+    assert module.pick(Roll("d20+d4", None, "x"), out((20, 7), (4, 1))) == [
+        "d20_7",
+        "d4n_1",
+    ]  # no crit for an addition
+    assert module.pick(Roll("d4", None, "x"), out((4, 1))) == ["d4_1"]
+    assert module.pick(Roll("d20", "adv", "x"), out((20, 3), (20, 15))) == ["d20_3", "d20a_15"]
+    assert module.pick(Roll("d20", "dis", "x"), out((20, 3), (20, 15))) == ["d20d_3", "d20_15"]
+    assert module.pick(Roll("2d12", None, "x"), out((12, 9), (12, 4))) == ["d12ba_9", "d12r_4"]  # duality, blue larger
+    # Daggerheart's usual roll, a d6 on top: three dice, so only when asked for
+    assert module.pick(Roll("2d12+d6", None, "x"), out((12, 4), (12, 9), (6, 6))) is None
+    assert module.pick(Roll("2d12+d6", None, "x", True), out((12, 4), (12, 9), (6, 6))) == [
+        "d12b_4",
+        "d12rd_9",
+        "d6n_6",
+    ]
+    assert module.pick(Roll("d20", None, "x", False), out((20, 7))) is None
+
+
+async def test_d07_a_pack_put_out_of_order_is_made_again(make):
+    h = await make(DICE)
+    module = await ready_packs(h)
+    name = module.pack_name("pack1")
+    for sticker in h.fake.sticker_sets[name]:
+        sticker["emoji"] = "🎲"  # not the die markers the manifest has, as if the owner had shuffled the pack
+    before = len(h.calls("createNewStickerSet"))
+    await module._prepare("pack1", manifest()["pack1"], ADMIN.id)
+    assert h.calls("deleteStickerSet")[-1]["name"] == name
+    assert len(h.calls("createNewStickerSet")) == before + 1
+
+
+async def test_d08_existing_packs_are_reused_incomplete_ones_remade(make, tmp_path, clock):
     h = await make(DICE)
     await ready_packs(h)
-    h.fake.sticker_sets["d6_v2_by_writers_test_bot"].pop()  # a broken upload
+    h.fake.sticker_sets["dice2_v3_by_writers_test_bot"].pop()  # a broken upload
     h2 = await Harness.create(tmp_path / "again", clock, DICE)
     h2.fake.sticker_sets = h.fake.sticker_sets
     await ready_packs(h2)
-    assert [c["name"] for c in h2.calls("createNewStickerSet")] == ["d6_v2_by_writers_test_bot"]
+    assert [c["name"] for c in h2.calls("createNewStickerSet")] == ["dice2_v3_by_writers_test_bot"]
     assert h2.calls("deleteStickerSet")
     await h2.close()
 
 
-async def test_d07_not_a_roll(make):
+async def test_d09_not_a_roll(make):
     h = await make(DICE)
     await h.say(ALICE, "/r дракон")
     assert "Не зрозумів кидок" in h.last_public().text
 
 
-async def test_d08_stickers_off_by_default(make):
+async def test_d10_stickers_off_by_default(make):
     h = await make({"dice": {}})
     await h.say(ALICE, "/d20")
     assert h.last_public().kind == "text" and not h.calls("createNewStickerSet")
 
 
-async def test_d09_new_notation(make):
+async def test_d11_new_notation(make):
     h = await make({"dice": {}})
     await h.say(ALICE, "/r 4d6kh3 Сила")
     text = h.last_public().text

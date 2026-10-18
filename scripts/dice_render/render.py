@@ -58,14 +58,25 @@ OFFSETS = json.loads((HERE / "roll_offsets.json").read_text())  # per face: the 
 
 # --- what goes into the packs ----------------------------------------------------------------------------------------
 
+
+def _d12(colour: str, halo: str) -> list[str]:
+    """One colour of the d12, by value: the plain and the halo version of each. At 1 the crit comes before the crit-less
+    one, at 12 after it."""
+    out = []
+    for v in range(1, 13):
+        pair = [f"d12{colour}_{v}", f"d12{colour}{halo}_{v}"]
+        out += pair[::-1] if v == 1 else pair
+    return out
+
+
+# Each die is a group, values ascending; crit 1 < crit-less 1 < ... < crit-less maximum < crit maximum.
 PACK1 = (
     [f"d20_{v}" for v in range(1, 21)]  # a plain d20 with its crits ...
     + [f"d20{c}_{v}" for c in ("a", "d") for v in range(2, 20)]  # ... and the higher / lower of two, without the ties
-    + [
-        f"d12{c}_{v}" for c in ("r", "b", "rd", "ba") for v in range(1, 13)
-    ]  # r, b: no crits (Xd12); rd, ba: with (1d12)
-    + [f"d10_{v}" for v in range(1, 11)]
-    + ["d10n_1", "d10n_10", "d4n_1", "d4n_4", "d6n_1", "d6n_6"]  # the lowest and highest without the crit effects
+    + _d12("b", "a")  # blue: plain (no crits: Xd12) and with the advantage halo, whose 12 is the lone d12's crit
+    + _d12("r", "d")  # red: plain and with the disadvantage halo, whose 1 is the lone d12's crit
+    + ["d10_1", "d10n_1", *[f"d10_{v}" for v in range(2, 10)], "d10n_10", "d10_10"]
+    + ["d4n_1", "d4n_4", "d6n_1", "d6n_6"]  # the lowest and highest without the crit effects
 )
 PACK2 = (
     [f"d100_{v}" for v in range(1, 101)]

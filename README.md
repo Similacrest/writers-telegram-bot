@@ -114,24 +114,34 @@ after it rolls; text after the expression is the caption.
 | Not a valid roll | rolled defaults anyway | "Не зрозумів кидок…" with examples |
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
-**Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): a roll of one d4, d6, d8, d10,
-d12, d20 or d100 also gets an animated sticker of the die landing on the result (a d100 is the two
-percentile dice, tens and ones, landing together). The roll takes 0.6 s and the result then holds still for 2
-s (Telegram loops stickers and allows 3 s). The highest result gets golden rays and sparkles, the lowest a
-heavy landing, a red glow and dust; a d10 on its own has them on 1 and 10, while the d10s of a d100 are plain
-except on 01 and 00 (100). A bare `/d20` is just the sticker. A roll of several dice gets a sticker per die,
-up to `max_stickers` (4 by default: `dice = { stickers = true, max_stickers = 4 }`); more dice than that,
-or a die without stickers (d3), and it is only the line. The 160 stickers are
-made by `scripts/dice_stickers.py` (`uv run --group art python scripts/dice_stickers.py`; needs ffmpeg,
-which the `art` dependency group brings) and kept in `src/writers_bot/assets/dice`. At start the bot looks for
-its packs (`d20_v2_by_<bot username>` and so on; the number changes with the animations) and uploads the missing ones once, owned by the super-admin
-with the lowest id, as Telegram requires a person as a pack's owner; after that it sends them by file id.
+**Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): the dice of a roll also land as animated
+stickers on their results. They are two packs of 120 video stickers (`src/writers_bot/assets/dice_packs`, made by
+`scripts/dice_render`, see its README): the highest roll of a die has golden rays, the lowest a red halo, a dull die and
+dust. Which sticker a die gets (`core/dicestickers.py`):
 
-**New dice sticker packs (v4.2.2, not used by the bot yet).** `src/writers_bot/assets/dice_packs` holds two packs of
-120 stickers (pack 1: d20 and the higher / lower of two d20s, the d12 in four colour variants, the d10 and
-non-crit d4 / d6 / d10 extremes; pack 2: d100, d4, d6, d8 and a 5 kopiyok coin as a d2) with a `manifest.json`. They
-are made by `scripts/dice_render` (`uv run --group render python scripts/dice_render/render.py --pack 1 --pack 2`;
-needs headless Chromium, see its README) and check against Telegram's limits with `packs.py`.
+- **How many.** One or two dice get stickers on their own; three or four only with `-s` after the dice (`/3d6 -s Атака`);
+  more than `max_stickers` (4: `dice = { stickers = true, max_stickers = 4 }`), or a die without stickers (d13), and the
+  roll is only the line. `-q` silences them (`/d20 -q`). A bare `/d20` is just the sticker; a bonus or a caption adds the line.
+- **Which die.** A die with an odd number of sides has the sticker of the next even one (d3 is a d4, d11 a d12); a d2 is
+  the coin (a 5 kopiyok); a d100 is a tens die and a d10.
+- **Crits.** A d4, d6 or d10 on its own has the crit effects on its lowest and highest roll; rolled with dice of another
+  kind (`/d20+d4`) it has the crit-less version. The d8, d20 and d100 always have them.
+- **Advantage.** `/d20adv`: both d20s land; the larger one has the advantage look (a quiet green halo), the smaller one is
+  plain; with `dis` the smaller one has the disadvantage look (magenta) and the larger one is plain. A tie, and a 1 or
+  20 (they are the plain d20's crits), are plain. A d12 works the same way, in blue for advantage and red for disadvantage.
+- **The d12** on its own is red from 1 to 6 and blue from 7 up; a 1 is the red disadvantage 1 and a 12 the blue
+  advantage 12, which carry the crit effects.
+- **Daggerheart's duality dice** (`/2d12`): the first d12 is blue, the second red. If the blue one is larger it is from the
+  blue advantage set, if the red one is larger from the red disadvantage set, and on a tie both are; a die showing 1 or 12
+  is the crit-less version (crits work differently there). A d6 for advantage (`/2d12+d6 -s`) is crit-less too.
+
+The bot uploads the packs once at start, `dice1_v3_by_<bot username>` and `dice2_v3_by_<bot username>`, owned by the
+super-admin with the lowest id (Telegram wants a person as a pack's owner), and sends the stickers by file id. It finds
+a sticker by its place in the pack and checks the packs against the manifest at every start (a pack with the wrong
+number of stickers, or put out of order, is made again). Each sticker has emoji and search keywords for people (see
+`scripts/dice_render/tags.py`): the die's marker first (🧊 d20, 🕛 d12, 💯 d100 ...), then 🌟 crit, 💀 fumble, 🟢
+advantage, 🟣 disadvantage, 🔴 / 🔵 for the d12's colour, ⬆️ / ⬇️ for the highest and lowest roll and the value's digits;
+the search finds `d20 17`.
 
 ### Chat settings and communities (v4.0)
 

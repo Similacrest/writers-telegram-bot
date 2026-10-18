@@ -71,3 +71,36 @@ def test_pack_two_holds_d100_small_dice_and_the_coin(manifest):
     assert crit == {"d100": 100, "d4": 4, "d6": 6, "d8": 8}
     fumbles = [r for r in pack if r["effect"] == "fumble"]
     assert {r["die"] for r in fumbles} == {"d100", "d4", "d6", "d8"} and {r["value"] for r in fumbles} == {1}
+
+
+def test_emoji_and_keywords_are_within_telegrams_limits(manifest):
+    for row in (r for pack in manifest.values() for r in pack):
+        assert 1 <= len(row["emoji"]) <= 20, row["file"]
+        assert len(row["keywords"]) <= 20 and sum(len(k) for k in row["keywords"]) <= 64, row["file"]
+        assert row["keywords"][:2] == [row["die"], str(row["value"])], row[
+            "file"
+        ]  # "d20", "17": what the search finds
+    # the first emoji is all the bot can read back from a sticker: it is the die's marker, and the same for a whole die
+    markers = {}
+    for row in (r for pack in manifest.values() for r in pack):
+        markers.setdefault(row["die"], set()).add(row["emoji"][0])
+    assert all(len(m) == 1 for m in markers.values()), markers
+    assert len({next(iter(m)) for m in markers.values()}) == len(markers)  # and no two dice share one
+
+
+def test_the_packs_are_in_order_by_die_with_the_crits_at_the_ends(manifest):
+    names = {key: [r["file"].split("/")[1].removesuffix(".webm") for r in rows] for key, rows in manifest.items()}
+    one = names["pack1"]
+    assert one[:2] == ["d20_1", "d20_2"] and one[19] == "d20_20" and one[20] == "d20a_2"
+    blue = one[one.index("d12ba_1") :]
+    # crit 1 < crit-less 1 < 2 ... 11 (plain before halo) < crit-less 12 < crit 12; then the red die the same way
+    assert blue[:5] == ["d12ba_1", "d12b_1", "d12b_2", "d12ba_2", "d12b_3"]
+    assert one[one.index("d12ba_12") - 1 : one.index("d12ba_12") + 2] == ["d12b_12", "d12ba_12", "d12rd_1"]
+    assert one[one.index("d12rd_1") : one.index("d12rd_1") + 3] == ["d12rd_1", "d12r_1", "d12r_2"]
+    assert one[one.index("d12r_12") : one.index("d12r_12") + 3] == ["d12r_12", "d12rd_12", "d10_1"]
+    assert one[one.index("d10_1") : one.index("d10_1") + 4] == ["d10_1", "d10n_1", "d10_2", "d10_3"]
+    assert one[one.index("d10_9") :] == ["d10_9", "d10n_10", "d10_10", "d4n_1", "d4n_4", "d6n_1", "d6n_6"]
+    two = names["pack2"]
+    assert two[0] == "d100_1" and two[99] == "d100_100" and two[100:] == [
+        *[f"d4_{v}" for v in range(1, 5)], *[f"d6_{v}" for v in range(1, 7)], *[f"d8_{v}" for v in range(1, 9)], "d2_1", "d2_2",
+    ]  # fmt: skip

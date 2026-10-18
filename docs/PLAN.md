@@ -180,7 +180,7 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
 - A sticker per die for rolls of up to `max_stickers` (4) dice; the dice stickers roll for 0.6 s, then show
   the result still for 2 s.
 
-## Done in v4.2.2: the new dice sticker packs (assets and tools; the bot does not use them yet)
+## Done in v4.2.2: the new dice sticker packs (assets and tools)
 - `scripts/dice_render/` draws the dice with Babylon.js in headless Chromium (the "Dice of Rolling" theme, posed
   so the wanted face looks at the camera: nothing is recorded, so every result is exact) and encodes the WEBMs.
   The third-party files are fetched by `fetch_assets.py` against pinned checksums; see its README.
@@ -192,9 +192,20 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
   tens die and a d10 landing a moment apart), the d4, d6 and d8 (with crits) and a coin (d2: a 5 kopiyok).
 - Differences from v4.2.1's stickers: white numerals and the die's own colours, with the numerals of the faces
   that were not rolled faded; crit effects that run through the whole loop and close it; a slower, shorter roll.
-- **Still to do:** the bot still uploads and uses the v4.2.1 packs (`assets/dice`). Using the new ones means
-  two packs instead of one per die, mapping a sticker to a roll through the manifest (including the d12
-  rules above and the d20 advantage / disadvantage), and then dropping `assets/dice` (19 MB).
+- The bot started using them in v4.2.3 (below).
+
+## Done in v4.2.3: the bot uses the new dice sticker packs
+- The dice module uploads the two packs of v4.2.2 (`dice1_v3_by_<bot>`, `dice2_v3_by_<bot>`, 120 stickers each, in the
+  order of `manifest.json`: by die, values ascending, the crit 1 before the crit-less 1 and the crit-less highest
+  before the crit highest) and answers rolls by the rules in the README ("Dice stickers"): one or two dice get stickers,
+  three or four with `-s`, none with `-q`; odd dice take the next even die's stickers, a d2 is the coin; crit-less d4,
+  d6 and d10 extremes when rolled with other dice; the higher / lower d20 or d12 of an advantage / disadvantage has its own
+  look; `/2d12` follows Daggerheart's duality rules (blue and red, crit-less 1 and 12).
+- The choice is a pure function (`core/dicestickers.py`), tested against every roll it can see and against the manifest.
+- Stickers have emoji and search keywords (`scripts/dice_render/tags.py`); the bot finds a sticker by its place in the
+  pack and checks each place's first emoji (the only one Telegram hands back) at every start.
+- The v4.2.1 per-die packs and their files (`assets/dice`, 19 MB) are gone; `d{N}_v2_by_<bot>` packs left on
+  Telegram can be deleted in @Stickers. `scripts/dice_stickers.py` stays: `scripts/dice_render` reuses its effects code.
 
 ## Discord: three ways to use it
 

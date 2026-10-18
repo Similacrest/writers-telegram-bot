@@ -3,7 +3,8 @@
     uv run --group render python scripts/dice_render/packs.py
 
 Writes ``src/writers_bot/assets/dice_packs/pack1`` and ``pack2`` (120 stickers each, Telegram's limit for a pack) and
-``manifest.json``: for every sticker its file, die, variant, value and effect (crit, fumble, adv, dis or none) and emoji.
+``manifest.json``: for every sticker its file, die, variant, value and effect (crit, fumble, adv, dis or none), its emoji
+and its search keywords (see ``tags.py``).
 Nothing is written unless every clip passes: WEBM with VP9, 512 px, 2.9 s, at most 256 KB.
 """
 
@@ -15,6 +16,7 @@ from pathlib import Path
 
 import imageio_ffmpeg
 import render
+import tags
 from PIL import Image, ImageDraw
 
 DEST = Path(__file__).resolve().parents[2] / "src" / "writers_bot" / "assets" / "dice_packs"
@@ -62,6 +64,9 @@ def main() -> None:
         for name in names:
             shutil.copy(render.OUT / f"{name}.webm", DEST / key / f"{name}.webm")
             _, sides, value, variant = render.job(name)
+            emoji, keywords = tags.tags(name)
+            if why := tags.check(name, emoji, keywords):
+                sys.exit(f"{name}: {why}")
             rows.append(
                 {
                     "file": f"{key}/{name}.webm",
@@ -69,7 +74,8 @@ def main() -> None:
                     "variant": variant,
                     "value": value,
                     "effect": render.effect_of(sides, value, variant),
-                    "emoji": "🪙" if sides == 2 else "🎲",
+                    "emoji": emoji,
+                    "keywords": keywords,
                 }
             )
         manifest[key] = rows

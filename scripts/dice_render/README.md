@@ -15,7 +15,8 @@ stop with a small hop, 0.8 s, then the die lies still; the effects around it run
 | `fetch_assets.py` | downloads Babylon.js, the theme and the coin scan (pinned SHA-256) into `build/dice_render/web`, then runs `prep_atlas` |
 | `prep_atlas.py` | splits the theme's texture into the marble and crisp white numerals (the original's 25 px numerals turn chalky) |
 | `render.py` | draws and encodes the clips into `build/dice_render/out`; the clip names and the packs are defined here |
-| `packs.py` | checks every clip against the limits, then writes the packs and `manifest.json` into the bot's assets |
+| `tags.py` | the emoji and search keywords of every sticker (the vocabulary lives here: edit it, run `packs.py`) |
+| `packs.py` | checks every clip against the limits, then writes the packs and `manifest.json` (in the packs' order) into the bot's assets |
 | `calibrate.py` | finds the turn that puts each face's numeral upright (`roll_offsets.json`); only needed for other dice or a new texture |
 | `page/render.html` | the Babylon.js page: the scene, the poses, the tumble, the texture layers |
 
@@ -52,6 +53,9 @@ Clip names (`render.py` has the lists): `d20_17` a d20; `d20a_17` / `d20d_17` th
 `d12b_9` a red / blue d12, `d12rd_9` red for the lower of two, `d12ba_9` blue for the higher; `d4n_1`, `d6n_6`,
 `d10n_10` the lowest and highest without the crit effects; `d100_73` a tens die and a d10 (landing a moment apart);
 `d2_1` / `d2_2` the coin, the coat of arms / "5 копійок".
+
+The order in a pack is the order of the stickers in it: by die, values ascending, the crit 1 before the crit-less 1 and
+the crit-less highest before the crit highest.
 
 - **Pack 1 (120):** d20 1-20 with its crits; d20a and d20d 2-19 (a tied 1 or 20 is the plain d20); d12r, d12b (no crit
   effects: for Xd12, where crits work differently), d12rd, d12ba (with them: for a lone d12) 1-12 each; d10 1-10; and

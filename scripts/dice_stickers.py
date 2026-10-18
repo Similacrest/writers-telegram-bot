@@ -1,4 +1,6 @@
-"""Make the dice sticker animations: one short video per result of d4, d6, d8, d10, d12, d20 and d100.
+"""Superseded by scripts/dice_render (the bot now uses its packs); kept because dice_render reuses the effects code here.
+
+Make the dice sticker animations: one short video per result of d4, d6, d8, d10, d12, d20 and d100.
 
 Each sticker is a real polyhedron that tumbles in (0.6 s) and lands with the rolled face towards the viewer,
 its number upright, then holds still for 2 s: Telegram loops stickers and allows 3 s, so most of each loop

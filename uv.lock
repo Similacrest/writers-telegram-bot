@@ -1751,7 +1751,7 @@ wheels = [
 
 [[package]]
 name = "writers-bot"
-version = "4.2.2"
+version = "4.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
