@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import pytest
+from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, DAN, GROUP, Harness
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
@@ -540,3 +541,92 @@ async def test_h06_categories_in_help(make):
     await h.say(DAN, "/addprompt жахи Хтось стукає у двері")
     await h.say(ALICE, "/help")
     assert "з однієї: " in h.last_private(ALICE).text and "жахи" in h.last_private(ALICE).text
+
+
+# --- the admin tools (v4.2 suggestions) -------------------------------------------------------------------
+
+
+async def test_s01_settings_card_in_sections(make):
+    h = await make(ALL)
+    await h.say(DAN, "/settings")
+    card = h.last_private(DAN)
+    assert card.buttons()[:4] == ["Спринти", "Звіти й приватність", "Промпти й відповіді", "Привітання й досягнення"]
+    await h.press(DAN, card, "Звіти й приватність")
+    assert any(b.startswith("Прибирати звіти") for b in card.buttons()) and "← Назад" in card.buttons()
+    await h.press(DAN, card, "Прибирати звіти: увімкнено")
+    assert "Прибирати звіти: вимкнено" in card.buttons()  # stays in the section
+    await h.press(DAN, card, "← Назад")
+    assert "Звіти й приватність · змінено: 1" in card.buttons()
+
+
+async def test_s02_reply_becomes_the_answer(make):
+    h = await make(ALL)
+    answer = await h.say(DAN, "Ти — <b>фан</b>!\nДругий рядок")
+    await h.reply(DAN, answer, "/replies add /imafan")
+    assert "Додано відповідь на /imafan" in h.last_private(DAN).text
+    await h.say(ALICE, "/imafan")
+    assert "Другий рядок" in h.last_public().text
+
+
+async def test_s03_accept_and_share(make):
+    h = await make(ALL)
+    await h.say(DAN, "/addprompt жахи Хтось стукає")
+    await h.say(ALICE, "/suggest жахи Тінь без господаря")
+    await h.say(DAN, "/suggestions")
+    card = h.last_private(DAN)
+    answer = await h.press(DAN, card, "Прийняти й запропонувати всім")
+    assert "запропоновано для всіх" in answer["text"]
+    await h.dm(ADMIN, "/review")
+    assert "Тінь без господаря" in h.dms(ADMIN)[-1].text
+
+
+async def test_s04_misspelt_category_is_asked_about(make):
+    h = await make(ALL)
+    await h.say(DAN, "/addprompt Комедія Кіт пише роман")
+    await h.say(ALICE, "/suggest коммедія Пес редагує")
+    await h.say(DAN, "/suggestions")
+    card = h.last_private(DAN)
+    await h.press(DAN, card, "Прийняти")
+    assert "«коммедія» схожа на «Комедія»" in card.text
+    await h.press(DAN, card, "До «Комедія»")
+    prompts = h.tbot.module("prompts")
+    own = (await prompts.sets(GROUP))[0]
+    moved = next(p for p in await prompts.db.by_status(own) if p.text == "Пес редагує")
+    assert moved.category.label == "Комедія"  # into the existing category, not a new misspelt one
+    for _ in range(10):
+        await h.say(BOB, "/prompt Комедія")
+        if "Пес редагує" in h.last_public().text:
+            break
+    assert "Пес редагує" in h.last_public().text
+
+
+async def test_s05_case_only_difference_needs_no_question(make):
+    h = await make(ALL)
+    await h.say(DAN, "/addprompt Комедія Кіт пише роман")
+    await h.say(ALICE, "/suggest комедія Пес редагує")
+    await h.say(DAN, "/suggestions")
+    card = h.last_private(DAN)
+    answer = await h.press(DAN, card, "Прийняти")
+    assert answer["text"] == "Прийнято" and "схожа" not in card.text
+
+
+async def test_s06_communities_with_buttons(make):
+    h = await make(ALL)
+    h.fake.chats[-1002] = Chat(-1002, title="Second")
+    await h.say(DAN, "привіт")  # the chats get known to the bot
+    await h.say(DAN, "привіт", chat=-1002)
+    await h.dm(ADMIN, "/community")
+    card = h.dms(ADMIN)[-1]
+    await h.press(ADMIN, card, "+ Нова спільнота")
+    await h.dm(ADMIN, "Клуб", reply_to=h.dms(ADMIN)[-1])
+    assert "Клуб" in card.text and "Чатів ще немає" in card.text
+    await h.press(ADMIN, card, "+ Додати чат")
+    await h.press(ADMIN, card, "Writers")
+    assert "Writers" in card.text
+    communities = h.tbot.services.shared.extra["communities"]
+    assert (await communities.of_chat("telegram", str(GROUP))).name == "Клуб"
+    await h.press(ADMIN, card, "✕ Writers")
+    assert await communities.of_chat("telegram", str(GROUP)) is None
+    await h.press(ADMIN, card, "Видалити")
+    await h.press(ADMIN, card, "Так, видалити")
+    assert not await communities.all()

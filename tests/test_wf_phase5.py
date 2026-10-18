@@ -218,7 +218,7 @@ async def test_a13_turned_off(make):
     await create_owl(h)
     await h.say(DAN, "/settings")
     card = h.last_private(DAN)
-    await h.press(DAN, card, "Досягнення: увімкнено")
+    await h.press_setting(DAN, card, "Досягнення: увімкнено")
     await h.reply(DAN, await h.say(ALICE, "привіт"), "/award Нічна сова")
     assert "вимкнено" in h.last_private(DAN).text
     await h.close()

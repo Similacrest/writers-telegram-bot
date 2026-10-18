@@ -229,6 +229,7 @@ class TelegramBot:
         if self.chat_settings is not None:
             handlers += self.chat_settings.handlers()
             self._asks |= self.chat_settings.asks()
+            self._payloads |= self.chat_settings.start_payloads()
         for module in self.modules:
             handlers += module.handlers()
             self._asks |= module.asks()
@@ -240,6 +241,7 @@ class TelegramBot:
         handlers.append((CallbackQueryHandler(self.on_owned, pattern=r"^u:-?\d+:"), 0))
         if self.admin is not None and self.config.admin:
             handlers += self.admin.handlers()
+            self._asks |= self.admin.asks()
         for module in self.modules:
             handlers += getattr(module, "late_handlers", lambda: [])()
         for handler, group in handlers:
@@ -640,7 +642,10 @@ class TelegramBot:
             routes(self, web)
 
     def web_tabs(self) -> list[str]:
-        return ["chat"] if self.chat_settings is not None else []
+        tabs = ["chat"] if self.chat_settings is not None else []
+        if self.admin is not None and self.config.admin and self.admin.communities is not None:
+            tabs.append("communities")  # super-admins only (the web app checks)
+        return tabs
 
     # --- helpers for modules -----------------------------------------------------------------------
 
@@ -648,4 +653,7 @@ class TelegramBot:
         return f"https://t.me/{self.me.username}?start={payload}"
 
     def dm_button(self, text_key: str, payload: str) -> InlineKeyboardButton:
-        return InlineKeyboardButton(t(text_key), url=self.deep_link(payload))
+        return self.dm_button_text(t(text_key), payload)
+
+    def dm_button_text(self, text: str, payload: str) -> InlineKeyboardButton:
+        return InlineKeyboardButton(text, url=self.deep_link(payload))

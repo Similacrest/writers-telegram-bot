@@ -197,9 +197,13 @@ class Module(TelegramModule):
             return
         args = command_args_text(message)
         if args.split(maxsplit=1)[:1] == ["add"]:
-            trigger_text, sep, answer = (
-                args.split(maxsplit=1)[1].partition("=") if len(args.split(maxsplit=1)) > 1 else ("", "", "")
-            )
+            rest = args.split(maxsplit=1)[1] if len(args.split(maxsplit=1)) > 1 else ""
+            replied = message.reply_to_message
+            if replied is not None and "=" not in rest and (replied.text or replied.caption):
+                # The answer is the message replied to, formatting and line breaks kept: no syntax to learn.
+                trigger_text, sep, answer = rest, "=", replied.text_html or replied.caption_html or ""
+            else:
+                trigger_text, sep, answer = rest.partition("=")
             parsed = parse_trigger(trigger_text)
             if not sep or parsed is None or not answer.strip():
                 await self.bot.asks.respond(message, self.bot.fmt.t("replies.usage"), delete_command=True)

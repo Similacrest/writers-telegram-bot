@@ -707,7 +707,7 @@ unknown_ids = "Невідомих id: {n} (бот їх ще не бачив)."
 # /community (super-admins, private chat with the bot)
 community_title = "Спільноти"
 community_none = "Спільнот ще немає. Чати з Telegram-спільнот додаються самі."
-community_usage = """/community — список
+community_usage = """/community — спільноти кнопками, /community list — список з id чатів
 /community new <назва> — нова спільнота
 /community add <id спільноти> <id чату> … — додати чати
 /community remove <id чату> … — прибрати чати
@@ -722,6 +722,23 @@ community_deleted = "Спільноту видалено."
 community_set = "Налаштування {key}: {value}."
 # How a community was made, in the list
 community_telegram = "з Telegram"
+# /community without arguments: a card with buttons (super-admins, private chat)
+community_pick = "Оберіть спільноту, щоб змінити її чати."
+community_button = "{name} · чатів: {n}"
+community_new = "+ Нова спільнота"
+community_commands = "Ще: /community list (з id чатів), /community set <id> <налаштування> <значення>."
+community_empty = "Чатів ще немає."
+community_remove = "✕ {title}"
+community_add = "+ Додати чат"
+community_rename = "Перейменувати"
+community_delete = "Видалити"
+community_delete_confirm = "Видалити спільноту? Чати лишаться, але без спільних налаштувань."
+community_delete_yes = "Так, видалити"
+community_pick_chat = "Який чат додати?"
+community_no_free = "Усі чати з ботом уже в спільнотах."
+community_more = "Ще →"
+community_ask_name = "Як назвати спільноту?"
+community_name_placeholder = "Письменники"
 community_manual = "вручну"
 
 # ------------------------------------------------------------------------------------------------
@@ -756,6 +773,13 @@ accept = "Прийняти"
 reject = "Відхилити"
 accepted = "Прийнято"
 rejected = "Відхилено"
+# Third button on a chat's suggestion: accept it and propose it for the shared set too
+accept_share = "Прийняти й запропонувати всім"
+accepted_shared = "Прийнято й запропоновано для всіх"
+# Accepting a suggestion whose category looks like a misspelt existing one
+similar = "Категорія «{new}» схожа на «{existing}». Куди додати промпт?"
+into = "До «{category}»"
+keep_new = "Нова категорія «{category}»"
 
 # ------------------------------------------------------------------------------------------------
 [wordcount]
@@ -781,7 +805,7 @@ none = "Своїх відповідей ще немає."
 line = "{trigger} — відповідей: {count}"
 delete = "Видалити {trigger}"
 deleted = "Видалено"
-usage = "Додати: /replies add /команда = текст відповіді, або /replies add фраза = відповідь. Ще одна відповідь до того самого — те саме ще раз. {{name}} у відповіді — ім'я того, хто написав."
+usage = "Як додати: напишіть відповідь звичайним повідомленням (з форматуванням, у кілька рядків), тоді відповідайте на нього /replies add /команда або /replies add фраза. Коротко в один рядок: /replies add /команда = текст. Ще одна відповідь до того самого — те саме ще раз. {{name}} у відповіді — ім'я того, хто написав."
 added = "Додано відповідь на {trigger}."
 too_many = "Забагато відповідей у цьому чаті."
 # The v2 slogan replies (replies module with legacy = true): the phrase first, then the answers.
@@ -840,6 +864,7 @@ tab_settings = "Налаштування"
 tab_chat = "Чат"
 tab_prompts = "Промпти"
 tab_achievements = "Досягнення"
+tab_communities = "Спільноти"
 # The sprint panel
 sprint_none = "Зараз ви не в спринті. Долучайтеся кнопкою під повідомленням спринту в чаті."
 status_planned = "Скоро почнеться"
@@ -943,6 +968,13 @@ achievements_none = "Досягнень ще немає. Створіть: на�
 holders = "Мають: {list}"
 description = "Опис"
 image = "картинка"
+# The Communities tab (super-admins): chats that share /top, prompts and settings
+communities_intro = "Спільнота — кілька чатів зі спільними /top, промптами, налаштуваннями й досягненнями. Чати з Telegram-спільнот додаються самі."
+communities_telegram = "Telegram-спільнота: її чати додаються й прибираються самі."
+communities_pick = "Додати чат…"
+communities_remove = "Прибрати"
+communities_new = "Нова спільнота"
+communities_name = "Назва"
 
 # ------------------------------------------------------------------------------------------------
 [chatsettings]
@@ -951,6 +983,13 @@ title = "Налаштування чату"
 # When the chat belongs to a community
 community = "Спільнота: {name}. Позначені * беруть значення спільноти, доки чат не задасть своє."
 hint = "Зміни діють з наступного спринту."
+# The main card: a button per section; "Спринти · змінено: 2" when the chat changed some of them
+pick_section = "Оберіть розділ."
+section_changed = "{label} · змінено: {n}"
+section_sprints = "Спринти"
+section_privacy = "Звіти й приватність"
+section_prompts = "Промпти й відповіді"
+section_welcome = "Привітання й досягнення"
 # Button text: "Твори: увімкнено"
 toggle = "{label}: {value}"
 # The default sprint length in the middle of the -/+ buttons
@@ -965,11 +1004,14 @@ text_set = "задано"
 text_unset = "немає"
 open_web = "Відкрити в застосунку"
 saved = "Збережено"
-# The question for a text setting (a reply prompt in the group, for that admin)
-ask_text = "{who}, надішліть новий текст для «{label}» у відповідь на це повідомлення. {{name}} стане іменами нових учасників. «-» прибирає текст."
+# A text setting (the welcome message) is typed in the private chat: the question there, the current
+# text under it, the input placeholder, and the answer after saving
+ask_text_dm = "Надішліть новий текст для «{label}» у чаті «{chat}». Форматування збережеться; {{name}} стане іменами нових учасників. «-» прибирає текст."
+current = "Зараз:"
+text_placeholder = "Вітаємо, {{name}}!"
+text_saved_dm = "Збережено для «{chat}»."
 # Words that clear a text setting, space-separated
 clear_words = "- — ні"
-text_saved = "Текст збережено."
 too_long = "Задовгий текст."
 # Labels of the settings (the web app shows them too)
 sprints_default_length = "Тривалість спринту, хв"

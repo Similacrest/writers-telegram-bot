@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from telegram import (
     Chat,
     ChatMemberUpdated,
+    ForceReply,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputFile,
@@ -53,6 +54,26 @@ PENDING_TTL = 3600
 PROGRESS_EVERY = 5.0  # seconds between progress edits
 LIST_AS_FILE_OVER = 60
 TARGETS = {"groups": False, "private": True, "all": None}
+PICK_PAGE = 8  # chats per page when adding one to a community
+NAME_TTL = 10 * 60
+
+
+class _NameWanted:
+    """A super-admin's private answer to "what's the community called?" (a ``filters.MessageFilter``)."""
+
+    def __new__(cls, tools: "AdminTools"):
+        from telegram.ext import filters
+
+        class Filter(filters.MessageFilter):
+            def filter(self, message: Message) -> bool:
+                if message.chat.type != ChatType.PRIVATE or message.from_user is None:
+                    return False
+                waiting = tools._naming.get(message.from_user.id)
+                return waiting is not None and time.monotonic() - waiting[1] < NAME_TTL
+
+        return Filter(name="community_name")
+
+
 _FMT = HtmlFormatter(UTC)
 TYPE_KEYS = {
     "private": "admin.type_private",
@@ -112,6 +133,8 @@ class BroadcastResult:
 
 class AdminTools:
     def __init__(self, storage: Storage, super_admins: frozenset[int], tbot: "TelegramBot | None" = None):
+        # admin -> (community being renamed, or None for a new one; since; the card; the question)
+        self._naming: dict[int, tuple[int | None, float, int | None, int]] = {}
         self.storage = storage
         self.super_admins = super_admins
         self.tbot = tbot
@@ -137,9 +160,15 @@ class AdminTools:
         ]
 
     def handlers(self):
-        from telegram.ext import CallbackQueryHandler
+        from telegram.ext import CallbackQueryHandler, MessageHandler, filters
 
-        return [(CallbackQueryHandler(self.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"), 0)]
+        return [
+            (CallbackQueryHandler(self.on_broadcast_button, pattern=r"^bc:(go|no):[0-9a-f]+$"), 0),
+            (MessageHandler(_NameWanted(self) & filters.TEXT & ~filters.COMMAND, self.on_community_name), 0),
+        ]
+
+    def asks(self) -> dict:
+        return {"cm": self.on_community_button} if self.communities is not None else {}
 
     # --- tracking --------------------------------------------------------------------------------
 
@@ -450,6 +479,9 @@ class AdminTools:
                 await settings.set_community(int(args[1]), args[2], value)
                 await message.reply_html(f.t("admin.community_set", key=args[2], value=value or "—"))
             elif not action:
+                text, markup = await self.communities_card(message.from_user.id)
+                await message.reply_html(text, reply_markup=markup)
+            elif action == "list":
                 await self._list_communities(message)
             else:
                 await message.reply_html(f.t("admin.community_usage"))
@@ -473,6 +505,143 @@ class AdminTools:
                     + (f" ({platform})" if platform != PLATFORM else "")
                 )
         await self._send_chunks(message, f.bold(t("admin.community_title")), lines)
+
+    # --- /community with buttons ---------------------------------------------------------------------
+
+    async def _titles(self) -> dict[str, str]:
+        return {r.chat_id: r.title or r.chat_id for r in await self.storage.list_chats(PLATFORM, private=False)}
+
+    async def communities_card(self, admin_id: int):
+        from .base import button
+
+        f = self._fmt
+        communities = await self.communities.all()
+        lines = [f.bold(t("admin.community_title"))]
+        lines.append(f.t("admin.community_pick") if communities else f.t("admin.community_none"))
+        rows = [
+            [button(t("admin.community_button", name=c.name, n=len(c.chats)), admin_id, f"cm:c:{c.id}")]
+            for c in communities
+        ]
+        rows.append([button(t("admin.community_new"), admin_id, "cm:new")])
+        rows.append([button(t("common.close"), admin_id, "cm:close")])
+        lines += ["", f.t("admin.community_commands")]
+        return "\n".join(lines), InlineKeyboardMarkup(rows)
+
+    async def community_card(self, admin_id: int, community_id: int):
+        from .base import button
+
+        f = self._fmt
+        c = await self.communities.get(community_id)
+        if c is None:
+            return await self.communities_card(admin_id)
+        titles = await self._titles()
+        kind = f.t("admin.community_telegram") if c.telegram_id else f.t("admin.community_manual")
+        lines = [f.bold(c.name) + f" ({kind})"]
+        rows = []
+        for platform, chat_id in c.chats:
+            lines.append(
+                f"• {f.escape(titles.get(chat_id, chat_id))}" + (f" ({platform})" if platform != PLATFORM else "")
+            )
+            if platform == PLATFORM:
+                rows.append([button(t("admin.community_remove", title=titles.get(chat_id, chat_id)), admin_id,
+                                    f"cm:rm:{c.id}:{chat_id}")])  # fmt: skip
+        if not c.chats:
+            lines.append(f.t("admin.community_empty"))
+        rows.append([button(t("admin.community_add"), admin_id, f"cm:pick:{c.id}:0")])
+        rows.append(
+            [
+                button(t("admin.community_rename"), admin_id, f"cm:ren:{c.id}"),
+                button(t("admin.community_delete"), admin_id, f"cm:del:{c.id}"),
+            ]
+        )
+        rows.append([button(t("common.back"), admin_id, "cm:list")])
+        return "\n".join(lines), InlineKeyboardMarkup(rows)
+
+    async def _free_chats(self) -> list:
+        linked = {chat for c in await self.communities.all() for _, chat in c.chats}
+        chats = await self.storage.list_chats(PLATFORM, private=False, reachable_only=True)
+        free = [c for c in chats if c.chat_id not in linked and c.type != "channel"]
+        return sorted(free, key=lambda c: -(c.member_count or 0))
+
+    async def on_community_button(self, query, args: list[str]) -> None:
+        from .base import Sent, button
+
+        sent = Sent.from_query(query)
+        admin_id = query.from_user.id
+        if admin_id not in self.super_admins:
+            await self.tbot.asks.toast(query, "common.admins_only")
+            return
+        action = args[0] if args else ""
+        c = self.communities
+        f = self._fmt
+        ident = int(args[1]) if len(args) > 1 and args[1].isdigit() else None
+        await query.answer()
+        if action == "close":
+            await self.tbot.asks.delete(sent)
+            return
+        if action == "new" or action == "ren":
+            question = await self.tbot.app.bot.send_message(
+                admin_id,
+                f.t("admin.community_ask_name"),
+                reply_markup=ForceReply(input_field_placeholder=t("admin.community_name_placeholder")),
+            )
+            self._naming[admin_id] = (ident, time.monotonic(), sent.message_id if sent else None, question.message_id)
+            return
+        if action == "rm" and ident is not None and len(args) > 2:
+            await c.remove(PLATFORM, args[2])
+        elif action == "add" and ident is not None and len(args) > 2:
+            await c.add(ident, PLATFORM, args[2])
+        elif action == "delok" and ident is not None:
+            await c.delete(ident)
+            ident = None
+        if action == "del" and ident is not None:
+            markup = InlineKeyboardMarkup(
+                [[button(t("admin.community_delete_yes"), admin_id, f"cm:delok:{ident}"),
+                  button(t("common.cancel"), admin_id, f"cm:c:{ident}")]]
+            )  # fmt: skip
+            await self.tbot.asks.edit(sent, f.t("admin.community_delete_confirm"), markup)
+            return
+        if action == "pick" and ident is not None:
+            page = int(args[2]) if len(args) > 2 and args[2].isdigit() else 0
+            free = await self._free_chats()
+            shown = free[page * PICK_PAGE : (page + 1) * PICK_PAGE]
+            rows = [[button(ch.title or ch.chat_id, admin_id, f"cm:add:{ident}:{ch.chat_id}")] for ch in shown]
+            nav = []
+            if (page + 1) * PICK_PAGE < len(free):
+                nav.append(button(t("admin.community_more"), admin_id, f"cm:pick:{ident}:{page + 1}"))
+            nav.append(button(t("common.back"), admin_id, f"cm:c:{ident}"))
+            rows.append(nav)
+            text = f.t("admin.community_pick_chat") if free else f.t("admin.community_no_free")
+            await self.tbot.asks.edit(sent, text, InlineKeyboardMarkup(rows))
+            return
+        if ident is not None and action in ("c", "rm", "add"):
+            text, markup = await self.community_card(admin_id, ident)
+        else:
+            text, markup = await self.communities_card(admin_id)
+        await self.tbot.asks.edit(sent, text, markup)
+
+    async def on_community_name(self, update: Update, _context) -> None:
+        from .base import Sent
+
+        message = update.effective_message
+        admin_id = message.from_user.id
+        ident, _, card_id, question_id = self._naming.pop(admin_id)
+        name = " ".join((message.text or "").split())[:100]
+        if not name:
+            return
+        if ident is None:
+            ident = (await self.communities.create(name)).id
+        else:
+            await self.communities.rename(ident, name)
+        bot = self.tbot.app.bot
+        for message_id in (question_id, message.message_id):
+            with contextlib.suppress(TelegramError):
+                await bot.delete_message(admin_id, message_id)
+        text, markup = await self.community_card(admin_id, ident)
+        if card_id:
+            await self.tbot.asks.edit(Sent(admin_id, admin_id, message_id=card_id), text, markup)
+        else:
+            await bot.send_message(admin_id, text, reply_markup=markup)
 
     # --- /bcexclude, /bcinclude ------------------------------------------------------------------
 

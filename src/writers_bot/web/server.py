@@ -28,8 +28,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 Handler = Callable[[web.Request, WebUser], Awaitable[web.StreamResponse]]
-TAB_ORDER = ["sprint", "works", "progress", "settings", "chat", "prompts", "achievements"]
+TAB_ORDER = ["sprint", "works", "progress", "settings", "chat", "prompts", "achievements", "communities"]
 ADMIN_TABS = {"chat", "prompts", "achievements"}
+SUPER_TABS = {"communities"}  # super-admins only
 STATIC = {"app.js": "application/javascript", "app.css": "text/css", "index.html": "text/html"}
 CSP = (
     "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; "
@@ -186,6 +187,8 @@ class WebApp:
             tabs += tbot.web_tabs()
         if ADMIN_TABS & set(tabs) and not (self.admin_chats is not None and await self.admin_chats(user)):
             tabs = [tab for tab in tabs if tab not in ADMIN_TABS]  # only for people who administer a chat
+        if SUPER_TABS & set(tabs) and not self.is_super_admin(user):
+            tabs = [tab for tab in tabs if tab not in SUPER_TABS]
         tabs = sorted(
             dict.fromkeys(tabs), key=lambda tab: TAB_ORDER.index(tab) if tab in TAB_ORDER else len(TAB_ORDER)
         )
@@ -210,6 +213,13 @@ class WebApp:
             raise ApiError(403, "web.error_not_member") from None
         if member.status in ("left", "kicked"):
             raise ApiError(403, "web.error_not_member")
+
+    def is_super_admin(self, user: WebUser) -> bool:
+        return user.platform == "telegram" and int(user.user_id) in self.bot_for(user).settings.super_admins
+
+    def require_super_admin(self, user: WebUser) -> None:
+        if not self.is_super_admin(user):
+            raise ApiError(403, "web.error_not_admin")
 
     async def require_chat_admin(self, user: WebUser, chat_id: int) -> None:
         """Admin rights are checked with getChatMember on every change."""

@@ -63,7 +63,7 @@ async def test_x01_admin_turns_top_off(make):
     h = await make()
     card = await open_settings(h)
     assert "Налаштування чату" in card.text and not [m for m in h.bot_public() if "Налаштування чату" in m.text]
-    await h.press(DAN, card, "/top: увімкнено")
+    await h.press_setting(DAN, card, "/top: увімкнено")
     assert "/top: вимкнено" in card.buttons()
     await h.say(ALICE, "/top")
     assert "вимкнено" in h.last_public().text
@@ -77,7 +77,7 @@ async def test_x02_members_cant_change_settings(make):
     assert "лише адміни" in h.last_private(ALICE).text
     assert cmd.deleted and not h.public_since(mark)
     card = await open_settings(h)
-    answer = await h.press(ALICE, card, "/top: увімкнено")  # someone else's card
+    answer = await h.press(ALICE, card, "Спринти")  # someone else's card
     assert "не для вас" in answer["text"]
     await h.close()
 
@@ -85,7 +85,7 @@ async def test_x02_members_cant_change_settings(make):
 async def test_x03_default_length(make):
     h = await make()
     card = await open_settings(h)
-    await h.press(DAN, card, "-5")
+    await h.press_setting(DAN, card, "-5")
     assert any("Тривалість спринту, хв: 25" in b for b in card.buttons())
     await h.say(ALICE, "/sprint")
     assert h.sprint().planned_duration == 25
@@ -98,7 +98,7 @@ async def test_x04_works_off_in_this_chat(make):
 
     await add_works(h, ALICE, "Роман", "Есе")
     card = await open_settings(h)
-    await h.press(DAN, card, "Твори: увімкнено")
+    await h.press_setting(DAN, card, "Твори: увімкнено")
     await h.say(ALICE, "/sprint 10 0")
     assert "Роман" not in h.sprint_message().text
     assert "Мої твори" not in h.sprint_message().buttons()
@@ -114,7 +114,7 @@ async def test_x05_hidden_numbers_off_in_this_chat(make):
     await h.press(BOB, h.dms(BOB)[-1], "Налаштування")
     await h.press(BOB, h.dms(BOB)[-1], "Мої числа: видно")
     card = await open_settings(h)
-    await h.press(DAN, card, "Приховані числа (✓ на дошці): увімкнено")
+    await h.press_setting(DAN, card, "Приховані числа (✓ на дошці): увімкнено")
     await h.say(ALICE, "/sprint 10 0")
     await h.press(BOB, h.sprint_message(), "Долучитися")
     assert "видно всім" in h.mine(BOB)[-1].text  # told before writing
@@ -127,7 +127,7 @@ async def test_x05_hidden_numbers_off_in_this_chat(make):
 async def test_x06_keep_report_messages(make):
     h = await make()
     card = await open_settings(h)
-    await h.press(DAN, card, "Прибирати звіти: увімкнено")
+    await h.press_setting(DAN, card, "Прибирати звіти: увімкнено")
     await h.say(ALICE, "/sprint 10 0")
     await h.advance(10 * 60)
     m = await h.reply(ALICE, h.board(), "500")
@@ -138,11 +138,15 @@ async def test_x06_keep_report_messages(make):
 async def test_x07_greeter_text_from_settings(make):
     h = await make({"greeter": {}, **FULL})
     card = await open_settings(h)
-    await h.press(DAN, card, "Привітання: немає — змінити")
-    question = h.last_public()
-    assert "Dan" in question.text
-    answer = await h.reply(DAN, question, "Вітаємо, {name}! Пишіть у спринтах.")
-    assert question.deleted and answer.deleted
+    await h.press(DAN, card, "Привітання й досягнення")
+    link = card.button("Привітання: немає — змінити")["url"]  # typed in private, not in the group
+    mark = h.mark()
+    await h.dm(DAN, "/start " + link.split("start=")[1])
+    assert "«Привітання» у чаті «Writers»" in h.dms(DAN)[-1].text
+    await h.dm(DAN, "Вітаємо, {name}! Пишіть у спринтах.")
+    assert "Збережено" in h.dms(DAN)[-1].text and not h.public_since(mark)
+    await h.dm(ALICE, "/start " + link.split("start=")[1])  # not an admin there
+    assert "лише адміни" in h.dms(ALICE)[-1].text
     await h.say(DAN, "", new_chat_members=[EVE.to_dict()])
     assert "Вітаємо" in h.last_public().text and "Eve" in h.last_public().text
     await h.close()
@@ -193,8 +197,10 @@ async def test_x10_community_settings_inherit(make):
     await h.dm(ADMIN, f"/community set {c.id} sprints.default_length 45")
     assert "45" in h.dms(ADMIN)[-1].text
     card = await open_settings(h)
+    assert "Спринти · змінено: 1" in card.buttons()  # the main card says which section differs
+    await h.press(DAN, card, "Спринти · змінено: 1")
     assert any("45 *" in b for b in card.buttons())  # inherited, marked
-    await h.press(DAN, card, "+5")
+    await h.press_setting(DAN, card, "+5")
     await h.say(ALICE, "/sprint")
     assert h.sprint().planned_duration == 50
     await h.close()
@@ -225,7 +231,7 @@ async def test_x12_manual_community(make):
     await h.dm(ADMIN, "/community new Клуб")
     assert "Спільноту створено: 1" in h.dms(ADMIN)[-1].text
     await h.dm(ADMIN, f"/community add 1 {GROUP} {OTHER}")
-    await h.dm(ADMIN, "/community")
+    await h.dm(ADMIN, "/community list")
     listing = h.dms(ADMIN)[-1].text
     assert "Клуб" in listing and str(GROUP) in listing and "вручну" in listing
     await h.dm(ADMIN, f"/community remove {OTHER}")
@@ -260,7 +266,7 @@ async def test_x14_legacy_replies_become_defaults(make):
     await h.say(ALICE, "Слава Україні!")
     assert "Героям Слава" in h.last_public().text
     card = await open_settings(h)
-    await h.press(DAN, card, "Відповіді бота за замовчуванням: увімкнено")
+    await h.press_setting(DAN, card, "Відповіді бота за замовчуванням: увімкнено")
     mark = h.mark()
     await h.say(ALICE, "Слава Україні!")
     assert not h.public_since(mark)
@@ -301,7 +307,7 @@ async def test_x16_chat_prompts_and_shared_switch(make):
     await h.say(DAN, "/addprompt жахи скрип сходів уночі")
     assert "Додано до категорії «жахи»" in h.last_private(DAN).text
     card = await open_settings(h)
-    await h.press(DAN, card, "Спільні промпти: увімкнено")
+    await h.press_setting(DAN, card, "Спільні промпти: увімкнено")
     for _ in range(5):
         await h.say(ALICE, "/prompt жахи")
         assert "скрип сходів" in h.last_public().text
@@ -449,7 +455,7 @@ async def test_x24_settings_snapshot_at_the_start(make):
     await add_works(h, ALICE, "Роман")
     await h.say(ALICE, "/sprint 10 0")
     card = await open_settings(h)
-    await h.press(DAN, card, "Твори: увімкнено")  # applies from the next sprint
+    await h.press_setting(DAN, card, "Твори: увімкнено")  # applies from the next sprint
     await h.advance(10 * 60)
     await h.reply(ALICE, h.board(), "300")
     assert "«Роман»" in h.mine(ALICE)[-1].text
@@ -463,6 +469,7 @@ async def test_x25_greeter_from_the_sheet_imported_once(make):
     await h.say(DAN, "", new_chat_members=[EVE.to_dict()])
     assert "Привіт" in h.last_public().text
     card = await open_settings(h)
+    await h.press(DAN, card, "Привітання й досягнення · змінено: 1")
     assert any("Привітання: задано" in b for b in card.buttons())
     await h.close()
 

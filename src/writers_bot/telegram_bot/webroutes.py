@@ -125,6 +125,70 @@ def routes(tbot: "TelegramBot", app: WebApp) -> None:
         await tbot.people.forget_account(user.platform, user.user_id)
         return ok()
 
+    # --- communities (super-admins) ------------------------------------------------------------------
+
+    communities = tbot.services.shared.extra.get("communities")
+
+    async def community_list(_request: web.Request, user: WebUser) -> web.Response:
+        app.require_super_admin(user)
+        chats = [c for c in await tbot.storage.list_chats(PLATFORM, private=False) if c.type != "channel"]
+        titles = {c.chat_id: c.title or c.chat_id for c in chats}
+        out, linked = [], {}
+        for com in await communities.all():
+            out.append(
+                {
+                    "id": com.id,
+                    "name": com.name,
+                    "telegram": com.telegram_id is not None,
+                    "chats": [{"id": cid, "title": titles.get(cid, cid)} for p, cid in com.chats if p == PLATFORM],
+                }
+            )
+            for _platform, cid in com.chats:
+                linked[cid] = com.id
+        free = [{"id": c.chat_id, "title": titles[c.chat_id]} for c in chats if c.chat_id not in linked]
+        return web.json_response({"communities": out, "free": free})
+
+    async def community_create(request: web.Request, user: WebUser) -> web.Response:
+        app.require_super_admin(user)
+        name = str((await app.body(request)).get("name", "")).strip()
+        if not name:
+            raise ApiError(400, "web.error_bad_request")
+        await communities.create(name[:100])
+        return await community_list(request, user)
+
+    async def community_change(request: web.Request, user: WebUser) -> web.Response:
+        app.require_super_admin(user)
+        community_id = int(request.match_info["community"])
+        if await communities.get(community_id) is None:
+            raise ApiError(404, "web.error_bad_request")
+        if request.method == "DELETE":
+            await communities.delete(community_id)
+        else:
+            name = str((await app.body(request)).get("name", "")).strip()
+            if not name:
+                raise ApiError(400, "web.error_bad_request")
+            await communities.rename(community_id, name[:100])
+        return await community_list(request, user)
+
+    async def community_chat(request: web.Request, user: WebUser) -> web.Response:
+        app.require_super_admin(user)
+        community_id, chat_id = int(request.match_info["community"]), str(int(request.match_info["chat"]))
+        if await communities.get(community_id) is None:
+            raise ApiError(404, "web.error_bad_request")
+        if request.method == "PUT":
+            await communities.add(community_id, PLATFORM, chat_id)
+        else:
+            await communities.remove(PLATFORM, chat_id)
+        return await community_list(request, user)
+
+    if communities is not None and tbot.config.admin:
+        app.add("GET", "/api/communities", community_list)
+        app.add("POST", "/api/communities", community_create)
+        app.add("PATCH", r"/api/communities/{community:\d+}", community_change)
+        app.add("DELETE", r"/api/communities/{community:\d+}", community_change)
+        app.add("PUT", r"/api/communities/{community:\d+}/chats/{chat:-?\d+}", community_chat)
+        app.add("DELETE", r"/api/communities/{community:\d+}/chats/{chat:-?\d+}", community_chat)
+
     app.add("GET", "/api/launch", launch)
     app.add("GET", "/api/chats", chats)
     app.add("GET", r"/api/chat/{chat:-?\d+}/settings", chat_settings)

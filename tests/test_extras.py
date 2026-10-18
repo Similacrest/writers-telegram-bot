@@ -44,3 +44,17 @@ def test_smash():
     for _ in range(50):
         s = smash()
         assert 9 <= len(s) <= 21 and all(c in "qwertyuiop[]asdfghjkl;'zxcvbnm,./" for c in s)
+
+
+def test_dice_sticker_files():
+    """Every result of every die has its sticker, within Telegram's limits for video stickers."""
+    from importlib.resources import files
+
+    from writers_bot.modules.dice.telegram import SIDES
+
+    folder = files("writers_bot.assets.dice")
+    for sides in SIDES:
+        for value in range(1, sides + 1):
+            data = folder.joinpath(f"d{sides}_{value}.webm").read_bytes()
+            assert data[:4] == b"\x1a\x45\xdf\xa3", (sides, value)  # WEBM (EBML)
+            assert len(data) <= 256 * 1024, (sides, value, len(data))

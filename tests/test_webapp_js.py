@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
-from harness import ALICE, DAN, GROUP, Harness
+from harness import ADMIN, ALICE, DAN, GROUP, Harness
 from test_web import WEB, init_data
 
 from writers_bot.core.i18n import texts
@@ -207,3 +207,20 @@ async def test_errors_show_the_server_text(server):
         f"sessionStorage.setItem('token', {json.dumps(token)}); await start(); await TABS.progress(document.getElementById('view'));"
     )
     assert page.errors() == ["Щось пішло не так"]
+
+
+async def test_communities_tab_for_super_admins(server):
+    h, client = server
+    await h.say(DAN, "hi")  # the group is known
+    responses, token = await collect(
+        client, ADMIN, [("GET", "/api/me"), ("GET", "/api/sprint"), ("GET", "/api/communities")]
+    )
+    assert "communities" in responses["GET /api/me"]["body"]["tabs"]
+    page = Page(responses)
+    page.run(f"sessionStorage.setItem('token', {json.dumps(token)}); await start();")
+    page.run("await TABS.communities(document.getElementById('view'));")
+    assert page.errors() == []
+    assert "Нова спільнота" in page.view_text()
+    members, _ = await collect(client, ALICE, [("GET", "/api/me"), ("GET", "/api/communities")])
+    assert "communities" not in members["GET /api/me"]["body"]["tabs"]
+    assert members["GET /api/communities"]["status"] == 403

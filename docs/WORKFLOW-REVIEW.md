@@ -107,10 +107,10 @@ The owner's answers to the open items above, and what v4.2 did (see PLAN.md, "Do
 | R1.6 Works live in the private chat | Switching should work in public too | `/works` and `/profile` → Твори in groups: on/paused toggles |
 | R1.7 Hidden numbers visible as "✓ Bob" | — | unchanged |
 | R1.8 The first goal needs a private chat | Needs an onboarding step, and keeping track of it | three steps in the private chat, progress kept and shown |
-| R2.1–R2.7 admin tools | Suggestions asked for | see "Suggestions for the admin tools" below |
+| R2.1–R2.7 admin tools | Suggestions asked for, then all accepted | built in v4.2 (below); `/bcexclude` kept |
 | R3.1 An award is two messages | No raw sticker outside creation; rendered cards | one picture with the caption; pictures for lists and the board |
 
-### Suggestions for the admin tools (R2)
+### Suggestions for the admin tools (R2), all built in v4.2
 
 1. **The long /settings card** → a short card with four sections (Спринти · Звіти й приватність ·
    Промпти й відповіді · Привітання й досягнення), each opening its own few toggles in place, plus the
@@ -130,10 +130,10 @@ The owner's answers to the open items above, and what v4.2 did (see PLAN.md, "Do
    as checkboxes per community), and `/community` replies with buttons instead of ids.
 7. **`/bcexclude`** → keep as an admin tool, or drop it if "no opt-out" should also bind admins.
 
-## Round 4: v4.2, `tests/test_wf_phase6.py`, 36 workflows
+## Round 4: v4.2, `tests/test_wf_phase6.py`, 49 workflows (and 1 web-app rendering check)
 
 Pausing and switching works, the split tip, % corrections, getting started, achievement pictures, dice
-(notation and stickers).
+(notation and stickers), `/help` and the command menus, the admin tools.
 
 ### Fixed
 1. **The tip's example numbers** were 60/40 of the number ("240 Роман 160 Есе"), which reads like a
@@ -141,6 +141,13 @@ Pausing and switching works, the split tip, % corrections, getting started, achi
 2. **Confirmations of ephemeral commands** went nowhere without admin rights: `/progress` sent as an
    ephemeral command got only the 👍. They are now ephemeral replies to the command.
 3. **The transcripts** didn't show pictures and stickers; the fake API logs them now.
+4. **A stray question from two menus**: with a getting-started step and the works menu both waiting for
+   typed text, the step took the work's name; the newer question now gets the answer.
+5. **Looking at someone's achievements notified them** (the caption mentioned them); it now names them in
+   bold.
+6. **`/help` in a v2 bot** offered "your data in the private chat", which a v2 bot doesn't have; the line now
+   shows only where it's true, and the sprint line names a chat's own length only where chats have settings.
+7. **`/help` in a group** is now a private answer (a v2 bot keeps the public reply).
 
 ### Still open
 1. **The first `/start` is two messages** (the help, then step 1 of getting started). Merging them would
@@ -159,7 +166,7 @@ Pausing and switching works, the split tip, % corrections, getting started, achi
 
 ## Summary
 
-- 34 + 26 + 21 + 36 modelled workflows (plus 4 web-app rendering checks), all passing; 16 problems fixed on
+- 34 + 26 + 21 + 49 modelled workflows (plus 5 web-app rendering checks), all passing; 20 problems fixed on
   the way.
 - The open items above are design questions rather than bugs: mostly Telegram limits (no force-reply to
   an ephemeral message, ephemeral messages only for admin bots or right after a button press) and

@@ -495,6 +495,34 @@ async function renderAchievements(view) {
   view.replaceChildren(...parts);
 }
 
-const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings, chat: renderChat, prompts: renderPrompts, achievements: renderAchievements };
+// --- communities (super-admins) --------------------------------------------------------------------------
+
+async function renderCommunities(view) {
+  const data = await guarded(() => api("GET", "/api/communities"));
+  if (!data) return;
+  const redraw = (result) => { if (result) renderCommunities(view); };
+  const parts = [el("p", { class: "muted" }, T("communities_intro"))];
+  for (const c of data.communities) {
+    const name = el("input", { value: c.name });
+    const pick = el("select", {}, el("option", { value: "" }, T("communities_pick")),
+      ...data.free.map((chat) => el("option", { value: chat.id }, chat.title)));
+    parts.push(el("div", { class: "card" },
+      el("div", { class: "row" }, el("div", { class: "grow" }, name),
+        el("button", { class: "plain", onclick: () => guarded(() => api("PATCH", `/api/communities/${c.id}`, { name: name.value })).then(redraw) }, T("save"))),
+      c.telegram ? el("p", { class: "muted" }, T("communities_telegram")) : null,
+      el("ul", {}, ...c.chats.map((chat) => el("li", {}, chat.title, " ",
+        el("button", { class: "plain", onclick: () => guarded(() => api("DELETE", `/api/communities/${c.id}/chats/${chat.id}`)).then(redraw) }, T("communities_remove"))))),
+      data.free.length ? el("div", { class: "row" }, el("div", { class: "grow" }, pick),
+        el("button", { onclick: () => pick.value && guarded(() => api("PUT", `/api/communities/${c.id}/chats/${pick.value}`)).then(redraw) }, T("add"))) : null,
+      el("button", { class: "danger", onclick: () => confirm(T("delete") + " «" + c.name + "»?") && guarded(() => api("DELETE", `/api/communities/${c.id}`)).then(redraw) }, T("delete"))));
+  }
+  const fresh = el("input", { placeholder: T("communities_name") });
+  parts.push(el("div", { class: "card" }, el("h2", {}, T("communities_new")),
+    el("div", { class: "row" }, el("div", { class: "grow" }, fresh),
+      el("button", { class: "primary", onclick: () => fresh.value && guarded(() => api("POST", "/api/communities", { name: fresh.value })).then(redraw) }, T("add")))));
+  view.replaceChildren(...parts);
+}
+
+const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings, chat: renderChat, prompts: renderPrompts, achievements: renderAchievements, communities: renderCommunities };
 
 start().catch((e) => toast(e.message || String(e), true));

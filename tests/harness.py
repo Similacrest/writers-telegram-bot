@@ -173,6 +173,21 @@ class Harness:
         await self.settle()
         return self.fake.answers.get(data["callback_query"]["id"], {})
 
+    async def press_setting(self, user: FakeUser, card: Msg, label: str) -> dict:
+        """Press a setting on the /settings card, opening its section first."""
+        sections = ("Спринти", "Звіти й приватність", "Промпти й відповіді", "Привітання й досягнення")
+        if label in card.buttons():
+            return await self.press(user, card, label)
+        for section in sections:
+            found = next((b for b in card.buttons() if b.startswith(section)), None)
+            if found is None:
+                continue
+            await self.press(user, card, found)
+            if label in card.buttons():
+                return await self.press(user, card, label)
+            await self.press(user, card, "← Назад")
+        raise KeyError(f"no setting {label!r} on {card.buttons()}")
+
     async def settle(self) -> None:
         await self.clock.settle()
         for _ in range(3):

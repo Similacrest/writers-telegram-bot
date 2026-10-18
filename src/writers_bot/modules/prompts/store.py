@@ -212,6 +212,10 @@ class PromptDB:
             self._prompt(r, Category(r["category_id"], r["set_id"], r["name"], r["alias"], r["kind"])) for r in rows
         ]
 
+    async def move(self, prompt_id: int, category_id: int) -> None:
+        async with self.storage.tx() as db:
+            await db.execute("UPDATE prompts SET category_id = ? WHERE id = ?", (category_id, prompt_id))
+
     async def set_status(self, prompt_id: int, status: str) -> None:
         async with self.storage.tx() as db:
             await db.execute("UPDATE prompts SET status = ? WHERE id = ?", (status, prompt_id))

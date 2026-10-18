@@ -43,7 +43,8 @@ class Module(TelegramModule):
         self._packs: asyncio.Task | None = None
 
     def handlers(self):
-        return [(MessageHandler(filters.COMMAND & filters.Regex(extras.ROLL_RE), self.roll), 0)]
+        # Not only command entities: whether Telegram marks "/2d6" (a digit first) as a command is unclear
+        return [(MessageHandler((filters.COMMAND | filters.TEXT) & filters.Regex(extras.ROLL_RE), self.roll), 0)]
 
     async def help_lines(self, ctx) -> list[tuple[str, str, dict]]:
         return [("tools", "help.dice", {})]

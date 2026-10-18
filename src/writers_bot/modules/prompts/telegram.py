@@ -8,6 +8,7 @@ chat admins add prompts (/addprompt, /addimage), members suggest them (/suggest,
 
 import asyncio
 import contextlib
+import difflib
 import logging
 
 from telegram import InlineKeyboardMarkup, LinkPreviewOptions, Message, Update
@@ -367,16 +368,35 @@ class Module(TelegramModule):
             else f.escape(t("prompts.image_link"))
         )
         text = f.t("prompts.review_item", left=len(pending), category=p.category.label) + "\n\n" + body
-        markup = InlineKeyboardMarkup(
+        rows = [
             [
-                [
-                    button(t("prompts.accept"), owner, f"pr:{scope}:{p.id}:ok"),
-                    button(t("prompts.reject"), owner, f"pr:{scope}:{p.id}:no"),
-                ],
-                [button(t("common.close"), owner, f"pr:{scope}:0:close")],
+                button(t("prompts.accept"), owner, f"pr:{scope}:{p.id}:ok"),
+                button(t("prompts.reject"), owner, f"pr:{scope}:{p.id}:no"),
             ]
-        )
-        return text, markup
+        ]
+        if scope != "shared":  # a chat's suggestion can go on to the shared set in the same tap
+            rows.append([button(t("prompts.accept_share"), owner, f"pr:{scope}:{p.id}:share")])
+        rows.append([button(t("common.close"), owner, f"pr:{scope}:0:close")])
+        return text, InlineKeyboardMarkup(rows)
+
+    async def _similar(self, prompt, set_ids: list[int]) -> Category | None:
+        """An existing category the suggestion's (new) category is probably meant to be: the same name in
+        another case, or a likely typo of it."""
+        active = await self.db.by_status(prompt.category.set_id, ACTIVE, prompt.category.kind)
+        if any(p.category.id == prompt.category.id for p in active):
+            return None  # the category already has prompts: it's an established one
+        others = [c for c in await self.db.categories(set_ids, prompt.category.kind) if c.id != prompt.category.id]
+        by_label = {c.label.casefold(): c for c in others}
+        mine = prompt.category.label.casefold()
+        if mine in by_label:
+            return by_label[mine]
+        close = difflib.get_close_matches(mine, list(by_label), n=1, cutoff=0.75)
+        return by_label[close[0]] if close else None
+
+    async def _into(self, own: int, prompt, category: Category) -> None:
+        """Move the prompt into ``category`` (its namesake in the chat's own set, if it is a shared one)."""
+        target = category if category.set_id == own else await self.db.category(own, category.label, category.kind)
+        await self.db.move(prompt.id, target.id)
 
     async def suggestions(self, update: Update, _context) -> None:
         message = update.effective_message
@@ -420,9 +440,40 @@ class Module(TelegramModule):
         prompt = await self.db.get(prompt_id)
         if prompt is None or prompt.category.set_id != set_id or prompt.status != status:
             await self.bot.asks.toast(query, "common.stale")
-        else:
-            await self.db.set_status(prompt_id, ACTIVE if action == "ok" else REJECTED)
-            await self.bot.asks.toast(query, "prompts.accepted" if action == "ok" else "prompts.rejected")
+            text, markup = await self._next(set_id, status, query.from_user.id, scope)
+            with contextlib.suppress(TelegramError):
+                await self.bot.asks.edit(sent, text, markup)
+            return
+        share = action in ("share", "to1", "keep1")
+        if scope != "shared" and action in ("ok", "share"):
+            similar = await self._similar(prompt, (await self.sets(int(scope)))[1])
+            if similar is not None and similar.label.casefold() == prompt.category.label.casefold():
+                await self._into(set_id, prompt, similar)  # only the case differs: the existing spelling
+            elif similar is not None:
+                await query.answer()
+                flag = "1" if share else "0"
+                owner = query.from_user.id
+                markup = InlineKeyboardMarkup(
+                    [
+                        [button(t("prompts.into", category=similar.label), owner, f"pr:{scope}:{prompt.id}:to{flag}:{similar.id}")],
+                        [button(t("prompts.keep_new", category=prompt.category.label), owner, f"pr:{scope}:{prompt.id}:keep{flag}")],
+                    ]
+                )  # fmt: skip
+                question = self.bot.fmt.t("prompts.similar", new=prompt.category.label, existing=similar.label)
+                with contextlib.suppress(TelegramError):
+                    await self.bot.asks.edit(sent, question, markup)
+                return
+        elif action.startswith("to") and len(args) > 3:
+            target = next((c for c in await self.db.categories((await self.sets(int(scope)))[1], prompt.category.kind)
+                           if c.id == int(args[3])), None)  # fmt: skip
+            if target is not None:
+                await self._into(set_id, prompt, target)
+        accepted = action != "no"
+        await self.db.set_status(prompt_id, ACTIVE if accepted else REJECTED)
+        if accepted and share and scope != "shared":
+            await self.db.submit(await self.db.get(prompt_id), (PLATFORM, str(query.from_user.id)))
+        key = "prompts.rejected" if not accepted else "prompts.accepted_shared" if share else "prompts.accepted"
+        await self.bot.asks.toast(query, key)
         text, markup = await self._next(set_id, status, query.from_user.id, scope)
         with contextlib.suppress(TelegramError):
             await self.bot.asks.edit(sent, text, markup)

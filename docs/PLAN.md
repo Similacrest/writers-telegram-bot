@@ -157,6 +157,12 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
   (picture) or a person's collection (picture, with locked ones greyed out). Pillow, bundled DejaVu Sans.
   No library renders achievement cards (checked: rank-card libraries such as pilcord and canvacord, and
   pychievements / django-gamification, which track rules and points we don't have).
+- **Admin tools** (round 2, all suggestions accepted): `/settings` in four sections; the welcome text typed
+  in the private chat (a link that carries the chat); `/replies add /x` as a reply to the answer; "accept and
+  propose to everyone" on `/suggestions`; misspelt categories asked about on accepting; communities with
+  buttons (`/community`) and a web Communities tab for super-admins. `/bcexclude` stays as an admin tool.
+- **Dice effects**: golden rays and sparkles on the highest result, a shudder, red glow and dust on the
+  lowest; a d10 alone has them on 1 and 10, a d100's two d10s only on 01 and 00. `/d%` is a d100.
 - **`/help` and the command menus** are built per chat and person from the commands themselves (section,
   audience, "shown when" a chat setting is on, values such as the chat's sprint length and prompt
   categories); chat admins get their own menu, and chats whose settings change it get theirs, refreshed on

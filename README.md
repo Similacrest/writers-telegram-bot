@@ -104,16 +104,20 @@ after it rolls; text after the expression is the caption.
 | Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same; also `/r 2d20kh1`, `/r 2d20kl1` |
 | Bonus as a letter | `/2d6b2`, `/2d6m1` | the same (read as `+2`, `-1`) |
 | Minimum per die | `/d6mi2`: each die rolled **between** 2 and 6 | `mi2`: each die **raised to** at least 2 (the d20 meaning); negative minimums aren't accepted |
-| Keep / drop | — (the suffix became the caption) | `/4d6kh3`, `kl`, `ph`, `pl`; Roll20's `dl`/`dh` read as `pl`/`ph` |
-| Exploding, rerolls | — | `/r 3d6e6`, `/r 1d20ro1`, `rr`, `ra`, `mi`, `ma` |
-| Arithmetic, several dice | `+N` / `-N` only | `/r (1d6+2)*2`, `/r d20+d4`, `/r 1d20 [вогонь] + 5` (annotations) |
+| Keep / drop | — (the suffix became the caption) | `/4d6kh3`, `kl`, `ph`, `pl`, by comparison `/4d6k>3`, `p<3`, both ends `8d6kh1kl1`; Roll20's `dl`/`dh` read as `pl`/`ph` |
+| Exploding, rerolls, clamping | — | `/r 4d6e>5`, `/r 1d20ro1`, `rr<2`, `ra6`, `mi10`, `ma3` |
+| Arithmetic, several dice | `+N` / `-N` only | `/r (1d6+2)*2`, `/r 2d10/2`, `/r d20+d4`, `/r (1d6, 1d8)kh1`, `/r 1d20 [вогонь] + 5` (annotations) |
+| Percentile | `/d100` | the same; also `/d%` |
+| Not supported | | Fudge dice (`4dF`); counting successes in a pool (`10d10k>7` adds the kept dice up) |
 | Too many dice (over 500) | silently one die | "Забагато кубиків: до 500 за раз." |
 | Not a valid roll | rolled defaults anyway | "Не зрозумів кидок…" with examples |
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
 **Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): a roll of one d4, d6, d8, d10,
 d12, d20 or d100 also gets an animated sticker of the die landing on the result (a d100 is the two
-percentile dice, tens and ones, landing together). A bare `/d20` is just the sticker. The 160 stickers are
+percentile dice, tens and ones, landing together). The highest result gets golden rays and sparkles, the
+lowest a heavy landing, a red glow and dust; a d10 on its own has them on 1 and 10, while the d10s of a d100
+are plain except on 01 and 00 (100). A bare `/d20` is just the sticker. The 160 stickers are
 made by `scripts/dice_stickers.py` (`uv run --group art python scripts/dice_stickers.py`; needs ffmpeg,
 which the `art` dependency group brings) and kept in `src/writers_bot/assets/dice`. At start the bot looks for
 its packs (`d20_by_<bot username>` and so on) and uploads the missing ones once, owned by the super-admin
@@ -121,13 +125,22 @@ with the lowest id, as Telegram requires a person as a pack's owner; after that 
 
 ### Chat settings and communities (v4.0)
 
-Chat admins change their chat's settings with **`/settings`** (a private card with toggles, and a button to
-the web app's Chat tab): the default sprint length, works and % on or off, the default unit, hidden ✓
-reports, work names on the sprint message, `/top`, deleting report messages, the welcome text, the bot's
-default replies, the shared prompts. Changes apply from the next sprint.
+Chat admins change their chat's settings with **`/settings`**: a short private card with four sections
+(Спринти · Звіти й приватність · Промпти й відповіді · Привітання й досягнення, each saying how many it has
+changed), each opened in place, and a button to the web app's Chat tab. The settings: the default sprint
+length, works and % on or off, the default unit, hidden ✓ reports, work names on the sprint message, `/top`,
+deleting report messages, the welcome text, the bot's default replies, the shared prompts, achievements.
+Changes apply from the next sprint. The **welcome text** is typed in the private chat: its button is a link
+there that carries the chat, so nothing is typed into the group.
+
+**Own replies** (`/replies`): write the answer as an ordinary message (formatting and line breaks kept),
+then reply to it with `/replies add /imafan` or `/replies add фраза`; the one-line form
+`/replies add /imafan = текст` works too.
 
 A chat that belongs to a **Telegram Community** (Bot API 10.2) is linked automatically; super-admins can
-also link chats by hand (`/community new <name>`, `/community add <id> <chat id>…`, `/community` to list).
+also link chats by hand: `/community` in the private chat is a card with buttons (new, rename, delete, add a
+chat from a list, remove one), the web app has a Communities tab for super-admins, and the text commands
+remain (`/community new <name>`, `/community add <id> <chat id>…`, `/community list`).
 A community shares `/top`, one prompt set and its settings (`/community set <id> <setting> <value>`; a
 chat's own value wins), and gets one broadcast, in its largest chat.
 
@@ -136,7 +149,10 @@ a shared set; each chat (or community) has its own set on top. Categories are na
 optional Ukrainian alias (`horror` / `жахи`). Chat admins add prompts (`/addprompt жахи текст`, a picture
 with the caption `/addimage пейзаж`, uploaded to Drive when the bot's Google account may write there, else
 kept as the Telegram photo), members suggest them (`/suggest`), admins accept them (`/suggestions`, the web
-app), and chats can submit prompts to the shared set, which super-admins review with `/review`.
+app), and chats can submit prompts to the shared set, which super-admins review with `/review`. On
+`/suggestions` an admin can accept a prompt and propose it for the shared set in one tap; a suggestion whose
+category looks like a misspelling of an existing one ("коммедія") asks where it belongs, and one that differs
+only in case goes into the existing category.
 
 ### The web app (optional)
 
