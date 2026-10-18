@@ -310,14 +310,12 @@ The bot is built from modules that can be served as one bot or as several, set i
   adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
   shows only what its modules do.
 - **A small runtime** in every bot: config, the platform clients, the command menu and `/help`, the chat
-  allowlist, logging, error alerts, `/health`, and the **chat registry**: every bot records the chats it
-  is in, in the shared database, even if none of its modules need storage. Broadcasts reach all of them:
-  `/broadcast` (on any bot with admin) queues the message in the database, and each bot sends it to its
-  own chats, so bots in separate containers need no calls to each other. Beyond that nothing is
-  required: `wordcount`, `dice` and `smash` use no other storage.
+  allowlist, logging, error alerts and `/health`. Nothing else is required: `wordcount`, `dice` and
+  `smash` run without a database.
 - **Shared services**, started only when a bot's modules need them: storage (one database shared by every
   bot), the settings store, people and accounts, communities, ephemeral replies and the web app server.
-  Admin (chat list, broadcasts) and your data (export, deletion) come with storage. Needs per module:
+  Admin (chat registry, chat list, broadcasts) and your data (export, deletion) come with storage; a bot
+  without storage doesn't record its chats and gets no broadcasts. Needs per module:
   `sprints`, `achievements` → storage, settings, people, web app; `greeter`, `replies` → settings;
   `prompts` → its source (the sheet now, storage from phase 4).
 - Modules don't call each other; they share only the core and the database.
