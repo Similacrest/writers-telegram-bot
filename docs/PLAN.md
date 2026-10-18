@@ -257,7 +257,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   button, so a zero is never posted. A %-only writer shares sprints and minutes. With arguments,
   `/progress` reports quietly.
 - **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/count` (`/wc` and `/stats`
-  stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/рахуй`, `/спринт`,
+  stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/підрахуй`, `/спринт`,
   `/прогрес`, `/я`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
   Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
   sees all messages (privacy mode off, or the bot is an admin); they aren't in the menu.
