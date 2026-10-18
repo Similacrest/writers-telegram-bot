@@ -3,7 +3,7 @@
 With ``stickers = true`` a roll of one d4, d6, d8, d10, d12, d20 or d100 (the two percentile d10s, tens and
 ones) is answered with an animated sticker of the dice landing on the result (``scripts/dice_stickers.py``
 makes them, ``assets/dice`` keeps them). The bot uploads them once into its own sticker packs,
-``d20_by_<bot>`` and so on, owned by the super admin with the lowest id (Telegram wants a person as a pack's
+``d20_v2_by_<bot>`` and so on, owned by the super admin with the lowest id (Telegram wants a person as a pack's
 owner), and from then on sends them by ``file_id``. A bare ``/d20`` is just the sticker; with a bonus or a
 caption the usual line follows. A roll of several dice gets a sticker per die, up to ``max_stickers`` (4);
 more dice than that, or a die without stickers (d3, d7), and the roll is only the line.
@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 SIDES = (4, 6, 8, 10, 12, 20, 100)
 EMOJI = "🎲"
+# Part of the pack names: bump it when the animations change, so the bot uploads them as new packs (the old
+# ones are simply no longer used). 2: the v4.2.1 animations (a 0.6 s roll, then still).
+ANIMATIONS = 2
 FIRST_UPLOAD = 50  # createNewStickerSet takes at most 50; the rest go in one by one
 
 
@@ -64,7 +67,7 @@ class Module(TelegramModule):
     # --- the sticker packs -------------------------------------------------------------------------
 
     def pack_name(self, sides: int) -> str:
-        return f"d{sides}_by_{self.bot.me.username}"
+        return f"d{sides}_v{ANIMATIONS}_by_{self.bot.me.username}"
 
     async def prepare_packs(self) -> None:
         """Find the packs (or make the missing ones) and remember their stickers' file ids."""

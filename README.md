@@ -124,7 +124,7 @@ up to `max_stickers` (4 by default: `dice = { stickers = true, max_stickers = 4 
 or a die without stickers (d3), and it is only the line. The 160 stickers are
 made by `scripts/dice_stickers.py` (`uv run --group art python scripts/dice_stickers.py`; needs ffmpeg,
 which the `art` dependency group brings) and kept in `src/writers_bot/assets/dice`. At start the bot looks for
-its packs (`d20_by_<bot username>` and so on) and uploads the missing ones once, owned by the super-admin
+its packs (`d20_v2_by_<bot username>` and so on; the number changes with the animations) and uploads the missing ones once, owned by the super-admin
 with the lowest id, as Telegram requires a person as a pack's owner; after that it sends them by file id.
 
 ### Chat settings and communities (v4.0)

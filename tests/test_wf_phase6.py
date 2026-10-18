@@ -412,12 +412,12 @@ async def test_d01_packs_made_once_and_a_bare_roll_is_a_sticker(make):
     await ready_packs(h)
     created = h.calls("createNewStickerSet")
     assert len(created) == 7 and {int(c["user_id"]) for c in created} == {ADMIN.id}
-    assert len(h.fake.sticker_sets["d100_by_writers_test_bot"]) == 100  # 50 at first, the rest added
+    assert len(h.fake.sticker_sets["d100_v2_by_writers_test_bot"]) == 100  # 50 at first, the rest added
     mark = h.mark()
     await h.say(ALICE, "/d20")
     sent = h.public_since(mark)
     assert [m.kind for m in sent] == ["sticker"]
-    assert sent[0].extra["sticker"].startswith("d20_by_writers_test_bot#")
+    assert sent[0].extra["sticker"].startswith("d20_v2_by_writers_test_bot#")
 
 
 async def test_d02_bonus_or_caption_adds_the_line(make):
@@ -458,7 +458,7 @@ async def test_d04_percentile(make):
     h = await make(DICE)
     await ready_packs(h)
     await h.say(ALICE, "/d100")
-    assert h.last_public().extra["sticker"].startswith("d100_by_writers_test_bot#")
+    assert h.last_public().extra["sticker"].startswith("d100_v2_by_writers_test_bot#")
 
 
 async def test_d05_no_owner_no_stickers(make):
@@ -473,11 +473,11 @@ async def test_d05_no_owner_no_stickers(make):
 async def test_d06_existing_packs_are_reused_incomplete_ones_remade(make, tmp_path, clock):
     h = await make(DICE)
     await ready_packs(h)
-    h.fake.sticker_sets["d6_by_writers_test_bot"].pop()  # a broken upload
+    h.fake.sticker_sets["d6_v2_by_writers_test_bot"].pop()  # a broken upload
     h2 = await Harness.create(tmp_path / "again", clock, DICE)
     h2.fake.sticker_sets = h.fake.sticker_sets
     await ready_packs(h2)
-    assert [c["name"] for c in h2.calls("createNewStickerSet")] == ["d6_by_writers_test_bot"]
+    assert [c["name"] for c in h2.calls("createNewStickerSet")] == ["d6_v2_by_writers_test_bot"]
     assert h2.calls("deleteStickerSet")
     await h2.close()
 
