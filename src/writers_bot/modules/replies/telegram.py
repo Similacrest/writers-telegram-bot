@@ -90,7 +90,9 @@ class Module(TelegramModule):
         return [e for e in entries if e.chat_id is None or e.chat_id == str(chat_id)]
 
     def commands(self) -> list[Command]:
-        return [Command("replies", self.manage)] if self.store is not None else []
+        if self.store is None:
+            return []
+        return [Command("replies", self.manage, "commands.replies", scope="chat_admin", help="help.replies")]
 
     def handlers(self):
         return [

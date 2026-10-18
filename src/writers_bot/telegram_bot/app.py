@@ -15,9 +15,11 @@ from datetime import datetime
 
 from telegram import (
     BotCommand,
+    BotCommandScopeAllChatAdministrators,
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
     BotCommandScopeChat,
+    BotCommandScopeChatAdministrators,
     Chat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -52,7 +54,7 @@ from ..core.models import ChatKey
 from ..core.sprint import utc_now
 from ..services import BotServices
 from .admin import AdminTools
-from .base import Asks, Command, ProfilePart, TelegramModule, button
+from .base import Asks, Command, HelpContext, ProfilePart, TelegramModule, button
 from .chatsettings import ChatSettingsUI
 from .ephemeral import set_commands
 from .yourdata import YourData
@@ -64,6 +66,8 @@ NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 ALIAS_RE = re.compile(r"^/([^\W\d_A-Za-z][\w'ʼ’]*)(?:@(\w+))?(?:\s+(.*))?$", re.DOTALL)
 COMMAND_RE = re.compile(r"^/(\w+)(?:@\w+)?(?:\s|$)")
 ADMIN_CACHE_TTL = 10 * 60
+# /help's sections in order (locale: help.section_<name>); commands name theirs, admin scopes have their own
+HELP_SECTIONS = ("prompts", "sprints", "progress", "achievements", "tools", "you", "chat_admin", "bot_admin")
 MAX_ADMIN_CHATS = 60
 
 
@@ -190,6 +194,7 @@ class TelegramBot:
                     aliases=("mystats",),
                     ephemeral=True,
                     help="help.profile",
+                    section="you",
                 )
             )
         if self.data is not None:
@@ -249,40 +254,123 @@ class TelegramBot:
         for module in self.modules:
             await module.post_init()
 
-    def menus(self) -> tuple[list[BotCommand], list[BotCommand], list[BotCommand]]:
-        """Command menus for groups, private chats and super-admins."""
-        group, private, admin = [], [], []
+    # --- /help and the command menus -------------------------------------------------------------------
+
+    async def help_context(self, user, chat) -> HelpContext:
+        """What decides /help for ``user`` in ``chat``: the chat's settings, and whether they administer it
+        (in the private chat: any group with the bot)."""
+        private = chat.type == ChatType.PRIVATE
+        super_admin = user.id in self.settings.super_admins
+        if private:
+            chat_admin = super_admin or bool(await self.admin_chats(user.id))
+        else:
+            chat_admin = await self.is_chat_admin(chat, user.id)
+        return HelpContext(self, None if private else chat.id, private, chat_admin, super_admin)
+
+    async def _shown(self, c: Command, ctx: HelpContext, *, menu: bool = False) -> bool:
+        if c.scope == "admin" and not (ctx.private and ctx.super_admin):
+            return False
+        if c.scope == "chat_admin" and (not ctx.chat_admin or (menu and ctx.private)):
+            return False
+        if c.scope == "private" and not ctx.private:
+            return False
+        return c.when is None or await c.when(ctx)
+
+    def _help_override(self) -> str | None:
+        """The v2 config sheet's own help text, if it has one."""
+        prompts = self.module("prompts")
+        return prompts.config_text("help_message") if prompts is not None else None
+
+    async def help_text(self, ctx: HelpContext) -> str:
+        """/help for one person in one chat: the enabled features only, grouped, with this chat's values."""
+        if override := self._help_override():
+            return override
+        f = self.fmt
+        sections: dict[str, list] = {name: [] for name in HELP_SECTIONS}
         for c in self.all_commands():
-            if c.description is None:
+            if not c.help or not await self._shown(c, ctx):
                 continue
-            entry = BotCommand(c.name, t(c.description))
-            if c.scope == "all":
-                group.append(entry)
-                private.append(entry)
-            elif c.scope == "private":
-                private.append(entry)
-            elif c.scope == "admin":
-                admin.append(entry)
-        return group, private, [*private, *admin]
+            values = await c.values(ctx) if c.values else {}
+            section = {"chat_admin": "chat_admin", "admin": "bot_admin"}.get(c.scope, c.section)
+            sections.setdefault(section, []).append(f.t(c.help, **values))
+        for module in self.modules:
+            for section, key, values in await module.help_lines(ctx):
+                sections.setdefault(section, []).append(f.t(key, **values))
+        lines = [f.bold(t("help.title"))]
+        for name, entries in sections.items():
+            if entries:
+                lines += ["", f.bold(t(f"help.section_{name}")), *entries]
+        if not ctx.private and (self.profile_enabled or self.data is not None):
+            lines += ["", f.t("help.more_in_private")]
+        return "\n".join(lines)
+
+    async def menu(self, ctx: HelpContext) -> list[BotCommand]:
+        out = []
+        for c in self.all_commands():
+            if c.description is None or not await self._shown(c, ctx, menu=True):
+                continue
+            values = await c.values(ctx) if c.values else {}
+            out.append(BotCommand(c.name, t(c.description, **values)[:256]))
+        return out
 
     async def set_menus(self) -> None:
-        group, private, admin = self.menus()
+        """The command menus: private chats, groups (members, and chat admins with their commands), and
+        super-admins; then each chat whose settings change the menu."""
         bot = self.app.bot
-        ephemeral = {c.name for c in self.all_commands() if c.ephemeral}
+        private = await self.menu(HelpContext(self, None, True))
+        group = await self.menu(HelpContext(self, None, False))
+        admins = await self.menu(HelpContext(self, None, False, chat_admin=True))
+        super_admin = await self.menu(HelpContext(self, None, True, chat_admin=True, super_admin=True))
         try:
             await bot.set_my_commands(private, scope=BotCommandScopeAllPrivateChats())
-            if not (
-                self.settings.ephemeral_commands
-                and await set_commands(bot, group, {"type": "all_group_chats"}, ephemeral)
-            ):
-                await bot.set_my_commands(group, scope=BotCommandScopeAllGroupChats())
+            await self._set_group_menu(group, {"type": "all_group_chats"}, BotCommandScopeAllGroupChats())
+            if admins != group:
+                await self._set_group_menu(
+                    admins, {"type": "all_chat_administrators"}, BotCommandScopeAllChatAdministrators()
+                )
         except TelegramError as e:
             logger.warning("set_my_commands failed: %s", e)
         for admin_id in self.settings.super_admins:
             try:
-                await bot.set_my_commands(admin, scope=BotCommandScopeChat(admin_id))
+                await bot.set_my_commands(super_admin, scope=BotCommandScopeChat(admin_id))
             except TelegramError as e:  # the admin has not started a chat with the bot yet
                 logger.info("no admin command menu for %s: %s", admin_id, e)
+        self._default_menus = (group, admins)
+        settings = self.services.shared.extra.get("settings")
+        if settings is not None and self.storage is not None:
+            if self.refresh_chat_menus not in settings.listeners:
+                settings.listeners.append(self.refresh_chat_menus)
+            await self.refresh_chat_menus(PLATFORM, await settings.customised(PLATFORM))
+
+    async def _set_group_menu(self, commands: list[BotCommand], scope: dict, ptb_scope) -> None:
+        ephemeral = {c.name for c in self.all_commands() if c.ephemeral}
+        if not (self.settings.ephemeral_commands and await set_commands(self.app.bot, commands, scope, ephemeral)):
+            await self.app.bot.set_my_commands(commands, scope=ptb_scope)
+
+    async def refresh_chat_menus(self, platform: str, chat_ids: list[str]) -> None:
+        """A chat's own menus (members, admins) where its settings make them differ from the bot-wide ones,
+        e.g. no /top or /works there, or another sprint length; back to those when they don't."""
+        if platform != PLATFORM or self.app is None or not hasattr(self, "_default_menus"):
+            return
+        group_default, admins_default = self._default_menus
+        for chat_id in chat_ids:
+            if not chat_id.lstrip("-").isdigit() or int(chat_id) > 0:
+                continue
+            cid = int(chat_id)
+            members = await self.menu(HelpContext(self, cid, False))
+            admins = await self.menu(HelpContext(self, cid, False, chat_admin=True))
+            for commands, default, scope, ptb_scope in (
+                (members, group_default, {"type": "chat", "chat_id": cid}, BotCommandScopeChat(cid)),
+                (admins, admins_default, {"type": "chat_administrators", "chat_id": cid},
+                 BotCommandScopeChatAdministrators(cid)),
+            ):  # fmt: skip
+                try:
+                    if commands == default:
+                        await self.app.bot.delete_my_commands(scope=ptb_scope)
+                    else:
+                        await self._set_group_menu(commands, scope, ptb_scope)
+                except TelegramError as e:  # the bot left the chat, or never was in it
+                    logger.info("no command menu for chat %s: %s", cid, e)
 
     async def shutdown(self) -> None:
         for module in self.modules:
@@ -383,19 +471,6 @@ class TelegramBot:
 
     # --- core commands ---------------------------------------------------------------------------
 
-    def help_text(self) -> str:
-        prompts = self.module("prompts")
-        override = prompts.config_text("help_message") if prompts is not None else None
-        if override:
-            return override
-        lines = [self.fmt.bold(t("help.title")), ""]
-        for c in self.all_commands():
-            if c.help:
-                lines.append(self.fmt.t(c.help))
-        for module in self.modules:
-            lines += [self.fmt.t(key) for key in module.help_keys()]
-        return "\n".join(lines)
-
     async def _reply_html_safe(self, message: Message, text: str, **kwargs) -> None:
         try:
             await message.reply_html(text, **kwargs)
@@ -416,13 +491,21 @@ class TelegramBot:
             if handler is not None:
                 await handler(update, context, rest)
                 return
-        await self._reply_html_safe(message, self.help_text(), link_preview_options=NO_PREVIEW)
+        ctx = await self.help_context(message.from_user, message.chat)
+        await self._reply_html_safe(message, await self.help_text(ctx), link_preview_options=NO_PREVIEW)
         if message.chat.type == ChatType.PRIVATE and message.from_user:
             for module in self.modules:
                 await module.private_start(message)
 
     async def help(self, update: Update, _context) -> None:
-        await self._reply_html_safe(update.effective_message, self.help_text(), link_preview_options=NO_PREVIEW)
+        """/help for this person here; in a group it is a private answer (it's long and only theirs)."""
+        message = update.effective_message
+        ctx = await self.help_context(message.from_user, message.chat)
+        text = await self.help_text(ctx)
+        if ctx.private or not self.config.admin or self._help_override():  # v2: a public reply, as it was
+            await self._reply_html_safe(message, text, link_preview_options=NO_PREVIEW)
+        else:
+            await self.asks.respond(message, text, delete_command=True)
 
     async def debuginfo(self, update: Update, _context) -> None:
         message = update.effective_message

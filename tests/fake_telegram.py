@@ -148,6 +148,7 @@ class FakeTelegram(BaseRequest):
                     "commands",
                     "scope",
                     "reaction",
+                    "stickers",
                 )
             ):
                 params[key] = json.loads(value)
@@ -462,6 +463,7 @@ class FakeTelegram(BaseRequest):
         )
         m.extra["sticker"] = p.get("sticker")
         self.messages.append(m)
+        self.note(f"  bot → {chat_id} #{m.message_id}: [sticker {p.get('sticker')}]")
         d = self._message_dict(m)
         d["sticker"] = {
             "file_id": str(p.get("sticker")),
@@ -481,6 +483,27 @@ class FakeTelegram(BaseRequest):
         return {"name": name, "title": name, "sticker_type": "regular", "stickers": self.sticker_sets[name]}
 
     def m_sendChatAction(self, _p):
+        return True
+
+    def m_createNewStickerSet(self, p):
+        name = p["name"]
+        if name in self.sticker_sets:
+            raise ApiError("Bad Request: sticker set name is already occupied")
+        self.sticker_sets[name] = [
+            {"file_id": f"{name}#{i}", "file_unique_id": f"{name}-{i}", "type": "regular", "width": 512,
+             "height": 512, "is_animated": False, "is_video": True, "set_name": name}
+            for i, _ in enumerate(p["stickers"], 1)
+        ]  # fmt: skip
+        return True
+
+    def m_addStickerToSet(self, p):
+        stickers = self.sticker_sets[p["name"]]
+        i = len(stickers) + 1
+        stickers.append({**stickers[0], "file_id": f"{p['name']}#{i}", "file_unique_id": f"{p['name']}-{i}"})
+        return True
+
+    def m_deleteStickerSet(self, p):
+        self.sticker_sets.pop(p["name"], None)
         return True
 
     def m_getFile(self, p):
@@ -515,6 +538,8 @@ class FakeTelegram(BaseRequest):
         ]
         m.extra["caption"] = m.text
         self.messages.append(m)
+        where = f"{'DM ' if chat_id > 0 else ''}{chat_id}"
+        self.note(f"  bot → {where} #{m.message_id}: [picture, {len(data) // 1024} KB] {_short(m)}")
         return self._message_dict(m)
 
     # --- what users do -------------------------------------------------------------------------------

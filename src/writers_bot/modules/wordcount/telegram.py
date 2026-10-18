@@ -21,7 +21,12 @@ class Module(TelegramModule):
     name = "wordcount"
 
     def commands(self) -> list[Command]:
-        return [Command("count", self.count, "commands.count", uk="aliases.count", aliases=("wc",), help="help.count")]
+        return [
+            Command(
+                "count", self.count, "commands.count", uk="aliases.count", aliases=("wc",), help="help.count",
+                section="tools",
+            )
+        ]  # fmt: skip
 
     async def count(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message

@@ -173,6 +173,8 @@ def routes(module: "Module", app: WebApp) -> None:
                 "hide_numbers": settings.get(HIDE_NUMBERS) == "1",
                 "can_dm": settings.get(CAN_DM) == "1",
                 "bot": tbot.me.username if tbot.me else None,
+                # getting started happens in the private chat; the page shows how far it got
+                "onboarding": await module.onboarding.progress(pid) if module.onboarding else None,
             }
         )
 

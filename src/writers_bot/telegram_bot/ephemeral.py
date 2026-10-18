@@ -10,10 +10,11 @@ value instead of raising, so callers fall back to an ordinary message.
 import logging
 import warnings
 
-from telegram import Bot, BotCommand, InlineKeyboardMarkup, Message
+from telegram import Bot, BotCommand, InlineKeyboardMarkup, LinkPreviewOptions, Message
 from telegram.error import TelegramError
 
 logger = logging.getLogger(__name__)
+NO_PREVIEW = LinkPreviewOptions(is_disabled=True)  # private answers never need a link preview
 
 
 def incoming_ephemeral_id(message: Message | None) -> int | None:
@@ -58,6 +59,7 @@ async def send_ephemeral(
             parse_mode=parse_mode,
             message_thread_id=message_thread_id,
             reply_markup=reply_markup,
+            link_preview_options=NO_PREVIEW,
             api_kwargs=extra,
         )
     except TelegramError as e:

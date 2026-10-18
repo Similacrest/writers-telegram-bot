@@ -23,7 +23,7 @@ from telegram.error import TelegramError
 from telegram.ext import BaseHandler
 
 from ..core.i18n import t
-from .ephemeral import delete_ephemeral, edit_ephemeral, incoming_ephemeral_id, send_ephemeral
+from .ephemeral import NO_PREVIEW, delete_ephemeral, edit_ephemeral, incoming_ephemeral_id, send_ephemeral
 
 if TYPE_CHECKING:
     from .app import TelegramBot
@@ -36,18 +36,51 @@ RIGHTS_TTL = 10 * 60
 Callback = Callable[..., Awaitable[Any]]
 
 
+@dataclass(slots=True)
+class HelpContext:
+    """Who asks for /help (or whom a command menu is for), and where: what decides the lines and values."""
+
+    bot: "TelegramBot"
+    chat_id: int | None  # None: no particular chat (the bot-wide menus)
+    private: bool
+    chat_admin: bool = False  # of this group; in the private chat: of any group with the bot
+    super_admin: bool = False
+    _values: dict | None = None
+
+    async def setting(self, key: str):
+        """This chat's value of a chat setting (the default outside a group or without settings)."""
+        from ..core.settings import BY_KEY
+
+        default = BY_KEY[key].default if key in BY_KEY else None
+        settings = self.bot.services.shared.extra.get("settings")
+        if settings is None or self.chat_id is None or self.private:
+            return default
+        if self._values is None:
+            resolved = await settings.resolve("telegram", str(self.chat_id))
+            self._values = {k: v for k, (v, _source) in resolved.items()}
+        return self._values.get(key, default)
+
+
 @dataclass(frozen=True, slots=True)
 class Command:
-    """A command a module offers. ``uk`` is its Ukrainian alias (matched as text, never in the menu)."""
+    """A command a module offers. ``uk`` is its Ukrainian alias (matched as text, never in the menu).
+
+    /help and the command menus are built per chat and person from these: ``section`` groups the /help
+    lines, ``when`` hides a command where its feature is off (a chat setting), and ``values`` fills its
+    /help line and menu description (this chat's sprint length, its prompt categories)."""
 
     name: str
     callback: Callback
     description: str | None = None  # locale key for the menu; None = not in the menu
     uk: str | None = None  # locale key of the Ukrainian alias
     aliases: tuple[str, ...] = ()  # hidden Latin aliases (/wc for /count)
-    scope: str = "all"  # all | private (private chats only) | admin (super-admins, private menu)
+    # all | private (private chats only) | chat_admin (group admins' menu and /help) | admin (super-admins)
+    scope: str = "all"
     ephemeral: bool = False  # marked is_ephemeral in the group menu (EPHEMERAL_COMMANDS)
     help: str | None = None  # locale key of its /help line
+    section: str = "tools"  # prompts | sprints | progress | achievements | tools | you (see app.HELP_SECTIONS)
+    when: Callable[[HelpContext], Awaitable[bool]] | None = None
+    values: Callable[[HelpContext], Awaitable[dict]] | None = None
 
 
 @dataclass(slots=True)
@@ -74,8 +107,8 @@ class TelegramModule:
         """Extra handlers (buttons, messages) with their handler group."""
         return []
 
-    def help_keys(self) -> list[str]:
-        """Locale keys of /help lines that don't belong to a command."""
+    async def help_lines(self, ctx: HelpContext) -> list[tuple[str, str, dict]]:
+        """/help lines that don't belong to a command: (section, locale key, values)."""
         return []
 
     def asks(self) -> dict[str, Callback]:
@@ -183,7 +216,9 @@ class Asks:
         """Send a private ask. ``public=False``: give up (None) rather than post an ordinary message."""
         parse_mode = "HTML" if html else None
         if chat_id > 0:  # a private chat
-            msg = await self.bot.send_message(chat_id, text, parse_mode=parse_mode, reply_markup=markup)
+            msg = await self.bot.send_message(
+                chat_id, text, parse_mode=parse_mode, reply_markup=markup, link_preview_options=NO_PREVIEW
+            )
             return Sent(chat_id, user_id, message_id=msg.message_id)
         if self.tbot.settings.ephemeral_replies:
             allowed = bool(callback_query_id or reply_to_ephemeral) or (await self.rights(chat_id))[0]
@@ -208,6 +243,7 @@ class Asks:
             text,
             parse_mode=parse_mode,
             reply_markup=markup,
+            link_preview_options=NO_PREVIEW,
             message_thread_id=thread_id,
             reply_parameters=ReplyParameters(reply_to, allow_sending_without_reply=True) if reply_to else None,
         )

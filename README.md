@@ -18,11 +18,11 @@ a comment saying where it appears; edit them there.
 |---|---|---|---|
 | `prompts` | `source` (`sheet` or `db`), `categories` (allow `/prompt <category>` with the sheet) | the Google Sheet; storage with `db` | `/prompt`, `/image`, `/image_<category>`, `/promptstats`; `/reload` with the sheet; with `db`: `/addprompt`, `/addimage`, `/suggest`, `/suggestions`, `/review` |
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
-| `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile` |
+| `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | | | `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` |
+| `dice` | `stickers` (animated dice stickers, see below) | a super-admin to own the sticker packs, for `stickers` | `/d20`, `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`, `/d100`: [notation](#dice) |
 | `smash` | | | `/smash` |
-| `achievements` | | storage | Achievements made from the admins' sticker pack: `/newachievement` (reply to a sticker, or send one in private), `/award` (`/нагорода`), `/unaward`, `/achievements` |
+| `achievements` | | storage | Achievements made from the admins' sticker pack: `/newachievement` (reply to a sticker, or send one in private), `/award` (`/нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
 
 At most one bot has storage (the sprints and anything that keeps data about people); the chat registry,
@@ -30,22 +30,34 @@ super-admin tools, your-data commands and the web app live in that bot. Other bo
 
 ### Sprints (`reports = true`)
 
-- **Join** with the button under the sprint message. A private card shows your works as toggles (kept for
-  the next sprint); joining never needs you to share anything.
+- **Join** with the button under the sprint message. Your works that aren't paused are in the sprint; a
+  private card (shown when there is something to say, or with "Мої твори") switches them. Joining never
+  needs you to share anything.
 - **Report** by replying to the sprint message or the board: `500` (your count for this sprint; sending it
   again replaces it), `+300`, `=5000` (the work's total; the bot credits the difference), a link, `40%`
   for a % work, `✓`, `✗`; several works by name: `+300 роман +200 есе`. Or the buttons at the end:
   **Звітувати**, **✓ Готово**, **✗ Не вийшло**. Report replies are deleted once recorded (when the bot is
   an admin; otherwise it reacts 👍) and the confirmation, with an Undo button, is private.
-- **Late reports** until your next sprint or 12 hours after the end; the board is edited as they arrive.
+- **Late reports** from the participants until their next sprint or 12 hours after the end; the board is
+  edited as they arrive.
 - **The board**: words, then "% від плану", then ✓ and ✗. One line per person, no medals or ranks.
 - **Works** (`works = true`): up to five, each a name, an optional link (counted at the start and the end,
   and daily at 03:00 Kyiv time), a unit (words or %, with `percent = true`), a goal (per day, week or
-  month), "hide the title" and "keep for the next sprint". Manage them in the private chat
-  (`/profile` → Твори) or the web app. Each word is credited once: every work keeps its last counted total,
-  changed by compare-and-set.
+  month), "hide the title", and **paused** or not. A paused work isn't taken into sprints and doesn't get
+  numbers without a name (`500` goes to the works you're writing; `500 роман` still reaches a paused one).
+  Switch works anywhere with **`/works`** (in a group: a private card of on/paused toggles, the sprint's card
+  while you're in one; in the private chat: the works menu); add and edit them in the private chat or the web
+  app. When a number could go to two works, the question shows the syntax that avoids it (`300 Роман 200
+  Есе`) the first few times, and a "Пауза" button. Each word is credited once: every work keeps its last
+  counted total, changed by compare-and-set.
 - **`/progress`**: `+400`, `=5000`, a link, `✓`, optionally a work and an earlier day (`вчора`,
   `позавчора`, `17.10`, up to 3 days back). Without arguments: your progress privately, with a Share button.
+  A `%` is a share of a sprint's plan, so `/progress 60% план` corrects your latest sprint with that work,
+  and the confirmation says which ("Виправив ваш спринт сьогодні о 14:00"), with Undo.
+- **Getting started**: three skippable steps in the private chat (your first work, a goal, whether the board
+  shows your numbers), offered on the first sprint card, on `/start` and in `/profile` until done. Progress
+  is kept per person (`/profile` and the web app show "1 з 3 кроків" with a Continue button); steps done
+  elsewhere (a work added in the menu) count.
 - **`/profile`**: works with goals and month totals, the streak with the last 7 days (missed days within 3
   days can be marked), completed sprints and minutes, and settings: "hide my numbers", the unit for new works,
   My data (export as a ZIP of CSV files, delete everything). `/export` and `/forgetme` stay as commands.
@@ -53,10 +65,59 @@ super-admin tools, your-data commands and the web app live in that bot. Other bo
 - **Ukrainian command names** (`/спринт`, `/прогрес`, `/профіль`, `/промпт`, `/картинка`, `/підрахуй`,
   `/топ`, `/допомога`, `/експорт`, `/забудьмене`) work where the bot sees all messages.
 
+**`/help`** is built for the person and the chat: only what is on there (a chat with `/top` or achievements
+off doesn't list them), grouped in sections, with the chat's values (its default sprint length, its prompt
+categories), the chat admins' commands only for chat admins and the bot's admin commands only for
+super-admins in the private chat. In a group it is a private answer. The **command menus** follow the same
+rules: one for private chats, one for group members, one for chat admins (`all_chat_administrators`), one for
+super-admins, and per chat where its settings change them (refreshed when a setting changes).
+
 Private answers in groups are ephemeral messages (Bot API 10.2) where Telegram allows: after a button
 press, after an ephemeral command, or at any time when the bot is a chat admin. Otherwise they are ordinary
 messages whose buttons only that person can press, deleted after a few minutes. Make the bot a chat admin
 (with "delete messages") for the quiet experience.
+
+### Achievements
+
+Chat admins make achievements from stickers of their own pack and award them by hand. Apart from creating
+one, the raw sticker is never posted; the bot draws game-style pictures (Pillow, with the bundled DejaVu
+Sans font) with the sticker as the icon (an animated sticker's thumbnail; a drawn medal if the sticker is
+gone):
+
+- **Awarding** posts one picture, "Досягнення отримано" with the name, description, who, when and how many
+  have it, captioned "Alice отримує «Нічна сова»".
+- **`/achievements`** in a group is the board of the community (or chat): who has the most, with their
+  icons; the caption lists every achievement with its count. `/achievements мої`, or the command as a reply
+  to someone, is a person's collection, with the ones they don't have yet greyed out. In the private chat,
+  `/achievements` (and `/profile` → Мої досягнення) is your collection.
+
+### Dice
+
+Rolls use the [d20](https://pypi.org/project/d20/) library's notation (the one Avrae uses), with the v2
+forms still accepted. A command that starts with dice (`/d20`, `/2d6+3`) or `/r` / `/roll` and anything
+after it rolls; text after the expression is the caption.
+
+| | v2 (until v4.1) | now |
+|---|---|---|
+| Dice, bonus, caption | `/2d6+3 Атака` | the same; spaces allowed: `/r 2d6 + 3 Атака` |
+| Cyrillic `к` for `d` | `/4к6` | the same |
+| Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same; also `/r 2d20kh1`, `/r 2d20kl1` |
+| Bonus as a letter | `/2d6b2`, `/2d6m1` | the same (read as `+2`, `-1`) |
+| Minimum per die | `/d6mi2`: each die rolled **between** 2 and 6 | `mi2`: each die **raised to** at least 2 (the d20 meaning); negative minimums aren't accepted |
+| Keep / drop | — (the suffix became the caption) | `/4d6kh3`, `kl`, `ph`, `pl`; Roll20's `dl`/`dh` read as `pl`/`ph` |
+| Exploding, rerolls | — | `/r 3d6e6`, `/r 1d20ro1`, `rr`, `ra`, `mi`, `ma` |
+| Arithmetic, several dice | `+N` / `-N` only | `/r (1d6+2)*2`, `/r d20+d4`, `/r 1d20 [вогонь] + 5` (annotations) |
+| Too many dice (over 500) | silently one die | "Забагато кубиків: до 500 за раз." |
+| Not a valid roll | rolled defaults anyway | "Не зрозумів кидок…" with examples |
+| Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
+
+**Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): a roll of one d4, d6, d8, d10,
+d12, d20 or d100 also gets an animated sticker of the die landing on the result (a d100 is the two
+percentile dice, tens and ones, landing together). A bare `/d20` is just the sticker. The 160 stickers are
+made by `scripts/dice_stickers.py` (`uv run --group art python scripts/dice_stickers.py`; needs ffmpeg,
+which the `art` dependency group brings) and kept in `src/writers_bot/assets/dice`. At start the bot looks for
+its packs (`d20_by_<bot username>` and so on) and uploads the missing ones once, owned by the super-admin
+with the lowest id, as Telegram requires a person as a pack's owner; after that it sends them by file id.
 
 ### Chat settings and communities (v4.0)
 

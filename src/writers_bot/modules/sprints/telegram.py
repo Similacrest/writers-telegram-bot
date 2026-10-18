@@ -120,7 +120,12 @@ class Module(TelegramModule):
     # --- wiring ----------------------------------------------------------------------------------
 
     def commands(self) -> list[Command]:
-        commands = [Command("sprint", self.sprint, "commands.sprint", uk="aliases.sprint", help="help.sprint")]
+        commands = [
+            Command(
+                "sprint", self.sprint, "commands.sprint", uk="aliases.sprint", help="help.sprint", section="sprints",
+                values=self._help_length,
+            )
+        ]  # fmt: skip
         if self.reports:
             commands += [
                 Command(
@@ -130,14 +135,49 @@ class Module(TelegramModule):
                     uk="aliases.progress",
                     ephemeral=True,
                     help="help.progress",
+                    section="progress",
+                    values=self._help_percent,
                 ),
-                Command("top", self.top, "commands.top", uk="aliases.top", help="help.top"),
+                Command(
+                    "top",
+                    self.top,
+                    "commands.top",
+                    uk="aliases.top",
+                    help="help.top",
+                    section="sprints",
+                    when=self._top_on,
+                ),
             ]
         if self.works_on:
             commands.append(
-                Command("works", self.works_command, "commands.works", uk="aliases.works", help="help.works")
+                Command(
+                    "works",
+                    self.works_command,
+                    "commands.works",
+                    uk="aliases.works",
+                    help="help.works",
+                    section="progress",
+                    when=self._works_here,
+                )
             )
         return commands
+
+    # --- what /help says here ----------------------------------------------------------------------
+
+    async def _help_length(self, ctx) -> dict:
+        if self.bot.chat_settings is None or ctx.chat_id is None:  # no chat settings here (a v2 bot)
+            return {"here": ""}
+        return {"here": t("help.sprint_here", length=await ctx.setting("sprints.default_length"))}
+
+    async def _help_percent(self, ctx) -> dict:
+        on = self.percent_on and (ctx.private or await ctx.setting("sprints.percent"))
+        return {"percent": t("help.progress_percent") if on else ""}
+
+    async def _top_on(self, ctx) -> bool:
+        return bool(await ctx.setting("sprints.top"))
+
+    async def _works_here(self, ctx) -> bool:
+        return ctx.private or bool(await ctx.setting("sprints.works"))
 
     def handlers(self):
         # Typed input for the works menu goes first: it is also a reply (to the bot's question).
@@ -667,7 +707,10 @@ class Module(TelegramModule):
         if shown != "done" and int(shown or 0) < TIP_TIMES and len(named) >= 2:
             await self.bot.people.set(person, TIP_SPLIT, str(int(shown or 0) + 1))
             amount = item.value or 500
-            first = max(1, amount * 3 // 5)
+            step = 100 if amount >= 200 else 10 if amount >= 20 else 1
+            first = max(step, round(amount * 0.6 / step) * step)  # round numbers read as an example
+            if first >= amount:
+                first = max(1, amount // 2)
             lines.append(
                 f.t(
                     "report.which_work_tip",

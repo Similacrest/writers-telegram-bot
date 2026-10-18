@@ -17,6 +17,7 @@ def test_parse_roll():
     assert parse_roll("/2d6b2").expression == "2d6+2" and parse_roll("/2d6m1").expression == "2d6-1"  # v2 bonuses
     assert parse_roll("/4d6dl1").expression == "4d6pl1"  # Roll20's drop
     assert parse_roll("/r (1d6+2)*2").expression == "(1d6+2)*2"
+    assert parse_roll("/d%").expression == "d%"  # percentile
     assert parse_roll("/r hello").expression == ""  # a dice command that isn't a roll: explained
     assert parse_roll("/prompt") is None
     assert parse_roll("/report") is None

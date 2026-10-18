@@ -78,7 +78,7 @@ MODULES: dict[str, ModuleSpec] = {
             platforms=frozenset({"telegram"}),
             description="welcome messages",
         ),
-        ModuleSpec("dice", platforms=frozenset({"telegram"}), description="dice rolls"),
+        ModuleSpec("dice", defaults={"stickers": False}, platforms=frozenset({"telegram"}), description="dice rolls"),
         ModuleSpec("smash", description="keyboard smash"),
         ModuleSpec(
             "replies",

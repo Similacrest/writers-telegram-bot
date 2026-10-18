@@ -1,5 +1,6 @@
 """The runtime: config from the environment or a file, modules, menus, the allowlist, link previews."""
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -35,15 +36,26 @@ def tbot_from_env() -> TelegramBot:
 
 
 def menu_names(tbot):
-    return [{c.command for c in menu} for menu in tbot.menus()]
+    """The bot-wide menus: groups, private chats, super-admins (private), group admins."""
+    from writers_bot.telegram_bot.base import HelpContext
+
+    async def build():
+        return [
+            await tbot.menu(HelpContext(tbot, None, False)),
+            await tbot.menu(HelpContext(tbot, None, True)),
+            await tbot.menu(HelpContext(tbot, None, True, chat_admin=True, super_admin=True)),
+            await tbot.menu(HelpContext(tbot, None, False, chat_admin=True)),
+        ]
+
+    return [{c.command for c in menu} for menu in asyncio.run(build())]
 
 
 def test_v2_by_default(env):
     tbot = tbot_from_env()
     assert [m.name for m in tbot.modules] == ["prompts", "wordcount", "sprints"]
-    group, private, admin = menu_names(tbot)
+    group, private, admin, chat_admins = menu_names(tbot)
     assert group == private == {"help", "prompt", "image", "count", "sprint"}
-    assert admin == group  # no admin tools without the preview
+    assert admin == group == chat_admins  # no admin tools without the preview
     assert not tbot.profile_enabled and tbot.data is None
 
 
@@ -51,10 +63,11 @@ def test_preview_features(env):
     env.setenv("PREVIEW_FEATURES", "1")
     env.setenv("BOT_SUPERADMINS", "42")
     tbot = tbot_from_env()
-    group, private, admin = menu_names(tbot)
+    group, private, admin, chat_admins = menu_names(tbot)
     assert {"progress", "top", "profile"} <= group
     assert "export" in private and "export" not in group and "forgetme" in private
     assert {"chats", "broadcast"} <= admin and "chats" not in private
+    assert "settings" in chat_admins and "settings" not in group and "settings" not in private
 
 
 def test_extras_modules(env):
@@ -165,7 +178,7 @@ async def test_help_lists_only_the_bots_modules(tmp_path, clock):
     h = await Harness.create(tmp_path, clock, {"wordcount": {}, "dice": {}})
     try:
         await h.say(ALICE, "/help")
-        text = h.last_public().text
+        text = h.last_private(ALICE).text  # privately: it's long and only theirs
         assert "/count" in text and "/d20" in text and "/sprint" not in text and "/prompt" not in text
         await h.say(ALICE, "/wc раз два три")
         assert "3 слова" in h.last_public().text

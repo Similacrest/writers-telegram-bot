@@ -13,7 +13,7 @@ from .i18n import t
 # /d20, /2d6+1, /r 4d6kh3 Ініціатива, /roll d20adv: a command that starts with dice, or /r and /roll. The
 # notation is the d20 library's (keep/drop, exploding, rerolls, arithmetic), plus the v2 forms: the Cyrillic
 # letter ka for d, "adv"/"dis" for the better/worse of two throws, b5/m3 for +5/-3. (i18n: input syntax)
-_DIE = r"\d*[dDкК]\d"  # i18n: input syntax
+_DIE = r"\d*[dDкК][\d%]"  # i18n: input syntax; d% is the percentile die
 ROLL_RE = re.compile(rf"^/(?:r(?:oll)?(?:@\w+)?(?:\s+\S|\s*\()|(?:r(?:oll)?(?:@\w+)?)?{_DIE})", re.IGNORECASE)
 _PREFIX = re.compile(r"^/(?:r(?:oll)?)?(?:@\w+)?\s*", re.IGNORECASE)  # i18n: input syntax
 _MENTION = re.compile(r"^(\S*?)@\w+")
@@ -94,23 +94,53 @@ def parse_roll(text: str) -> Roll | None:
     return Roll("", None, "")
 
 
-def roll_html(f: Formatter, roll: Roll) -> str:
+@dataclass(frozen=True, slots=True)
+class Outcome:
+    html: str
+    die: tuple[int, int] | None = None  # (sides, value) when the roll is one die: for the dice stickers
+    only_die: bool = False  # nothing to say beyond what the die shows (a bare /d20)
+
+
+def _single_die(result) -> tuple[int, int] | None:
+    found = []
+
+    def walk(node):
+        if isinstance(node, d20.Dice):
+            found.append(node)
+        for child in node.children:
+            walk(child)
+
+    walk(result.expr)
+    if len(found) != 1:
+        return None
+    kept = [die for die in found[0].values if die.kept]
+    sides = 100 if found[0].size == "%" else found[0].size
+    return (sides, kept[0].number) if len(kept) == 1 else None
+
+
+def throw(f: Formatter, roll: Roll) -> Outcome:
     if not roll.expression:
-        return f.t("dice.error")
+        return Outcome(f.t("dice.error"))
     caption = f"{f.bold(roll.caption)} "
     roller = _Roller()
     try:
         first = roller.roll(roll.expression, stringifier=_Html())
-        if not roll.mode:
-            return caption + first.result
-        second = roller.roll(roll.expression, stringifier=_Html())
+        second = roller.roll(roll.expression, stringifier=_Html()) if roll.mode else None
     except d20.TooManyRolls:
-        return f.t("dice.too_many", max=MAX_DICE)
+        return Outcome(f.t("dice.too_many", max=MAX_DICE))
     except d20.RollError:
-        return f.t("dice.error")
+        return Outcome(f.t("dice.error"))
+    if second is None:
+        bare = re.fullmatch(r"1?d(\d+|%)", roll.expression) is not None and roll.caption == t("dice.result")
+        return Outcome(caption + first.result, _single_die(first), bare)
     better = first.total >= second.total if roll.mode == "adv" else first.total <= second.total
     kept, dropped = (first, second) if better else (second, first)
-    return f"{caption}\n{f.bold(int(kept.total))}\n{kept.result}\n<s>{dropped.result}</s>"
+    html = f"{caption}\n{f.bold(int(kept.total))}\n{kept.result}\n<s>{dropped.result}</s>"
+    return Outcome(html, _single_die(kept))
+
+
+def roll_html(f: Formatter, roll: Roll) -> str:
+    return throw(f, roll).html
 
 
 _KEYBOARD = ["qwertyuiop[]", "asdfghjkl;'", "zxcvbnm,./"]

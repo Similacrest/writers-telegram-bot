@@ -93,9 +93,73 @@ questions.
 4. **The board's "✓ Bob" for hidden numbers and "✗ Carol"** are on separate lines below the numbers;
    people who prefer not to share are visibly grouped (see round 1, item 7).
 
+## Answers to rounds 1–3 (v4.2)
+
+The owner's answers to the open items above, and what v4.2 did (see PLAN.md, "Done in v4.2"):
+
+| Item | Answer | Now |
+|---|---|---|
+| R1.1 Report button → public question | — | unchanged |
+| R1.2 Two works, one unit: "Куди записати?" | Fine if people learn the split syntax, or to pause works | tip with their own works in the question (first 3 times); works can be paused; "Пауза" button in the question |
+| R1.3 No admin rights → no private confirmation | — | unchanged |
+| R1.4 % outside a sprint | Confirm it explicitly, ephemerally | the confirmation names the sprint; a short-lived reply where ephemeral isn't possible |
+| R1.5 Late reports until the next sprint | Only for participants, of the last sprint they joined | unchanged (as before) |
+| R1.6 Works live in the private chat | Switching should work in public too | `/works` and `/profile` → Твори in groups: on/paused toggles |
+| R1.7 Hidden numbers visible as "✓ Bob" | — | unchanged |
+| R1.8 The first goal needs a private chat | Needs an onboarding step, and keeping track of it | three steps in the private chat, progress kept and shown |
+| R2.1–R2.7 admin tools | Suggestions asked for | see "Suggestions for the admin tools" below |
+| R3.1 An award is two messages | No raw sticker outside creation; rendered cards | one picture with the caption; pictures for lists and the board |
+
+### Suggestions for the admin tools (R2)
+
+1. **The long /settings card** → a short card with four sections (Спринти · Звіти й приватність ·
+   Промпти й відповіді · Привітання й досягнення), each opening its own few toggles in place, plus the
+   web app button. Only the section you open is long.
+2. **`/replies add /trigger = answer`** → write the answer as an ordinary message, then reply to it with
+   `/replies add /imafan` (the replied text becomes the answer, formatting kept). No `=` syntax, and
+   multi-line answers work. The `/replies` card gets an "Як додати" line showing exactly that.
+3. **Typing the welcome text into the group** → the /settings button "Привітання" becomes a deep link to
+   the private chat that carries the chat (`/start welcome_<chat>`; the bot checks the admin rights again
+   there), and the admin types the text privately. The same link works for long replies.
+4. **Submitting to the shared set only in the web app** → a third button on `/suggestions` items,
+   "Прийняти й запропонувати всім".
+5. **Category spelling from suggestions** → on accepting, if the category is close to an existing one
+   (case, a typo, the English/Ukrainian alias), the card asks "Додати до «Комедія»?" before creating a new
+   one.
+6. **Community management is commands only** → a Communities page in the web app for super-admins (chats
+   as checkboxes per community), and `/community` replies with buttons instead of ids.
+7. **`/bcexclude`** → keep as an admin tool, or drop it if "no opt-out" should also bind admins.
+
+## Round 4: v4.2, `tests/test_wf_phase6.py`, 36 workflows
+
+Pausing and switching works, the split tip, % corrections, getting started, achievement pictures, dice
+(notation and stickers).
+
+### Fixed
+1. **The tip's example numbers** were 60/40 of the number ("240 Роман 160 Есе"), which reads like a
+   calculation; they are now rounded ("300 Роман 200 Есе").
+2. **Confirmations of ephemeral commands** went nowhere without admin rights: `/progress` sent as an
+   ephemeral command got only the 👍. They are now ephemeral replies to the command.
+3. **The transcripts** didn't show pictures and stickers; the fake API logs them now.
+
+### Still open
+1. **The first `/start` is two messages** (the help, then step 1 of getting started). Merging them would
+   hide the help; it happens once.
+2. **A stray message during a typed step becomes the answer.** While step 1 waits (30 minutes), any text in
+   the private chat is taken as the work's name. "Не зараз" stops the waiting; a wrong name is fixed with
+   /works. A ForceReply question would avoid it but can't carry the Skip / Later buttons.
+3. **A roll with a bonus or a caption is two messages** (the sticker, then the line); a bare `/d20` is one.
+   Stickers can't have captions.
+4. **Dice stickers loop.** Telegram plays video stickers in a loop, so the die tumbles again every 3 s while
+   on screen (the landed face is held for the last half). The built-in 🎲 plays once, but is d6 only and
+   its value is Telegram's.
+5. **The dice packs need a super-admin** as their owner (a Telegram rule); without one, rolls are text.
+6. **160 sticker files** (about 30 MB) are in the repository and the image; they are uploaded to Telegram
+   once.
+
 ## Summary
 
-- 34 + 26 + 21 modelled workflows (plus 4 web-app rendering checks), all passing; 13 problems fixed on
+- 34 + 26 + 21 + 36 modelled workflows (plus 4 web-app rendering checks), all passing; 16 problems fixed on
   the way.
 - The open items above are design questions rather than bugs: mostly Telegram limits (no force-reply to
   an ephemeral message, ephemeral messages only for admin bots or right after a button press) and

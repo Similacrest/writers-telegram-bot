@@ -43,7 +43,12 @@ class _Waiting(filters.MessageFilter):
         if message.chat.type != ChatType.PRIVATE or message.from_user is None or not message.text:
             return False
         waiting = self.onboarding._waiting.get(message.from_user.id)
-        return waiting is not None and time.monotonic() - waiting[1] < INPUT_TTL
+        if waiting is None or time.monotonic() - waiting[1] >= INPUT_TTL:
+            return False
+        # the works menu asked something since: its question gets the answer
+        menu = self.onboarding.module.menu
+        asked = menu._waiting.get(message.from_user.id) if menu is not None else None
+        return asked is None or asked[2] < waiting[1]
 
 
 class Onboarding:

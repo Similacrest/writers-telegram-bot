@@ -300,7 +300,7 @@ async def test_j02_a_quiet_chat(make):
 
 async def test_j03_v2_default_unchanged_end_to_end(make):
     """The default (environment) set: prompts, wordcount and the v2 sprint; nothing new shows up."""
-    h = await make({"prompts": {}, "wordcount": {}, "sprints": {}})
+    h = await make({"prompts": {}, "wordcount": {}, "sprints": {}}, admin=False)
     await h.say(ALICE, "/help")
     help_text = h.last_public().text
     assert "/sprint" in help_text and "/progress" not in help_text and "/profile" not in help_text

@@ -4,6 +4,7 @@ A chat's value wins; otherwise its community's; otherwise the default. Settings 
 only offers those of its modules (and of the options it has on: no works switch in a bot without works).
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,6 +93,23 @@ class SettingsStore:
         self.storage = storage
         self.communities = communities
         self.modules = modules  # the storage bot's modules and their options
+        # called with (platform, chat ids) after a change that affects those chats (their command menus)
+        self.listeners: list[Callable[[str, list[str]], Awaitable[None]]] = []
+
+    async def _changed(self, platform: str, chat_ids: list[str]) -> None:
+        for listener in self.listeners:
+            await listener(platform, chat_ids)
+
+    async def customised(self, platform: str) -> list[str]:
+        """Chats with a setting of their own or of their community."""
+        rows = await self.storage.fetchall(
+            "SELECT DISTINCT chat_id FROM chat_settings WHERE platform = ?", (platform,)
+        )
+        chats = {r["chat_id"] for r in rows}
+        for community in await self.communities.all():
+            if await self.communities.settings(community.id):
+                chats |= {chat for p, chat in community.chats if p == platform}
+        return sorted(chats)
 
     def defs(self) -> list[SettingDef]:
         out = []
@@ -156,6 +174,7 @@ class SettingsStore:
         else:
             parsed = definition.parse(value)
             await self.storage.set_chat_setting(platform, chat_id, key, definition.dump(parsed))
+        await self._changed(platform, [chat_id])
         return await self.get(platform, chat_id, key)
 
     async def set_community(self, community_id: int, key: str, value: Any) -> None:
@@ -163,6 +182,11 @@ class SettingsStore:
         await self.communities.set_setting(
             community_id, key, None if value is None else definition.dump(definition.parse(value))
         )
+        community = await self.communities.get(community_id)
+        if community is not None:
+            platforms = {p for p, _ in community.chats}
+            for platform in platforms:
+                await self._changed(platform, [c for p, c in community.chats if p == platform])
 
     # --- what modules ask ----------------------------------------------------------------------------
 

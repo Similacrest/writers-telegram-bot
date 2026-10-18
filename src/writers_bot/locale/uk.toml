@@ -484,10 +484,15 @@ forgetme = "Видалити мої дані"
 smash = "Keyboard smash"
 promptstats = "Кількість промптів"
 reload = "Перезавантажити промпти (адміни)"
-settings = "Налаштування чату (адміни)"
+settings = "Налаштування цього чату"
 suggest = "Запропонувати промпт: /suggest жахи Текст"
 review = "Адмін: пропозиції до спільних промптів"
-achievements = "Досягнення цього чату"
+achievements = "Досягнення: дошка і ваші"
+award = "Нагородити (у відповідь на повідомлення)"
+newachievement = "Нове досягнення зі стікера"
+addprompt = "Додати промпт до набору чату"
+suggestions = "Запропоновані промпти"
+replies = "Відповіді бота в цьому чаті"
 chats = "Адмін: усі чати з ботом"
 broadcast = "Адмін: розсилка (groups / private / all)"
 bcexclude = "Адмін: прибрати чати з розсилок"
@@ -517,22 +522,52 @@ award = "нагорода"
 [help]
 # First line of /help and /start (unless the config sheet has a help_message)
 title = "Бот для письменників"
-# One line per command in /help; shown only for the modules the bot has
+# /help is built for the person and the chat: only what is on there, in these sections, with the chat's
+# own values. Section headings:
+section_prompts = "Промпти"
+section_sprints = "Спринти"
+section_progress = "Прогрес і твори"
+section_achievements = "Досягнення"
+section_tools = "Інше"
+section_you = "Ваші дані"
+section_chat_admin = "Для адмінів чату"
+section_bot_admin = "Для адмінів бота"
+# Last line of /help in a group (it is a private answer there)
+more_in_private = "Ваші дані, експорт і налаштування — в особистих з ботом, там /help покаже більше."
+# One line per command; {categories} is the list of this chat's prompt categories
 prompt = "/prompt — випадковий текстовий промпт"
-prompt_categories = "/prompt — випадковий текстовий промпт (/prompt <категорія> — з однієї категорії)"
+prompt_categories = "/prompt — випадковий текстовий промпт; /prompt <категорія> — з однієї: {categories}"
 image = "/image — випадковий промпт-зображення"
-image_categories = "/image — випадковий промпт-зображення (/image <категорія>)"
+image_categories = "/image — випадковий промпт-зображення; /image <категорія>: {categories}"
+# {categories} when the chat has none yet
+no_categories = "поки немає"
+promptstats = "/promptstats — скільки промптів у наборі"
+reload = "/reload — перечитати промпти з таблиці"
+suggestions = "/suggestions — запропоновані учасниками промпти: прийняти чи відхилити"
+review = "/review — пропозиції чатів до спільних промптів"
 count = "/count — порахувати слова (у відповідь на повідомлення, текст після команди або посилання)"
-sprint = "/sprint [хвилин] [затримка] — спринт, напр. /sprint 30 2"
-progress = "/progress — записати прогрес (+400, =5000, посилання) або показати свій"
+# {here}: the chat's own default length (sprint_here) where it has chat settings, else nothing
+sprint = "/sprint [хвилин] [затримка] — спринт{here}, напр. /sprint 30 2"
+sprint_here = " (тут за замовчуванням {length} хв)"
+# {percent}: progress_percent where % works are on
+progress = "/progress — записати прогрес (+400, =5000, посилання{percent}) або показати свій"
+progress_percent = ", 40% — виправити свій спринт"
 profile = "/profile — твори, цілі, дні поспіль і налаштування"
 works = "/works — над чим пишете зараз (твори на паузі не беруться в спринти); додати твір — в особистих"
 top = "/top [днів] — хвилини у спринтах за період"
 export = "/export — ваші дані у файлі, /forgetme — видалити їх"
 addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
 suggest = "/suggest <категорія> <текст> — запропонувати промпт"
-achievements = "/achievements — досягнення чату (адміни нагороджують: /award у відповідь на повідомлення)"
-dice = "/d20, /2d6+1, /r 4к6 — кинути кубики"
+achievements = "/achievements — дошка досягнень; /achievements мої — ваші"
+award = "/award у відповідь на повідомлення — нагородити (/unaward — забрати)"
+newachievement = "/newachievement Назва — опис у відповідь на стікер вашого набору — нове досягнення (або надішліть стікер мені в особисті)"
+settings = "/settings — налаштування цього чату"
+replies = "/replies — свої відповіді бота в цьому чаті"
+chats = "/chats — усі чати з ботом"
+broadcast = "/broadcast groups|private|all — розсилка"
+bcexclude = "/bcexclude, /bcinclude — прибрати чати з розсилок чи повернути"
+community = "/community — спільноти чатів"
+dice = "/d20, /2d6+3 Атака, /r 4d6kh3, /d20adv, /d100 — кинути кубики"
 smash = "/smash — keyboard smash"
 
 # ------------------------------------------------------------------------------------------------
@@ -732,6 +767,8 @@ usage = "Надішліть /count у відповідь на повідомле
 result = "Результат"
 # A dice command the bot can't read
 error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
+# Title of the bot's sticker pack for one die (people see it when they open a dice sticker): "Кубик d20"
+pack_title = "Кубик d{sides}"
 # Too many dice in one roll
 too_many = "Забагато кубиків: до {max} за раз."
 
@@ -792,6 +829,9 @@ error_platform = "Це поки працює лише для Telegram."
 # Setting a first goal needs a private chat with the bot (it can only write to people who started it)
 error_dm_first = "Щоб бот міг повідомити про виконану ціль, спершу напишіть йому в особисті."
 goal_dm_first = "Напишіть боту в особисті, щоб він міг повідомляти про цілі:"
+# Works tab, while getting started (in the private chat with the bot) isn't finished
+onboarding_progress = "Налаштування в Telegram: {done} з {total} кроків."
+onboarding_continue = "Продовжити"
 # Tabs
 tab_sprint = "Спринт"
 tab_works = "Твори"

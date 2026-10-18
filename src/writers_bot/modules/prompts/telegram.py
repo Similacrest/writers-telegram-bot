@@ -57,6 +57,8 @@ class Module(TelegramModule):
                 uk="aliases.prompt",
                 aliases=("prompt_ua",),
                 help="help.prompt_categories" if self.categories else "help.prompt",
+                section="prompts",
+                values=self._text_categories,
             ),
             Command(
                 "image",
@@ -64,20 +66,59 @@ class Module(TelegramModule):
                 "commands.image",
                 uk="aliases.image",
                 help="help.image_categories" if self.categories else "help.image",
+                section="prompts",
+                values=self._image_categories,
             ),
-            Command("promptstats", self.stats, None, aliases=("stats",)),
+            Command("promptstats", self.stats, None, aliases=("stats",), help="help.promptstats", section="prompts"),
         ]
         if self.db is None:
-            commands.append(Command("reload", self.reload, None))
+            commands.append(Command("reload", self.reload, None, scope="chat_admin", help="help.reload"))
         else:
             commands += [
-                Command("addprompt", self.add_prompt, None, help="help.addprompt"),
-                Command("suggest", self.suggest, "commands.suggest", uk="aliases.suggest", help="help.suggest"),
-                Command("suggestions", self.suggestions, None),
-                Command("addimage", self.add_image, None),
-                Command("review", self.review, "commands.review", scope="admin"),
+                Command("addprompt", self.add_prompt, "commands.addprompt", scope="chat_admin", help="help.addprompt"),
+                Command(
+                    "suggest",
+                    self.suggest,
+                    "commands.suggest",
+                    uk="aliases.suggest",
+                    help="help.suggest",
+                    section="prompts",
+                ),
+                Command(
+                    "suggestions",
+                    self.suggestions,
+                    "commands.suggestions",
+                    scope="chat_admin",
+                    help="help.suggestions",
+                ),
+                Command("addimage", self.add_image, None, scope="chat_admin"),  # in help.addprompt
+                Command("review", self.review, "commands.review", scope="admin", help="help.review"),
             ]
         return commands
+
+    async def _categories(self, ctx, kind: str) -> dict:
+        """This chat's categories for /help (the shared ones in the private chat)."""
+        if not self.categories:
+            return {}
+        try:
+            if self.db is not None:
+                chat = ctx.chat_id if ctx.chat_id is not None else 1  # a private chat: the shared set
+                _, sets = await self.sets(chat)
+                labels = sorted({c.label for c in await self.db.categories(sets, kind)}, key=str.casefold)
+            elif self.store is not None:
+                labels = self.store.text_categories(LANG) if kind == "text" else list(self.store.image_categories())
+            else:
+                labels = []
+        except Exception:  # /help shouldn't fail over a category list
+            logger.exception("no categories for /help")
+            labels = []
+        return {"categories": ", ".join(labels[:15]) or t("help.no_categories")}
+
+    async def _text_categories(self, ctx) -> dict:
+        return await self._categories(ctx, "text")
+
+    async def _image_categories(self, ctx) -> dict:
+        return await self._categories(ctx, "image")
 
     def handlers(self):
         # /image_<category> isn't a fixed command name, so it takes a regex.

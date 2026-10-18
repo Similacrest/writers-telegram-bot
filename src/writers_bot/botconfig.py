@@ -156,7 +156,12 @@ def env_modules(extras: bool, preview: bool) -> dict[str, dict]:
         "sprints": {"reports": preview, "works": preview, "percent": preview},
     }
     if extras:
-        modules |= {"dice": {}, "smash": {}, "greeter": {"from_sheet": True}, "replies": {"legacy": True}}
+        modules |= {
+            "dice": {"stickers": preview},
+            "smash": {},
+            "greeter": {"from_sheet": True},
+            "replies": {"legacy": True},
+        }
     return {k: MODULES[k].defaults | v for k, v in modules.items()}
 
 

@@ -85,11 +85,23 @@ class Module(TelegramModule):
         if self.store is None:
             return []
         return [
-            Command("award", self.award_command, None, uk="aliases.award"),
-            Command("unaward", self.unaward_command, None),
-            Command("newachievement", self.new_command, None),
-            Command("achievements", self.list_command, "commands.achievements", help="help.achievements"),
-        ]
+            Command(
+                "award", self.award_command, "commands.award", uk="aliases.award", scope="chat_admin",
+                help="help.award", when=self._on_here,
+            ),
+            Command("unaward", self.unaward_command, None, scope="chat_admin", when=self._on_here),
+            Command(
+                "newachievement", self.new_command, "commands.newachievement", scope="chat_admin",
+                help="help.newachievement", when=self._on_here,
+            ),
+            Command(
+                "achievements", self.list_command, "commands.achievements", help="help.achievements",
+                section="achievements", when=self._on_here,
+            ),
+        ]  # fmt: skip
+
+    async def _on_here(self, ctx) -> bool:
+        return ctx.private or bool(await ctx.setting("achievements.enabled"))
 
     def handlers(self):
         if self.store is None:
@@ -596,7 +608,10 @@ class Module(TelegramModule):
             total if owner is not None else 0,
         )
         names = ", ".join(f"«{a.achievement.name}»" for a in awards) or t("achievements.none_in_caption")
-        caption = f.t("achievements.collection_caption", who=f.mention(str(user.id), display_name(user)), list=names)
+        if len(names) > CAPTION_MAX - 100:
+            names = names[: CAPTION_MAX - 101].rsplit(", ", 1)[0] + ", …"
+        # the name in bold, not a mention: looking at someone's collection shouldn't notify them
+        caption = f.t("achievements.collection_caption", who=f.bold(display_name(user)), list=names)
         await self._send_picture(chat_id, thread, render.collection, picture, caption)
 
     async def post_board(self, chat_id: int, thread: int | None, owner: str, items) -> None:

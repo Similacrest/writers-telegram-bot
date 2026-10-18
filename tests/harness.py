@@ -95,12 +95,13 @@ class Harness:
         *,
         bot_admin: bool = True,
         web=None,
+        admin: bool = True,  # the preview's admin tools (False: a v2 bot from the environment)
         **settings_overrides,
     ) -> "Harness":
         modules = modules if modules is not None else {"sprints": {"reports": True, "works": True, "percent": True}}
         modules = {k: MODULES[k].defaults | v for k, v in modules.items()}
         tg = settings(tmp_path / "bot.sqlite3", **settings_overrides)
-        bot = BotConfig("main", modules, telegram=tg, admin=True)
+        bot = BotConfig("main", modules, telegram=tg, admin=admin, chat_settings=admin)
         config = ProcessConfig({"main": bot}, tg.common, web)
         services = Services.build(config)
         await services.start()

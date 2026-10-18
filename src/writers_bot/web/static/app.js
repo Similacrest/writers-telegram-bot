@@ -227,6 +227,10 @@ async function renderWorks(view) {
   const data = await guarded(() => api("GET", "/api/works"));
   if (!data) return;
   const parts = [el("p", { class: "muted" }, T("works_intro"))];
+  if (data.onboarding && data.bot) {
+    parts.unshift(el("div", { class: "card" }, el("p", {}, T("onboarding_progress", { done: data.onboarding[0], total: data.onboarding[1] }), " ",
+      el("a", { href: `https://t.me/${data.bot}?start=onboard`, target: "_blank" }, T("onboarding_continue")))));
+  }
   for (const work of data.works) parts.push(workCard(work, data, () => renderWorks(view)));
   if (data.works.length < 5) {
     const name = el("input", { placeholder: T("work_name") });
