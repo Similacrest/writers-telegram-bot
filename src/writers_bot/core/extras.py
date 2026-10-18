@@ -11,7 +11,10 @@ from .i18n import Markup, t
 _rng = SystemRandom()
 
 # /d20, /2d6, /r 3d8+2, /roll d20adv Initiative, /4k6mi2 (the Cyrillic letter ka works too; i18n: input syntax)
-ROLL_RE = re.compile(r"^/(?:r(?:oll)?\s*)?(\d*)[dDкК](\d+)(mi-?\d+)?(adv|dis)?([bm+\-]\d+)?(?:@\w+)?(.*)$", re.DOTALL)
+ROLL_RE = re.compile(
+    r"^/(?:r(?:oll)?\s*)?(\d*)[dDкК](\d+)(mi-?\d+)?(adv|dis)?([bm+\-]\d+)?(?:@\w+)?(.*)$",  # i18n: input syntax
+    re.DOTALL,
+)
 MAX_DICE = 500
 MAX_SIDES = 2**31 - 1
 

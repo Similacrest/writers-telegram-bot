@@ -167,6 +167,15 @@ class Module(TelegramModule):
             except Exception:
                 logger.exception("daily recount failed")
 
+    def web_routes(self, web) -> None:
+        if self.reports:
+            from .web import routes
+
+            routes(self, web)
+
+    def web_tabs(self) -> list[str]:
+        return ["sprint", "works", "progress", "settings"] if self.reports else []
+
     def panel_button(self, sprint: Sprint) -> InlineKeyboardButton | None:
         web = self.bot.web
         if web is None or not self.options.get("web", True):

@@ -45,7 +45,7 @@ def _int(name: str, default: int) -> int:
 def _prompt_sheets(value: str | None) -> dict[str, str]:
     # "ua=База-ua,en=Base-en"
     result = {}
-    for part in (value or "ua=База-ua").split(","):
+    for part in (value or "ua=База-ua").split(","):  # i18n: the default sheet name, not shown to users
         lang, _, sheet = part.partition("=")
         if lang.strip() and sheet.strip():
             result[lang.strip()] = sheet.strip()
