@@ -94,6 +94,31 @@ async def test_static_and_texts(client):
     assert (await client.get("/api/me")).status == 401
 
 
+async def test_the_csp_allows_no_eval_and_no_inline_script(client):
+    """The Telegram Login widget's redirect flow needs neither: script-src stays 'self' and telegram.org."""
+    csp = (await client.get("/")).headers["Content-Security-Policy"]
+    script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
+    assert "'unsafe-eval'" not in script_src and "'unsafe-inline'" not in script_src
+    assert "'unsafe-eval'" not in csp
+    assert "data-onauth" not in await (await client.get("/static/app.js")).text()
+
+
+async def test_login_by_redirect_parameters(client):
+    """What /?id=..&hash=.. carries is what the widget calls with: a valid hash is a session, a bad or stale one is not."""
+    fields = login_fields(5)
+    r = await client.post("/api/session", json={"login": fields})
+    assert r.status == 200
+    token = (await r.json())["token"]
+    me = await client.get("/api/me", headers={"Authorization": "Bearer " + token})
+    assert me.status == 200 and (await me.json())["name"] == "Alice"
+    bad = await client.post("/api/session", json={"login": {**fields, "id": "6"}})  # changed after the hash was made
+    assert bad.status == 401
+    stale = await client.post("/api/session", json={"login": login_fields(5, auth_date=int(time.time()) - 2 * 86400)})
+    assert stale.status == 401
+    assert (await client.post("/api/session", json={"login": {"id": "5"}})).status == 401  # no hash
+    assert (await client.post("/api/session", json={"login": ["id"]})).status == 401  # not even an object
+
+
 async def test_sprint_panel(h, client):
     await h.say(ALICE, "/sprint 20 0")
     sprint = h.sprint()

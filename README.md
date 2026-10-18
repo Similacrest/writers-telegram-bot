@@ -184,7 +184,8 @@ down) everything works in chat and the buttons are hidden.
 
 Setup (ops): public HTTPS to the web app's port, the bot's Main Mini App set to the URL in @BotFather
 (Mini App methods only work on that domain since Bot API 10.2), and the domain set with `/setdomain` for
-Telegram Login. Discord sign-in needs `web.discord_client_id` and `web.discord_client_secret` (or
+Telegram Login (the widget's redirect flow: Telegram sends the browser back to the web app's own `/` with the user in the query string,
+which the page posts to `/api/session` and removes from the address bar; the page's CSP has no `unsafe-eval` or `unsafe-inline` for scripts). Discord sign-in needs `web.discord_client_id` and `web.discord_client_secret` (or
 `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`) and the redirect `https://<web url>/auth/discord/callback`.
 
 ### Admin: chats and broadcasts (super-admins, private chat)

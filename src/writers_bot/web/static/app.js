@@ -71,6 +71,20 @@ function time(iso) {
 
 // --- start ------------------------------------------------------------------------------------------
 
+// Telegram Login's redirect flow (the widget's data-auth-url): the browser comes back here with the user in the query
+// string. The widget's callback attribute would need eval, which the page's CSP does not allow.
+const LOGIN_KEYS = ["id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash"];
+
+function loginFromQuery(params) {
+  if (!params.get("hash") || !params.get("id")) return null;
+  const login = {};
+  LOGIN_KEYS.forEach((key) => { if (params.has(key)) login[key] = params.get(key); });
+  LOGIN_KEYS.forEach((key) => params.delete(key));
+  const rest = params.toString();
+  history.replaceState(null, "", location.pathname + (rest ? "?" + rest : ""));  // not in the address bar or the history
+  return login;
+}
+
 async function start() {
   state.texts = await (await fetch("/api/texts")).json();
   state.config = await (await fetch("/api/config")).json();
@@ -87,8 +101,12 @@ async function start() {
     state.token = session.token;
     state.launch = state.launch || session.start || (tg.initDataUnsafe && tg.initDataUnsafe.start_param) || null;
   } else {
+    const login = loginFromQuery(params);
     const fragment = new URLSearchParams(location.hash.slice(1));
-    if (fragment.get("session")) {
+    if (login) {
+      const session = await guarded(() => api("POST", "/api/session", { login }));
+      if (session) sessionStorage.setItem("token", session.token);
+    } else if (fragment.get("session")) {
       sessionStorage.setItem("token", fragment.get("session"));
       history.replaceState(null, "", location.pathname);
     }
@@ -103,15 +121,11 @@ function showLogin() {
   view.replaceChildren(el("p", {}, T("login_intro")));
   const bot = (state.config.bots || [])[0];
   if (bot && bot.username) {
-    window.onTelegramAuth = async (user) => {
-      const session = await guarded(() => api("POST", "/api/session", { login: user }));
-      if (session) { state.token = session.token; sessionStorage.setItem("token", session.token); showApp(); }
-    };
     const script = el("script", {
       src: "https://telegram.org/js/telegram-widget.js?22",
       "data-telegram-login": bot.username,
       "data-size": "large",
-      "data-onauth": "onTelegramAuth(user)",
+      "data-auth-url": location.origin + location.pathname,
       "data-request-access": "write",
       async: true,
     });

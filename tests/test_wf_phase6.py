@@ -7,10 +7,9 @@ from pathlib import Path
 import pytest
 from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
-
-from writers_bot.core.extras import Outcome, Roll
 from telegram.error import TimedOut
 
+from writers_bot.core.extras import Outcome, Roll
 from writers_bot.modules.dice import telegram as dice_telegram
 from writers_bot.modules.dice.telegram import clip_name, manifest
 

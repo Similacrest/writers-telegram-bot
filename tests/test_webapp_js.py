@@ -44,7 +44,8 @@ var document = {
 };
 var window = {};
 var location = { search: "", hash: "", pathname: "/" };
-var history = { replaceState: function () {} };
+var HISTORY = [];
+var history = { replaceState: function (a, b, url) { HISTORY.push(url); } };
 var sessionStorage = { _: {}, getItem: function (k) { return k in this._ ? this._[k] : null; },
   setItem: function (k, v) { this._[k] = v; }, removeItem: function (k) { delete this._[k]; } };
 var setTimeout = function () { return 0; }, clearTimeout = function () {};
@@ -56,6 +57,11 @@ function URLSearchParams(s) {
     if (!p) return; var kv = p.split("="); this.map[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || "");
   }, this);
   this.get = function (k) { return k in this.map ? this.map[k] : null; };
+  this.has = function (k) { return k in this.map; };
+  this["delete"] = function (k) { delete this.map[k]; };
+  this.toString = function () {
+    return Object.keys(this.map).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(this.map[k]); }, this).join("&");
+  };
 }
 var ERRORS = [];
 var RESPONSES = {};
@@ -108,6 +114,50 @@ class Page:
     def view_text(self) -> str:
         data = json.loads(self.ctx.eval("JSON.stringify(document.getElementById('view'))"))
         return " ".join(walk_text(data, []))
+
+
+LOGIN_QUERY = "?s=launch&id=7&first_name=Alice&auth_date=1700000000&hash=abc&junk=1"
+
+
+def test_telegram_login_comes_back_by_redirect_not_by_eval():
+    """The widget's data-onauth is compiled with new Function (eval), which the page's CSP forbids: the login
+    button uses data-auth-url, and start() takes the user from the query string, then removes it from the URL."""
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "data-onauth" not in source and "onTelegramAuth" not in source and "eval(" not in source
+    assert '"data-auth-url": location.origin + location.pathname' in source
+    page = Page(
+        {
+            "GET /api/texts": {"status": 200, "body": {"title": "t", "login_intro": "Увійдіть"}},
+            "GET /api/config": {
+                "status": 200,
+                "body": {"bots": [{"name": "main", "username": "b"}], "discord": False},
+            },
+            "POST /api/session": {"status": 200, "body": {"token": "T0KEN", "name": "Alice"}},
+            "GET /api/me": {"status": 401, "body": {"error": "login"}},
+        }
+    )
+    page.run(f"location.search = {json.dumps(LOGIN_QUERY)}; await start();")
+    assert page.ctx.eval("CALLS.indexOf('POST /api/session')") >= 0
+    assert page.ctx.eval("HISTORY[0]") == "/?s=launch&junk=1"  # the login fields are gone, the other parameters stay
+    assert page.ctx.eval("sessionStorage.getItem('token')") in ("T0KEN", None)  # /api/me said 401 above: token dropped
+
+
+async def test_the_redirect_login_sends_only_the_widgets_fields():
+    page = Page(
+        {
+            "GET /api/texts": {"status": 200, "body": {"title": "t"}},
+            "GET /api/config": {"status": 200, "body": {"bots": [], "discord": False}},
+            "POST /api/session": {"status": 200, "body": {"token": "T0KEN", "name": "Alice"}},
+            "GET /api/me": {"status": 200, "body": {"name": "Alice", "tabs": []}},
+        }
+    )
+    page.ctx.eval(
+        "var SENT = null; var _fetch = fetch; fetch = function (p, o) { if (o && o.body) SENT = JSON.parse(o.body); return _fetch(p, o); };"
+    )
+    page.run(f"location.search = {json.dumps(LOGIN_QUERY)}; await start();")
+    sent = json.loads(page.ctx.eval("JSON.stringify(SENT)"))
+    assert sent == {"login": {"id": "7", "first_name": "Alice", "auth_date": "1700000000", "hash": "abc"}}
+    assert page.ctx.eval("sessionStorage.getItem('token')") == "T0KEN"
 
 
 @pytest.fixture

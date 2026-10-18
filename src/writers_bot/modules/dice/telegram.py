@@ -130,7 +130,9 @@ class Module(TelegramModule):
                     logger.info("the sticker pack %s has %d of %d stickers: adding the rest", name, have, len(rows))
                 for i in range(have, len(rows)):
                     sticker = self._input_sticker(rows[i])
-                    await self._upload(lambda **kw: bot.add_sticker_to_set(owner, name, sticker, **kw), name, i + 1)
+                    await self._upload(
+                        lambda sticker=sticker, **kw: bot.add_sticker_to_set(owner, name, sticker, **kw), name, i + 1
+                    )
                 pack = await bot.get_sticker_set(name)
                 logger.info("the sticker pack %s is ready", name)
         for row, sticker in zip(rows, pack.stickers, strict=False):
