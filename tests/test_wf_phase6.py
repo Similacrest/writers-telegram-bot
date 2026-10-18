@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from fake_telegram import Chat
-from harness import ADMIN, ALICE, BOB, DAN, GROUP, Harness
+from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
 ACH = {"achievements": {}, **FULL}
@@ -221,10 +221,10 @@ async def test_o01_onboarding_all_steps(make):
     await h.dm(ALICE, "/start")
     step = h.dms(ALICE)[-1]
     assert "3 кроки" in step.text and "1/3. Над чим пишете?" in step.text
-    await h.dm(ALICE, "Роман")
+    await h.dm(ALICE, "Роман", reply_to=step)
     step = h.dms(ALICE)[-1]
     assert "2/3. Ціль для «Роман»" in step.text
-    await h.dm(ALICE, "500 на день")
+    await h.dm(ALICE, "500 на день", reply_to=step)
     step = h.dms(ALICE)[-1]
     assert "3/3." in step.text
     await h.press(ALICE, step, "Лише ✓")
@@ -250,17 +250,18 @@ async def test_o02_skipping_everything(make):
 async def test_o03_a_goal_it_cant_read(make):
     h = await make()
     await h.dm(ALICE, "/start")
-    await h.dm(ALICE, "Роман")
-    await h.dm(ALICE, "багато")
+    await h.dm(ALICE, "Роман", reply_to=h.dms(ALICE)[-1])
+    step = h.dms(ALICE)[-1]
+    await h.dm(ALICE, "багато", reply_to=step)
     assert "Не зрозумів ціль" in h.dms(ALICE)[-1].text
-    await h.dm(ALICE, "3000 на тиждень")
+    await h.dm(ALICE, "3000 на тиждень", reply_to=step)
     assert "3/3." in h.dms(ALICE)[-1].text
 
 
 async def test_o04_later_and_continue_from_profile(make):
     h = await make()
     await h.dm(ALICE, "/start")
-    await h.dm(ALICE, "Роман")
+    await h.dm(ALICE, "Роман", reply_to=h.dms(ALICE)[-1])
     await h.press(ALICE, h.dms(ALICE)[-1], "Не зараз")
     assert "Продовжити можна в /profile" in h.dms(ALICE)[-1].text
     await h.dm(ALICE, "Просто повідомлення")  # not taken as an answer any more
@@ -323,7 +324,7 @@ async def test_a02_board_in_the_group(make):
     mark = h.mark()
     await h.say(BOB, "/achievements")
     board = h.public_since(mark)[-1]
-    assert board.kind == "photo" and "«Кіт» (2)" in board.text and "/achievements мої" in board.text
+    assert board.kind == "photo" and "«Кіт» (2)" in board.text and "/myachievements" in board.text
 
 
 async def test_a03_my_collection_in_the_group(make):
@@ -331,8 +332,9 @@ async def test_a03_my_collection_in_the_group(make):
     await create(h, OWL, "Нічна сова")
     await create(h, CAT, "Кіт")
     await h.reply(DAN, await h.say(ALICE, "a"), "/award Кіт")
-    await h.say(ALICE, "/achievements мої")
-    shown = h.last_public()
+    cmd = await h.say(ALICE, "/myachievements")
+    shown = h.last_public()  # public: it's theirs to show
+    assert not cmd.deleted
     assert shown.kind == "photo" and "Alice</b>: «Кіт»" in shown.text
 
 
@@ -343,6 +345,21 @@ async def test_a04_someone_elses_collection(make):
     await h.reply(DAN, post, "/award Нічна сова")
     await h.reply(BOB, post, "/achievements")
     assert "Alice</b>: «Нічна сова»" in h.last_public().text and "tg://user" not in h.last_public().text
+
+
+async def test_a04b_someone_by_username_or_name(make):
+    h = await make(ACH)
+    await create(h, OWL, "Нічна сова")
+    await h.reply(DAN, await h.say(ALICE, "a"), "/award Нічна сова")
+    await h.say(BOB, "привіт")
+    for query in ("@alice", "alice", "Alice", "alic", "Alise"):  # username, name, part, a typo
+        await h.say(CAROL, f"/achievements {query}")
+        assert "Alice</b>: «Нічна сова»" in h.last_public().text, query
+    await h.say(CAROL, "/achievements bob")
+    assert "Bob</b>: ще немає" in h.last_public().text  # known, no achievements yet
+    mark = h.mark()
+    await h.say(CAROL, "/achievements Зигмунд")
+    assert "Не знайшов" in h.last_private(CAROL).text and not h.public_since(mark)
 
 
 async def test_a05_animated_sticker_uses_its_thumbnail(make):
@@ -412,8 +429,25 @@ async def test_d02_bonus_or_caption_adds_the_line(make):
     assert "Атака" in h.last_public().text
 
 
-async def test_d03_several_dice_are_text(make):
+async def test_d03_a_sticker_per_die_up_to_the_limit(make):
     h = await make(DICE)
+    await ready_packs(h)
+    mark = h.mark()
+    await h.say(ALICE, "/2d6")
+    assert [m.kind for m in h.public_since(mark)] == ["sticker", "sticker", "text"]
+    mark = h.mark()
+    await h.say(ALICE, "/d20adv")  # both throws, then the line with the kept one
+    assert [m.kind for m in h.public_since(mark)] == ["sticker", "sticker", "text"]
+    mark = h.mark()
+    await h.say(ALICE, "/5d6")  # more than 4 dice: no flood
+    assert [m.kind for m in h.public_since(mark)] == ["text"]
+    mark = h.mark()
+    await h.say(ALICE, "/r 1d20+1d7")  # a d7 has no stickers: just the line
+    assert [m.kind for m in h.public_since(mark)] == ["text"]
+
+
+async def test_d03b_the_limit_is_configurable(make):
+    h = await make({"dice": {"stickers": True, "max_stickers": 1}})
     await ready_packs(h)
     mark = h.mark()
     await h.say(ALICE, "/2d6")
@@ -465,6 +499,16 @@ async def test_d09_new_notation(make):
     await h.say(ALICE, "/r 4d6kh3 Сила")
     text = h.last_public().text
     assert "Сила" in text and "4d6kh3" in text and text.count("<s>") == 1
+
+
+async def test_o09_only_replies_answer_a_step(make):
+    h = await make()
+    await h.dm(ALICE, "/start")
+    step = h.dms(ALICE)[-1]
+    await h.dm(ALICE, "привіт, а що вміє бот?")  # not a reply: not a work's name
+    assert not await h.tbot.services.works.for_person(await h.tbot.people.person_id("telegram", str(ALICE.id)))
+    await h.dm(ALICE, "Роман", reply_to=step)
+    assert "2/3." in h.dms(ALICE)[-1].text
 
 
 async def test_o08_works_menu_question_wins_over_a_waiting_step(make):

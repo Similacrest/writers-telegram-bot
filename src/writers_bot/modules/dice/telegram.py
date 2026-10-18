@@ -5,7 +5,8 @@ ones) is answered with an animated sticker of the dice landing on the result (``
 makes them, ``assets/dice`` keeps them). The bot uploads them once into its own sticker packs,
 ``d20_by_<bot>`` and so on, owned by the super admin with the lowest id (Telegram wants a person as a pack's
 owner), and from then on sends them by ``file_id``. A bare ``/d20`` is just the sticker; with a bonus or a
-caption the usual line follows.
+caption the usual line follows. A roll of several dice gets a sticker per die, up to ``max_stickers`` (4);
+more dice than that, or a die without stickers (d3, d7), and the roll is only the line.
 """
 
 import asyncio
@@ -39,6 +40,7 @@ class Module(TelegramModule):
     def __init__(self, bot, options):
         super().__init__(bot, options)
         self.stickers_on = bool(options.get("stickers"))
+        self.max_stickers = int(options.get("max_stickers", 4))  # more dice than this: text only, no flood
         self.stickers: dict[tuple[int, int], str] = {}  # (sides, value) -> file_id in the bot's packs
         self._packs: asyncio.Task | None = None
 
@@ -111,18 +113,21 @@ class Module(TelegramModule):
         if roll is None:
             return
         outcome = extras.throw(self.bot.fmt, roll)
-        sticker = self.stickers.get(outcome.die) if self.stickers_on and outcome.die else None
-        if sticker is not None:
-            try:
-                await self.bot.app.bot.send_sticker(
-                    message.chat_id,
-                    sticker,
-                    message_thread_id=message.message_thread_id if message.is_topic_message else None,
-                    reply_parameters=ReplyParameters(message.message_id, allow_sending_without_reply=True),
-                )
-            except TelegramError as e:
-                logger.info("dice sticker failed: %s", e)
-            else:
-                if outcome.only_die:
-                    return
+        stickers = [self.stickers.get(die) for die in outcome.dice]
+        if self.stickers_on and stickers and len(stickers) <= self.max_stickers and all(stickers):
+            sent = 0
+            for sticker in stickers:  # one per die, in the order thrown
+                try:
+                    await self.bot.app.bot.send_sticker(
+                        message.chat_id,
+                        sticker,
+                        message_thread_id=message.message_thread_id if message.is_topic_message else None,
+                        reply_parameters=ReplyParameters(message.message_id, allow_sending_without_reply=True),
+                    )
+                    sent += 1
+                except TelegramError as e:
+                    logger.info("dice sticker failed: %s", e)
+                    break
+            if sent == len(stickers) and outcome.only_die:
+                return
         await message.reply_html(outcome.html)

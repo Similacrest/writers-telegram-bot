@@ -152,17 +152,23 @@ Pausing and switching works, the split tip, % corrections, getting started, achi
 ### Still open
 1. **The first `/start` is two messages** (the help, then step 1 of getting started). Merging them would
    hide the help; it happens once.
-2. **A stray message during a typed step becomes the answer.** While step 1 waits (30 minutes), any text in
-   the private chat is taken as the work's name. "Не зараз" stops the waiting; a wrong name is fixed with
-   /works. A ForceReply question would avoid it but can't carry the Skip / Later buttons.
+2. ~~**A stray message during a typed step becomes the answer.**~~ Fixed in v4.2.1: only a reply to the
+   step's message answers it.
 3. **A roll with a bonus or a caption is two messages** (the sticker, then the line); a bare `/d20` is one.
-   Stickers can't have captions.
-4. **Dice stickers loop.** Telegram plays video stickers in a loop, so the die tumbles again every 3 s while
-   on screen (the landed face is held for the last half). The built-in 🎲 plays once, but is d6 only and
-   its value is Telegram's.
+   Stickers can't have captions. Accepted by the owner; several dice get a sticker each, up to
+   `max_stickers` (4), so a big roll doesn't flood the chat.
+4. **Dice stickers loop.** Telegram plays video stickers in a loop and allows 3 s. Since v4.2.1 the roll
+   takes 0.6 s and the result holds still for 2 s, so most of each loop is the result (the owner asked for
+   30 s of stillness, which a sticker can't have).
 5. **The dice packs need a super-admin** as their owner (a Telegram rule); without one, rolls are text.
 6. **160 sticker files** (about 30 MB) are in the repository and the image; they are uploaded to Telegram
    once.
+
+### v4.2.1 (owner's answers to round 4)
+- `/myachievements` (public) instead of `/achievements мої`; `/achievements <name>` finds people by
+  @username, name, part of a name or the closest name (a guess: people with achievements first).
+- Getting-started answers must be replies to the step; several dice get a sticker each (up to 4); the
+  stickers roll for 0.6 s and then hold still.
 
 ## Summary
 

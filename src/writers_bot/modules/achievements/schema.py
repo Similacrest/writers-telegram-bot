@@ -32,6 +32,15 @@ SCHEMA = ModuleSchema(
                 UNIQUE (achievement_id, platform, user_id)
             )""",
             "CREATE INDEX awards_user ON awards (platform, user_id)",
-        ]
+        ],
+        2: [
+            """CREATE TABLE seen_users (  -- to find people by @username or name for /achievements <name>
+                platform TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                username TEXT,
+                name TEXT,
+                PRIMARY KEY (platform, user_id)
+            )""",
+        ],
     },
 )

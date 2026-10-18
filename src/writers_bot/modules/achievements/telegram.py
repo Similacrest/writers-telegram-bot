@@ -26,6 +26,7 @@ import logging
 import re
 import secrets
 import time
+from types import SimpleNamespace
 
 from telegram import ForceReply, InlineKeyboardMarkup, Message, ReplyParameters, Update
 from telegram.constants import ChatType
@@ -78,6 +79,7 @@ class Module(TelegramModule):
         self._prompts: dict[tuple[int, int], dict] = {}  # (chat, question) -> waiting for a new sticker
         self._packs: dict[str, tuple[float, object]] = {}  # pack name -> (fetched, StickerSet or None)
         self._icons: dict[str, bytes | None] = {}  # sticker file_unique_id -> its picture
+        self._seen: dict[int, tuple] = {}  # user -> (username, name) last written to seen_users
 
     # --- wiring ----------------------------------------------------------------------------------
 
@@ -98,6 +100,10 @@ class Module(TelegramModule):
                 "achievements", self.list_command, "commands.achievements", help="help.achievements",
                 section="achievements", when=self._on_here,
             ),
+            Command(
+                "myachievements", self.mine_command, "commands.myachievements", help="help.myachievements",
+                section="achievements", when=self._on_here,
+            ),
         ]  # fmt: skip
 
     async def _on_here(self, ctx) -> bool:
@@ -109,7 +115,19 @@ class Module(TelegramModule):
         return [
             (MessageHandler(_Waiting(self) & ~filters.COMMAND, self.on_input), 0),
             (MessageHandler(filters.ChatType.PRIVATE & filters.Sticker.ALL, self.on_private_sticker), 0),
+            # who is who, for /achievements <name>: its own group, so it never stops other handlers
+            (MessageHandler(filters.ChatType.GROUPS & filters.ALL, self.note_user), 6),
         ]
+
+    async def note_user(self, update: Update, _context) -> None:
+        user = update.effective_user
+        if user is None or user.is_bot:
+            return
+        known = (user.username, display_name(user))
+        if self._seen.get(user.id) == known:
+            return
+        self._seen[user.id] = known
+        await self.store.seen(PLATFORM, str(user.id), user.username, display_name(user))
 
     def asks(self):
         return {"ac": self.on_button}
@@ -565,12 +583,33 @@ class Module(TelegramModule):
             await message.reply_html(f.t("achievements.none_yet"))
             return
         replied = await self._target(message)
-        arg = command_args_text(message).casefold().strip()
-        if replied is not None or arg in words("achievements.mine_words"):
+        arg = command_args_text(message).strip()
+        if replied is not None or arg.casefold() in words("achievements.mine_words"):
             who = replied.from_user if replied is not None else message.from_user
             await self.post_collection(message.chat_id, thread, who, owner, items)
             return
+        if arg:  # someone's, by @username or (part of) their name
+            found = await self.store.find_person(PLATFORM, owner, arg)
+            if found is None:
+                await self.bot.asks.respond(message, f.t("achievements.who", name=arg), delete_command=True, ttl=60)
+                return
+            who = SimpleNamespace(id=int(found[0]), full_name=found[1], username=None)
+            await self.post_collection(message.chat_id, thread, who, owner, items)
+            return
         await self.post_board(message.chat_id, thread, owner, items)
+
+    async def mine_command(self, update: Update, _context) -> None:
+        """/myachievements: your collection, posted in the chat (it's yours to show)."""
+        message = update.effective_message
+        if message.chat.type == ChatType.PRIVATE:
+            await self.post_collection(message.chat_id, None, message.from_user, None)
+            return
+        owner = await self.owner(message.chat_id)
+        items = await self.store.of_owner(owner)
+        if not items:
+            await message.reply_html(self.bot.fmt.t("achievements.none_yet"))
+            return
+        await self.post_collection(message.chat_id, thread_of(message), message.from_user, owner, items)
 
     async def post_collection(self, chat_id: int, thread: int | None, user, owner: str | None, items=None) -> None:
         """A person's achievements as a picture: of one owner (the ones they lack greyed out), or all of

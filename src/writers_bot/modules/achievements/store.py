@@ -4,6 +4,7 @@ They belong to the community where there is one, otherwise to the chat. No rules
 ties to sprints or stats.
 """
 
+import difflib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -188,3 +189,50 @@ class AchievementStore:
     async def forget(self, platform: str, user_id: str) -> None:
         async with self.storage.tx() as db:
             await db.execute("DELETE FROM awards WHERE platform = ? AND user_id = ?", (platform, user_id))
+            await db.execute("DELETE FROM seen_users WHERE platform = ? AND user_id = ?", (platform, user_id))
+
+    # --- finding people by name ----------------------------------------------------------------------
+
+    async def seen(self, platform: str, user_id: str, username: str | None, name: str | None) -> None:
+        async with self.storage.tx() as db:
+            await db.execute(
+                """INSERT INTO seen_users (platform, user_id, username, name) VALUES (?, ?, ?, ?)
+                   ON CONFLICT (platform, user_id) DO UPDATE SET username = excluded.username, name = excluded.name""",
+                (platform, user_id, username, name),
+            )
+
+    async def find_person(self, platform: str, owner: str, query: str) -> tuple[str, str] | None:
+        """(user id, name) for "@username", a display name, part of one, or the closest name: the best guess,
+        with people who have an achievement of ``owner`` first."""
+        q = query.strip().lstrip("@").casefold()
+        if not q:
+            return None
+        people: dict[str, dict] = {}
+        for r in await self.storage.fetchall("SELECT * FROM seen_users WHERE platform = ?", (platform,)):
+            people[r["user_id"]] = {"name": r["name"] or r["username"] or r["user_id"], "username": r["username"]}
+        holders = set()
+        rows = await self.storage.fetchall(
+            """SELECT w.user_id, w.user_name FROM awards w JOIN achievements a ON a.id = w.achievement_id
+               WHERE a.owner = ? AND w.platform = ? AND a.deleted = 0""",
+            (owner, platform),
+        )
+        for r in rows:
+            holders.add(r["user_id"])
+            people.setdefault(r["user_id"], {"name": r["user_name"] or r["user_id"], "username": None})
+
+        def pick(ids: list[str]) -> tuple[str, str]:
+            ids.sort(key=lambda i: i not in holders)
+            return ids[0], people[ids[0]]["name"]
+
+        for test in (
+            lambda p: (p["username"] or "").casefold() == q,
+            lambda p: p["name"].casefold() == q,
+            lambda p: any(word.startswith(q) for word in p["name"].casefold().split()),
+            lambda p: q in p["name"].casefold() or q in (p["username"] or "").casefold(),
+        ):
+            ids = [i for i, p in people.items() if test(p)]
+            if ids:
+                return pick(ids)
+        names = {p["name"].casefold(): i for i, p in people.items()}
+        close = difflib.get_close_matches(q, list(names), n=1, cutoff=0.6)
+        return (names[close[0]], people[names[close[0]]]["name"]) if close else None

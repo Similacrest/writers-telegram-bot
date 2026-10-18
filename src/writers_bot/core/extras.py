@@ -97,25 +97,23 @@ def parse_roll(text: str) -> Roll | None:
 @dataclass(frozen=True, slots=True)
 class Outcome:
     html: str
-    die: tuple[int, int] | None = None  # (sides, value) when the roll is one die: for the dice stickers
-    only_die: bool = False  # nothing to say beyond what the die shows (a bare /d20)
+    dice: tuple[tuple[int, int], ...] = ()  # every die thrown, as (sides, value): for the dice stickers
+    only_die: bool = False  # one die and nothing to say beyond what it shows (a bare /d20)
 
 
-def _single_die(result) -> tuple[int, int] | None:
+def _dice(result) -> list[tuple[int, int]]:
+    """Every die of a roll, kept or dropped, rerolled ones included, in order."""
     found = []
 
     def walk(node):
         if isinstance(node, d20.Dice):
-            found.append(node)
+            sides = 100 if node.size == "%" else node.size
+            found.extend((sides, die.number) for die in node.values)
         for child in node.children:
             walk(child)
 
     walk(result.expr)
-    if len(found) != 1:
-        return None
-    kept = [die for die in found[0].values if die.kept]
-    sides = 100 if found[0].size == "%" else found[0].size
-    return (sides, kept[0].number) if len(kept) == 1 else None
+    return found
 
 
 def throw(f: Formatter, roll: Roll) -> Outcome:
@@ -132,11 +130,11 @@ def throw(f: Formatter, roll: Roll) -> Outcome:
         return Outcome(f.t("dice.error"))
     if second is None:
         bare = re.fullmatch(r"1?d(\d+|%)", roll.expression) is not None and roll.caption == t("dice.result")
-        return Outcome(caption + first.result, _single_die(first), bare)
+        return Outcome(caption + first.result, tuple(_dice(first)), bare)
     better = first.total >= second.total if roll.mode == "adv" else first.total <= second.total
     kept, dropped = (first, second) if better else (second, first)
     html = f"{caption}\n{f.bold(int(kept.total))}\n{kept.result}\n<s>{dropped.result}</s>"
-    return Outcome(html, _single_die(kept))
+    return Outcome(html, (*_dice(first), *_dice(second)))
 
 
 def roll_html(f: Formatter, roll: Roll) -> str:

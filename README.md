@@ -55,7 +55,7 @@ super-admin tools, your-data commands and the web app live in that bot. Other bo
   A `%` is a share of a sprint's plan, so `/progress 60% план` corrects your latest sprint with that work,
   and the confirmation says which ("Виправив ваш спринт сьогодні о 14:00"), with Undo.
 - **Getting started**: three skippable steps in the private chat (your first work, a goal, whether the board
-  shows your numbers), offered on the first sprint card, on `/start` and in `/profile` until done. Progress
+  shows your numbers; typed answers are replies to the step's message), offered on the first sprint card, on `/start` and in `/profile` until done. Progress
   is kept per person (`/profile` and the web app show "1 з 3 кроків" with a Continue button); steps done
   elsewhere (a work added in the menu) count.
 - **`/profile`**: works with goals and month totals, the streak with the last 7 days (missed days within 3
@@ -87,9 +87,10 @@ gone):
 - **Awarding** posts one picture, "Досягнення отримано" with the name, description, who, when and how many
   have it, captioned "Alice отримує «Нічна сова»".
 - **`/achievements`** in a group is the board of the community (or chat): who has the most, with their
-  icons; the caption lists every achievement with its count. `/achievements мої`, or the command as a reply
-  to someone, is a person's collection, with the ones they don't have yet greyed out. In the private chat,
-  `/achievements` (and `/profile` → Мої досягнення) is your collection.
+  icons; the caption lists every achievement with its count. **`/myachievements`** posts your collection in
+  the chat (the ones you don't have yet greyed out); `/achievements alice`, `@alice` or part of a name (the
+  closest match, people with achievements first), or the command as a reply to someone, posts theirs. In
+  the private chat, `/achievements` (and `/profile` → Мої досягнення) is your collection.
 
 ### Dice
 
@@ -115,9 +116,12 @@ after it rolls; text after the expression is the caption.
 
 **Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): a roll of one d4, d6, d8, d10,
 d12, d20 or d100 also gets an animated sticker of the die landing on the result (a d100 is the two
-percentile dice, tens and ones, landing together). The highest result gets golden rays and sparkles, the
-lowest a heavy landing, a red glow and dust; a d10 on its own has them on 1 and 10, while the d10s of a d100
-are plain except on 01 and 00 (100). A bare `/d20` is just the sticker. The 160 stickers are
+percentile dice, tens and ones, landing together). The roll takes 0.6 s and the result then holds still for 2
+s (Telegram loops stickers and allows 3 s). The highest result gets golden rays and sparkles, the lowest a
+heavy landing, a red glow and dust; a d10 on its own has them on 1 and 10, while the d10s of a d100 are plain
+except on 01 and 00 (100). A bare `/d20` is just the sticker. A roll of several dice gets a sticker per die,
+up to `max_stickers` (4 by default: `dice = { stickers = true, max_stickers = 4 }`); more dice than that,
+or a die without stickers (d3), and it is only the line. The 160 stickers are
 made by `scripts/dice_stickers.py` (`uv run --group art python scripts/dice_stickers.py`; needs ffmpeg,
 which the `art` dependency group brings) and kept in `src/writers_bot/assets/dice`. At start the bot looks for
 its packs (`d20_by_<bot username>` and so on) and uploads the missing ones once, owned by the super-admin

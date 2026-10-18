@@ -338,9 +338,9 @@ resumed = "Знову пишете ▶"
 # Getting started, in the private chat: a few skippable steps; progress is remembered
 intro = "Налаштуймо все за хвилину: {steps} кроки. Будь-який можна пропустити, а змінити потім — у /profile."
 # Step 1: the first work (the answer is typed)
-ask_work = "{n}/{total}. Над чим пишете? Напишіть назву твору, напр. «Роман». Пишете кілька — інші додасте потім (/works)."
+ask_work = "{n}/{total}. Над чим пишете? Відповідайте на це повідомлення назвою твору, напр. «Роман». Пишете кілька — інші додасте потім (/works)."
 # Step 2: a goal for that work (typed); the bot tells you here when you reach it
-ask_goal = "{n}/{total}. Ціль для «{work}»? Напр.: 500 на день, 3000 на тиждень, 10000 на місяць. Коли досягнете, я напишу тут."
+ask_goal = "{n}/{total}. Ціль для «{work}»? Відповідайте на це повідомлення, напр.: 500 на день, 3000 на тиждень, 10000 на місяць. Коли досягнете, я напишу тут."
 # Step 3: whether the board shows your numbers
 ask_privacy = "{n}/{total}. Показувати ваші числа на дошці спринту? Якщо ні, там буде лише ✓, а числа бачите тільки ви."
 show = "Показувати"
@@ -489,6 +489,7 @@ suggest = "Запропонувати промпт: /suggest жахи Текст
 review = "Адмін: пропозиції до спільних промптів"
 achievements = "Досягнення: дошка і ваші"
 award = "Нагородити (у відповідь на повідомлення)"
+myachievements = "Мої досягнення"
 newachievement = "Нове досягнення зі стікера"
 addprompt = "Додати промпт до набору чату"
 suggestions = "Запропоновані промпти"
@@ -558,7 +559,8 @@ top = "/top [днів] — хвилини у спринтах за період"
 export = "/export — ваші дані у файлі, /forgetme — видалити їх"
 addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
 suggest = "/suggest <категорія> <текст> — запропонувати промпт"
-achievements = "/achievements — дошка досягнень; /achievements мої — ваші"
+achievements = "/achievements — дошка досягнень; /achievements ім'я чи @username — чиїсь"
+myachievements = "/myachievements — ваші досягнення"
 award = "/award у відповідь на повідомлення — нагородити (/unaward — забрати)"
 newachievement = "/newachievement Назва — опис у відповідь на стікер вашого набору — нове досягнення (або надішліть стікер мені в особисті)"
 settings = "/settings — налаштування цього чату"
@@ -1099,7 +1101,9 @@ board_community = "Спільнота «{name}»"
 board_chat = "Цей чат"
 board_empty = "Ще ніхто нічого не отримав."
 # Under the list in the board's caption
-mine_hint = "Свої: /achievements мої (або у відповідь на повідомлення — чужі)."
+mine_hint = "Свої: /myachievements. Чужі: /achievements ім'я (чи @username), або у відповідь на повідомлення."
+# /achievements <name> when nobody fits
+who = "Не знайшов, хто це: «{name}». Спробуйте @username або відповідайте /achievements на повідомлення людини."
 # Words after /achievements that mean "mine"
 mine_words = ["мої", "мое", "моє", "me", "mine", "my"]
 # Button in /profile (private chat) that sends your collection

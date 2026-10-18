@@ -33,7 +33,8 @@ INPUT_TTL = 30 * 60
 
 
 class _Waiting(filters.MessageFilter):
-    """A private text answer to the current step's question."""
+    """A private text answer to the current step's question: only a reply to that question, so nothing else
+    typed in the private chat is taken for a work's name or a goal."""
 
     def __init__(self, onboarding: "Onboarding"):
         super().__init__(name="onboarding_input")
@@ -45,10 +46,8 @@ class _Waiting(filters.MessageFilter):
         waiting = self.onboarding._waiting.get(message.from_user.id)
         if waiting is None or time.monotonic() - waiting[1] >= INPUT_TTL:
             return False
-        # the works menu asked something since: its question gets the answer
-        menu = self.onboarding.module.menu
-        asked = menu._waiting.get(message.from_user.id) if menu is not None else None
-        return asked is None or asked[2] < waiting[1]
+        replied = message.reply_to_message
+        return replied is not None and replied.message_id == waiting[2]
 
 
 class Onboarding:

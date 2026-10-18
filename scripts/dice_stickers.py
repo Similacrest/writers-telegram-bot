@@ -1,7 +1,8 @@
 """Make the dice sticker animations: one short video per result of d4, d6, d8, d10, d12, d20 and d100.
 
-Each sticker is a real polyhedron that tumbles in and lands with the rolled face towards the viewer, its
-number upright. The highest result gets golden rays and sparkles, the lowest a heavy landing with a shake, a
+Each sticker is a real polyhedron that tumbles in (0.6 s) and lands with the rolled face towards the viewer,
+its number upright, then holds still for 2 s: Telegram loops stickers and allows 3 s, so most of each loop
+is the result. The highest result gets golden rays and sparkles, the lowest a heavy landing with a shake, a
 red glow and a puff of dust. A d100 is the two percentile dice landing together:
 a tens d10 (00-90) and a ones d10 (0-9), 00 and 0 being 100; its two d10s are plain except on 01 and 00
 (the d100's lowest and highest), while a d10 on its own has the effects on 1 and 10. The bot uploads them once as its own sticker packs
@@ -33,7 +34,9 @@ SIZE = 512
 SS = 2  # supersampling
 FPS = 30
 FRAMES = 87  # 2.9 s: safely under Telegram's 3 s
-LAND = 48  # the frame the die comes to rest on
+LAND = 18  # the roll: 0.6 s, then the die is down
+SETTLE = 8  # 0.27 s of landing (a pop or a shudder, the effects coming up)
+STILL = LAND + SETTLE  # from here on one still picture of the result (2 s), so a looping sticker mostly rests
 MAX_BYTES = 256 * 1024
 
 COLORS = {
@@ -246,7 +249,8 @@ def _effects(img, effect, since, cx, cy, radius, seed, *, front: bool) -> None:
     s = img.width
     if effect is None or since < 0:
         return
-    ramp = min(1.0, since / 8)
+    since = min(since, SETTLE)  # the still part shows the effects as they are when it settles
+    ramp = min(1.0, since / SETTLE)
     layer = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer, "RGBA")
     if effect == "crit" and not front:
@@ -272,15 +276,15 @@ def _effects(img, effect, since, cx, cy, radius, seed, *, front: bool) -> None:
         img.alpha_composite(layer)
     elif effect == "fumble" and not front:
         for k in range(6):
-            start = k * 1.5
+            start = k * 0.3
             t = since - start
-            if t < 0 or t > 26:
+            if t < 0 or t >= 6:  # gone before the still part
                 continue
             side = -1 if k % 2 == 0 else 1
             px = cx + side * radius * (0.5 + 0.12 * k)
-            py = cy + radius * (0.75 - 0.03 * t)
-            pr = radius * (0.14 + 0.012 * t)
-            alpha = int(130 * (1 - t / 26))
+            py = cy + radius * (0.75 - 0.08 * t)
+            pr = radius * (0.14 + 0.05 * t)
+            alpha = int(130 * (1 - t / 6))
             d.ellipse((px - pr, py - pr, px + pr, py + pr), fill=(*DUST, alpha))
         img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(s / 90)))
 
@@ -400,11 +404,15 @@ def _percentile(value: int, only: range | None):
                  scale=0.72, x=0.235, fx=False)  # fmt: skip
     size = SIZE * SS
     radius = size * 0.36 * 1.3  # around both dice
+    still = None
     for i, a, b in zip(only or range(FRAMES), left, right, strict=True):
-        since = i - LAND
+        if still is not None:
+            yield still
+            continue
+        since = min(i, STILL) - LAND
         out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         if effect and since >= 0:
-            glow = min(1.0, since / 10) * (0.75 + 0.25 * math.sin(since / 5))
+            glow = min(1.0, since / SETTLE)
             halo = Image.new("RGBA", (size, size), (0, 0, 0, 0))
             r = radius * (1.1 + 0.1 * glow)
             c = size / 2
@@ -418,6 +426,8 @@ def _percentile(value: int, only: range | None):
         front = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         _effects(front, effect, since, size / 2, size / 2, radius, value, front=True)
         out.alpha_composite(front.resize((SIZE, SIZE), Image.Resampling.LANCZOS))
+        if i >= STILL:
+            still = out
         yield out
 
 
@@ -429,33 +439,39 @@ def _die(sides, value, only, *, seed, effect=None, labels=None, color=None, scal
     rest = _facing(target, tilt, yaw)
     # a different tumble for every result, the same every time the script runs
     axis = _norm((math.sin(seed), math.cos(seed * 1.3), 0.35 * math.sin(seed * 0.7)))
-    turns = 2.2 + (seed % 5) * 0.15
+    turns = 1.3 + (seed % 5) * 0.12  # a quick roll: fewer turns
+    still = None
     for i in only or range(FRAMES):
-        t = min(1.0, i / LAND)
+        if still is not None:  # the still part: the same picture, drawn once
+            yield still
+            continue
+        i_now = min(i, STILL)
+        t = min(1.0, i_now / LAND)
         angle = (1 - _ease_out(t)) * turns * 2 * math.pi
         rot = _matmul(rest, _axis_angle(axis, angle))
         # falls in from above with two small bounces, then rests
         if t < 0.55:
-            dy = -0.14 * (1 - (t / 0.55) ** 2)
+            dy = -0.1 * (1 - (t / 0.55) ** 2)
         elif t < 1:
             u = (t - 0.55) / 0.45
             dy = -0.07 * abs(math.sin(u * 2 * math.pi)) * (1 - u)
         else:
             dy = 0.0
         dx = 0.08 * (1 - _ease_out(t)) * math.sin(seed)
-        since = i - LAND
-        settle = max(0.0, since / 10)
-        pop = 1 + 0.06 * math.sin(min(1.0, settle) * math.pi) if i >= LAND and effect != "fumble" else 1.0
-        if effect == "fumble" and since >= 0:  # a heavy landing: it shudders instead of popping
-            dx += 0.03 * math.sin(since * 2.4) * math.exp(-since / 5)
-            dy += 0.012 * abs(math.sin(since * 1.9)) * math.exp(-since / 4)
-        glow = 0.0
-        if effect and since >= 0:
-            glow = min(1.0, settle) * (0.75 + 0.25 * math.sin(since / 5))
-        yield frame(
+        since = i_now - LAND
+        settle = max(0.0, since / SETTLE)
+        pop = 1 + 0.06 * math.sin(min(1.0, settle) * math.pi) if since >= 0 and effect != "fumble" else 1.0
+        if effect == "fumble" and 0 <= since < SETTLE:  # a heavy landing: it shudders instead of popping
+            dx += 0.03 * math.sin(since * 2.4) * math.exp(-since / 2.5)
+            dy += 0.012 * abs(math.sin(since * 1.9)) * math.exp(-since / 2)
+        glow = min(1.0, settle) if effect and since >= 0 else 0.0
+        image = frame(
             sides, pts, faces, glyphs, rot, scale=pop * scale, dx=dx + x, dy=dy, glow=glow, highlight=target,
             color=color, effect=effect, since=since, seed=seed, fx=fx,
         )  # fmt: skip
+        if i >= STILL:
+            still = image
+        yield image
 
 
 # --- encoding ------------------------------------------------------------------------------------------
