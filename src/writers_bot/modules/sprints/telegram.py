@@ -59,6 +59,17 @@ class Pending:
     origin: Message | None = None
 
 
+class _SprintReply(filters.MessageFilter):
+    """Replies to this bot's sprint messages, so other reply handlers still get the rest."""
+
+    def __init__(self, module: "Module"):
+        super().__init__(name="sprint_reply")
+        self.module = module
+
+    def filter(self, message: Message) -> bool:
+        return message.reply_to_message is not None and self.module._sprint_for_reply(message) is not None
+
+
 def user_ref(user) -> sp.UserRef:
     return sp.UserRef(str(user.id), display_name(user))
 
@@ -124,7 +135,7 @@ class Module(TelegramModule):
                 (CallbackQueryHandler(self.on_report_button, pattern=r"^sp:report:\d+$"), 0),
                 (CallbackQueryHandler(self.on_outcome_button, pattern=r"^sp:(done|fail):\d+$"), 0),
                 (CallbackQueryHandler(self.on_works_button, pattern=r"^sp:works:\d+$"), 0),
-                (MessageHandler(filters.REPLY & filters.TEXT & ~filters.COMMAND, self.on_reply), 0),
+                (MessageHandler(_SprintReply(self) & filters.TEXT & ~filters.COMMAND, self.on_reply), 0),
             ]
         return handlers
 
@@ -192,6 +203,12 @@ class Module(TelegramModule):
         unit = await self.bot.storage.sprint_unit(PLATFORM, key.chat_id) if self.percent_on else Unit.WORDS
         return ChatOptions(works=self.works_on, percent=self.percent_on, default_unit=unit)
 
+    async def default_length(self, chat_id: int) -> int:
+        settings = self.bot.services.shared.extra.get("settings")
+        if settings is None or self.bot.storage is None:
+            return sp.DEFAULT_SPRINT
+        return int(await settings.get(PLATFORM, str(chat_id), "sprints.default_length") or sp.DEFAULT_SPRINT)
+
     async def deletes_reports(self, chat_id: int) -> bool:
         settings = self.bot.services.shared.extra.get("settings")
         if settings is not None and not await settings.get_bool(PLATFORM, str(chat_id), "sprints.delete_reports"):
@@ -230,7 +247,7 @@ class Module(TelegramModule):
     async def sprint(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
         args = context.args or []
-        duration = self._int_arg(args, 0, sp.DEFAULT_SPRINT)
+        duration = self._int_arg(args, 0, await self.default_length(message.chat_id))
         delay = self._int_arg(args, 1, sp.DEFAULT_SPRINT_DELAY)
         if error := await self._start(message, message.from_user, duration, delay):
             await message.reply_text(error)

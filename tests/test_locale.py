@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from writers_bot.core.i18n import raw, texts
+from writers_bot.core.settings import BY_KEY as SETTING_KEYS
 
 SRC = Path(__file__).parent.parent / "src" / "writers_bot"
 CYRILLIC = re.compile(r"[Ѐ-ӿ]")
@@ -60,7 +61,12 @@ def test_every_used_key_exists():
     missing = set()
     for path in source_files():
         for key in KEY_RE.findall(path.read_text(encoding="utf-8")):
-            if key.split(".")[0] in SECTIONS and key.rsplit(".", 1)[1] not in ("csv", "zip") and key not in texts():
+            if (
+                key.split(".")[0] in SECTIONS
+                and key.rsplit(".", 1)[1] not in ("csv", "zip")
+                and key not in SETTING_KEYS  # chat settings are "<module>.<name>" too
+                and key not in texts()
+            ):
                 missing.add(f"{key} ({path.relative_to(SRC)})")
     assert not missing, "\n".join(sorted(missing))
 
@@ -119,3 +125,10 @@ def test_web_app_texts():
         used |= {prefix + n for n in names}
     missing = [k for k in used if f"web.{k}" not in texts()]
     assert not missing, missing
+
+
+def test_every_setting_has_a_label():
+    for key in SETTING_KEYS:
+        name = "chatsettings." + key.replace(".", "_")
+        raw(name)
+        raw(name + "_help")

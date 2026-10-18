@@ -13,6 +13,23 @@ SETTING = "greeter.text"
 class Module(TelegramModule):
     name = "greeter"
 
+    async def post_init(self) -> None:
+        """The v2 config sheet's welcome_message rows become the chats' settings, once."""
+        settings = self.bot.services.shared.extra.get("settings")
+        sheet = self.bot.services.sheet
+        if settings is None or self.bot.storage is None or sheet is None or not self.options.get("from_sheet"):
+            return
+        if await self.bot.storage.get_chat_setting("telegram", "*", "greeter.imported"):
+            return
+        for chat_id, text in sheet.config_texts("welcome_message").items():
+            if (
+                chat_id.lstrip("-").isdigit()
+                and text
+                and not await self.bot.storage.get_chat_setting("telegram", chat_id, SETTING)
+            ):
+                await self.bot.storage.set_chat_setting("telegram", chat_id, SETTING, text)
+        await self.bot.storage.set_chat_setting("telegram", "*", "greeter.imported", "1")
+
     def handlers(self):
         return [(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome), 0)]
 

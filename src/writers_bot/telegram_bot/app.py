@@ -53,6 +53,7 @@ from ..core.sprint import utc_now
 from ..services import BotServices
 from .admin import AdminTools
 from .base import Asks, Command, ProfilePart, TelegramModule, button
+from .chatsettings import ChatSettingsUI
 from .ephemeral import set_commands
 from .yourdata import YourData
 
@@ -125,6 +126,12 @@ class TelegramBot:
             if part is not None:
                 self.modules.append(part(self, config.options(spec.name)))
         self.data = YourData(self) if self.storage is not None and self.personal_data else None
+        settings = services.shared.extra.get("settings") if self.storage is not None else None
+        self.chat_settings = (
+            ChatSettingsUI(self, settings)
+            if settings is not None and config.chat_settings and settings.defs()
+            else None
+        )
         self._commands: dict[str, Command] = {}
         self._aliases: dict[str, Command] = {}
         self._asks: dict[str, Callable] = {}
@@ -184,6 +191,8 @@ class TelegramBot:
             )
         if self.data is not None:
             commands += self.data.commands()
+        if self.chat_settings is not None:
+            commands += self.chat_settings.commands()
         if self.admin is not None and self.config.admin:
             commands += self.admin.commands()
         return commands
@@ -209,6 +218,9 @@ class TelegramBot:
                 self._aliases[t(command.uk).casefold()] = command
         if self._aliases:
             handlers.append((MessageHandler(filters.TEXT & filters.Regex(ALIAS_RE), self.on_alias), 0))
+        if self.chat_settings is not None:
+            handlers += self.chat_settings.handlers()
+            self._asks |= self.chat_settings.asks()
         for module in self.modules:
             handlers += module.handlers()
             self._asks |= module.asks()
@@ -506,6 +518,17 @@ class TelegramBot:
 
         text, markup = await self.settings_view(query.from_user)
         await self.asks.edit(Sent.from_query(query), text, markup)
+
+    # --- the web app ----------------------------------------------------------------------------------
+
+    def web_routes(self, web) -> None:
+        if self.storage is not None:
+            from .webroutes import routes
+
+            routes(self, web)
+
+    def web_tabs(self) -> list[str]:
+        return ["chat"] if self.chat_settings is not None else []
 
     # --- helpers for modules -----------------------------------------------------------------------
 

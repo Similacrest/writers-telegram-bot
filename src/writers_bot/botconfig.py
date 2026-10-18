@@ -56,6 +56,7 @@ class BotConfig:
     telegram: TelegramSettings | None = None
     discord: DiscordSettings | None = None
     admin: bool = True  # chat list and broadcasts for super-admins (needs storage)
+    chat_settings: bool = True  # /settings for chat admins (needs storage)
 
     def has(self, module: str) -> bool:
         return module in self.modules
@@ -186,7 +187,9 @@ def from_env(platform: str) -> ProcessConfig:
     discord = DiscordSettings.from_env() if platform == "discord" else None
     extras = telegram.extras if telegram else False
     preview = common.preview_features
-    bot = BotConfig("main", env_modules(extras, preview), telegram=telegram, discord=discord, admin=preview)
+    bot = BotConfig(
+        "main", env_modules(extras, preview), telegram=telegram, discord=discord, admin=preview, chat_settings=preview
+    )
     return _validate(ProcessConfig({"main": bot}, common, web_from_env() if preview else None))
 
 
@@ -285,6 +288,7 @@ def from_file(path: str | Path) -> ProcessConfig:
             telegram=_telegram_target(name, b["telegram"], common) if "telegram" in b else None,
             discord=_discord_target(name, b["discord"], common) if "discord" in b else None,
             admin=bool(b.get("admin", True)),
+            chat_settings=bool(b.get("chat_settings", True)),
         )
     if not bots:
         raise ConfigError(f"{path}: no [bots.*] sections")

@@ -98,6 +98,28 @@ Built as planned in phase 3 below, with these decisions made while building:
   stay in phase 6.
 - [WORKFLOW-REVIEW.md](WORKFLOW-REVIEW.md) lists what modelled use of these flows turned up.
 
+## Done in v4.0: settings, communities, dashboard (phase 4)
+
+As planned in phase 4, with these decisions:
+- **Settings** are module-owned definitions with a value per chat, per community, or the default; a bot
+  offers only the settings of its modules and options. `/settings` shows them as a private card in the
+  chat (the web app's Chat tab has the same with explanations); admin rights are checked on every change.
+  The welcome text is typed as a reply to the bot's question in the group.
+- **Communities** link automatically from `ChatFullInfo.community` (checked at most daily) and the
+  `community_chat_added` / `community_chat_removed` service messages; hand-made links (`/community`) are
+  never undone by the automatic check. Community settings are set with `/community set`.
+- **Broadcasts** reach a community once, in its largest chat (member counts refreshed before the preview).
+  `/bcexclude` stays as an admin tool.
+- **Replies** live in the database with bot-wide defaults (the config file's entries and the legacy ones,
+  imported once) that each chat can turn off; `/replies` and the web app manage a chat's own.
+- **Prompt databases** as planned; the sheet is imported once and `/reload` goes in `db` mode. Pictures
+  go to the chat's Drive folder when the Google account may write there, else stay Telegram photos.
+  Submitting to the shared set is in the web app.
+- **Dashboard**: progress, the last 30 days (missed days within 3 days can be marked), latest sprints,
+  export (in Telegram the file goes to your private chat) and deletion; Chat and Prompts tabs only for chat
+  admins. Discord sign-in with OAuth (`identify`).
+- Discord servers get settings and communities in phase 6.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
@@ -291,7 +313,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   aren't on it. You get credit from when you joined: joining 20 minutes into a
   30-minute sprint gives 10.
 
-### Phase 4: settings store, communities and dashboard (v4.0)
+### Phase 4: settings store, communities and dashboard (done in v4.0)
 - **Settings in the database** instead of environment variables and the config sheet, per chat, changed by
   chat admins in the web app (`/settings` opens it); per-user settings arrived in phase 3:
   - sprints: default length, default unit (when % is on), works on/off (off also means no goals on the

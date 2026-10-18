@@ -431,10 +431,13 @@ smash = "Keyboard smash"
 promptstats = "Кількість промптів"
 reload = "Перезавантажити промпти (адміни)"
 settings = "Налаштування чату (адміни)"
+suggest = "Запропонувати промпт: /suggest жахи Текст"
+review = "Адмін: пропозиції до спільних промптів"
 chats = "Адмін: усі чати з ботом"
 broadcast = "Адмін: розсилка (groups / private / all)"
 bcexclude = "Адмін: прибрати чати з розсилок"
 bcinclude = "Адмін: повернути чати до розсилок"
+community = "Адмін: спільноти чатів"
 
 # ------------------------------------------------------------------------------------------------
 [aliases]
@@ -450,6 +453,7 @@ top = "топ"
 help = "допомога"
 export = "експорт"
 forgetme = "забудьмене"
+suggest = "запропонуй"
 
 # ------------------------------------------------------------------------------------------------
 [help]
@@ -466,6 +470,8 @@ progress = "/progress — записати прогрес (+400, =5000, поси
 profile = "/profile — твори, цілі, дні поспіль і налаштування"
 top = "/top [днів] — хвилини у спринтах за період"
 export = "/export — ваші дані у файлі, /forgetme — видалити їх"
+addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
+suggest = "/suggest <категорія> <текст> — запропонувати промпт"
 dice = "/d20, /2d6+1, /r 4к6 — кинути кубики"
 smash = "/smash — keyboard smash"
 
@@ -603,6 +609,25 @@ exclude_list = "Без розсилок:"
 excluded = "Виключено з розсилок: {n}."
 included = "Повернуто до розсилок: {n}."
 unknown_ids = "Невідомих id: {n} (бот їх ще не бачив)."
+# /community (super-admins, private chat with the bot)
+community_title = "Спільноти"
+community_none = "Спільнот ще немає. Чати з Telegram-спільнот додаються самі."
+community_usage = """/community — список
+/community new <назва> — нова спільнота
+/community add <id спільноти> <id чату> … — додати чати
+/community remove <id чату> … — прибрати чати
+/community rename <id> <назва>, /community delete <id>
+/community set <id> <налаштування> <значення|reset> — налаштування для всіх чатів спільноти, напр. sprints.top 0"""
+# Replies to /community actions
+community_created = "Спільноту створено: {id}. {name}"
+community_added = "Додано чатів: {n}."
+community_removed = "Прибрано чатів: {n}."
+community_renamed = "Перейменовано."
+community_deleted = "Спільноту видалено."
+community_set = "Налаштування {key}: {value}."
+# How a community was made, in the list
+community_telegram = "з Telegram"
+community_manual = "вручну"
 
 # ------------------------------------------------------------------------------------------------
 [prompts]
@@ -617,6 +642,25 @@ not_loaded = "Промпти не завантажено."
 reload_admins = "Перезавантажувати можуть лише адміни."
 reload_failed = "Не вдалося перезавантажити: {error}"
 reloaded = "Перезавантажено!"
+# Prompt databases (prompts with source = "db")
+admins_only = "Це можуть лише адміни чату."
+add_usage = "Використання: /addprompt <категорія> <текст промпту>. Категорія — одне слово, напр. жахи або horror."
+added = "Додано до категорії «{category}»."
+suggest_usage = "Використання: /suggest <категорія> <текст промпту>. Адміни чату розглянуть пропозицію."
+suggested = "Дякую! Адміни чату розглянуть пропозицію."
+suggest_in_chat = "Пропонувати промпти можна в чаті, для якого вони."
+image_usage = "Надішліть картинку з підписом /addimage <категорія> (або відповідайте так на картинку)."
+image_added = "Картинку додано до категорії «{category}»."
+image_link = "картинка"
+# The review card (/suggestions for chat admins, /review for super-admins)
+review_empty = "Нових пропозицій немає."
+# On the /settings card when members suggested prompts
+waiting = "Пропозицій промптів від учасників: {n} — /suggestions"
+review_item = "Пропозиції: {left}. Категорія «{category}»:"
+accept = "Прийняти"
+reject = "Відхилити"
+accepted = "Прийнято"
+rejected = "Відхилено"
 
 # ------------------------------------------------------------------------------------------------
 [wordcount]
@@ -629,6 +673,16 @@ result = "Результат"
 
 # ------------------------------------------------------------------------------------------------
 [replies]
+# /replies in a group (chat admins): the chat's own answers to commands and phrases
+title = "Відповіді бота в цьому чаті"
+none = "Своїх відповідей ще немає."
+# A line per entry: "/imafan — 3 відповіді"
+line = "{trigger} — відповідей: {count}"
+delete = "Видалити {trigger}"
+deleted = "Видалено"
+usage = "Додати: /replies add /команда = текст відповіді, або /replies add фраза = відповідь. Ще одна відповідь до того самого — те саме ще раз. {{name}} у відповіді — ім'я того, хто написав."
+added = "Додано відповідь на {trigger}."
+too_many = "Забагато відповідей у цьому чаті."
 # The v2 slogan replies (replies module with legacy = true): the phrase first, then the answers.
 # Answers are HTML. The bot picks one answer at random, so a repeated answer is more likely.
 legacy_slava_ukraini = ["слава україні", "<i>Героям Слава!</i>"]
@@ -737,6 +791,98 @@ day_yesterday = "вчора"
 day_before = "позавчора"
 which_work = "До якого твору?"
 sprints_line = "Завершених спринтів: {sprints}, хвилин: {minutes}"
+# The list of your latest sprints
+recent_sprints = "Останні спринти"
+when = "Коли"
+minutes = "Хвилин"
+result = "Результат"
 # Settings
 hide_numbers = "Приховувати мої числа"
 hide_numbers_hint = "Числа рахуються у вашій статистиці, але на дошці замість них ✓, і вас немає в /top."
+# Progress: the calendar of the last 30 days (missed days within 3 days can be marked)
+calendar = "Останні 30 днів"
+# Settings: your data
+my_data = "Мої дані"
+my_data_hint = "Усі ваші спринти, твори, прогрес і налаштування — файлом (CSV в ZIP), або видалити все."
+export_send = "Надіслати файл у Telegram"
+export_download = "Завантажити файл"
+forget = "Видалити все"
+forget_confirm = "Видалити всі ваші дані? Це не можна скасувати."
+forgotten = "Ваші дані видалено."
+# The Chat tab (chat admins)
+chat_none = "Ви не адмін жодного чату з цим ботом."
+chat_pick = "Оберіть чат:"
+chat_community = "Спільнота: {name}"
+inherited = "як у спільноті"
+reset = "Як у спільноті / типово"
+replies = "Відповіді бота"
+reply_trigger = "/команда або фраза"
+reply_answer = "Відповідь"
+reply_hint = "{name} у відповіді — ім'я того, хто написав. Ще одна відповідь до того самого — додайте ще раз."
+# The Prompts tab (chat admins)
+use_shared = "Брати й спільні промпти"
+suggestions = "Пропозиції учасників"
+accept = "Прийняти"
+reject = "Відхилити"
+prompt_new = "Новий промпт"
+prompt_category = "Категорія (напр. жахи)"
+prompt_text = "Текст промпту"
+chat_prompts = "Промпти чату"
+chat_prompts_none = "Своїх промптів ще немає."
+submit_shared = "Запропонувати до спільних"
+image = "картинка"
+
+# ------------------------------------------------------------------------------------------------
+[chatsettings]
+# /settings in a group (chat admins): a private card with toggles
+title = "Налаштування чату"
+# When the chat belongs to a community
+community = "Спільнота: {name}. Позначені * беруть значення спільноти, доки чат не задасть своє."
+hint = "Зміни діють з наступного спринту."
+# Button text: "Твори: увімкнено"
+toggle = "{label}: {value}"
+# The default sprint length in the middle of the -/+ buttons
+number = "{label}: {value}"
+# Text settings (the welcome message)
+edit_text = "{label}: {value} — змінити"
+# Marks a value inherited from the community
+inherited = " *"
+on = "увімкнено"
+off = "вимкнено"
+text_set = "задано"
+text_unset = "немає"
+open_web = "Відкрити в застосунку"
+saved = "Збережено"
+# The question for a text setting (a reply prompt in the group, for that admin)
+ask_text = "{who}, надішліть новий текст для «{label}» у відповідь на це повідомлення. {{name}} стане іменами нових учасників. «-» прибирає текст."
+# Words that clear a text setting, space-separated
+clear_words = "- — ні"
+text_saved = "Текст збережено."
+too_long = "Задовгий текст."
+# Labels of the settings (the web app shows them too)
+sprints_default_length = "Тривалість спринту, хв"
+sprints_default_length_help = "Скільки триває /sprint без чисел."
+sprints_works = "Твори"
+sprints_works_help = "Вимкнено: звіти йдуть без творів, і цілі не показуються на дошці."
+sprints_percent = "Звіти у відсотках"
+sprints_percent_help = "Твори, які рахуються відсотком від плану на спринт."
+sprints_default_unit = "Типова одиниця"
+sprints_default_unit_help = "Для нових творів і для звітів без творів."
+sprints_default_unit_words = "слова"
+sprints_default_unit_percent = "відсотки"
+sprints_hidden_ok = "Приховані числа (✓ на дошці)"
+sprints_hidden_ok_help = "Вимкнено: у цьому чаті всі числа видно; хто не хоче ділитися, може не долучатися."
+sprints_work_names = "Назви творів на повідомленні спринту"
+sprints_work_names_help = "Показувати біля імен, над чим пишуть."
+sprints_top = "/top"
+sprints_top_help = "Хвилини у спринтах за період."
+sprints_delete_reports = "Прибирати звіти"
+sprints_delete_reports_help = "Видаляти відповіді-звіти, щойно записано (потрібні права адміна)."
+greeter_text = "Привітання"
+greeter_text_help = "Повідомлення новим учасникам; {name} — їхні імена."
+replies_defaults = "Відповіді бота за замовчуванням"
+replies_defaults_help = "Спільні відповіді на фрази й команди, задані для всіх чатів."
+prompts_use_shared = "Спільні промпти"
+prompts_use_shared_help = "Брати промпти й зі спільного набору, не лише з набору чату."
+achievements_enabled = "Досягнення"
+achievements_enabled_help = "Нагороди-стікери від адмінів."

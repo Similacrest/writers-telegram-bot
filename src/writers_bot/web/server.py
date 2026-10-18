@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 Handler = Callable[[web.Request, WebUser], Awaitable[web.StreamResponse]]
+TAB_ORDER = ["sprint", "works", "progress", "settings", "chat", "prompts", "achievements"]
+ADMIN_TABS = {"chat", "prompts", "achievements"}
 STATIC = {"app.js": "application/javascript", "app.css": "text/css", "index.html": "text/html"}
 CSP = (
     "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; "
@@ -53,6 +55,7 @@ class WebApp:
         self.tbots: dict[str, TelegramBot] = {}
         self.app = web.Application(middlewares=[self._headers], client_max_size=64 * 1024)
         self._runner: web.AppRunner | None = None
+        self.admin_chats: Callable[[WebUser], Awaitable[list[dict]]] | None = None  # set by the runtime
         self._routes_added = False
 
     # --- setup -----------------------------------------------------------------------------------
@@ -71,6 +74,9 @@ class WebApp:
         r.add_get("/api/config", self._config)
         r.add_post("/api/session", self._session)
         r.add_get("/api/me", self.authed(self._me))
+        from .discord_oauth import routes as discord_routes
+
+        discord_routes(self)
         for tbot in tbots:
             for module in tbot.modules:
                 hook = getattr(module, "web_routes", None)
@@ -177,6 +183,12 @@ class WebApp:
         for tbot in self.tbots.values():
             for module in tbot.modules:
                 tabs += getattr(module, "web_tabs", lambda: [])()
+            tabs += tbot.web_tabs()
+        if ADMIN_TABS & set(tabs) and not (self.admin_chats is not None and await self.admin_chats(user)):
+            tabs = [tab for tab in tabs if tab not in ADMIN_TABS]  # only for people who administer a chat
+        tabs = sorted(
+            dict.fromkeys(tabs), key=lambda tab: TAB_ORDER.index(tab) if tab in TAB_ORDER else len(TAB_ORDER)
+        )
         return web.json_response({"name": user.name, "platform": user.platform, "tabs": tabs})
 
     # --- helpers for modules -----------------------------------------------------------------------

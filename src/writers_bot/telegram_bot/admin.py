@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 PLATFORM = "telegram"
 NO_PREVIEW = LinkPreviewOptions(is_disabled=True)  # admin output: chat titles and broadcast texts
 TRACK_EVERY = timedelta(minutes=10)  # refresh last_seen at most this often per chat
+COMMUNITY_CHECK_EVERY = timedelta(days=1)
 PENDING_TTL = 3600
 PROGRESS_EVERY = 5.0  # seconds between progress edits
 LIST_AS_FILE_OVER = 60
@@ -128,6 +129,7 @@ class AdminTools:
             Command("broadcast", self.broadcast, "commands.broadcast", scope="admin"),
             Command("bcexclude", self.exclude, "commands.bcexclude", scope="admin"),
             Command("bcinclude", self.include, "commands.bcinclude", scope="admin"),
+            *([Command("community", self.community, "commands.community", scope="admin")] if self.communities else []),
         ]
 
     def handlers(self):
@@ -152,13 +154,76 @@ class AdminTools:
                 return
             if update.my_chat_member is not None:
                 return  # handled by on_my_chat_member
+            if (
+                message is not None
+                and self.communities is not None
+                and await self._community_service_message(chat, message)
+            ):
+                return
             now = time.monotonic()
             if now - self._seen.get(chat.id, -1e9) < TRACK_EVERY.total_seconds():
                 return
             self._seen[chat.id] = now
             await self.storage.upsert_chat(record_from_chat(chat))
+            if self.communities is not None and chat.type in (ChatType.GROUP, ChatType.SUPERGROUP):
+                self._spawn(self._check_community(chat.id))
         except Exception:
             logger.exception("could not record chat %s", chat.id)
+
+    # --- communities -----------------------------------------------------------------------------
+
+    @property
+    def communities(self):
+        if self.tbot is None:
+            return None
+        return self.tbot.services.shared.extra.get("communities")
+
+    def _spawn(self, coro) -> None:
+        task = asyncio.create_task(coro)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def _community_service_message(self, chat: Chat, message: Message) -> bool:
+        """Bot API 10.2 service messages (PTB keeps them in ``api_kwargs``). They are the news, so the daily
+        check is pushed back rather than letting it undo them."""
+        extra = message.api_kwargs or {}
+        added = extra.get("community_chat_added")
+        if isinstance(added, dict) and isinstance(added.get("community"), dict):
+            c = added["community"]
+            await self.storage.upsert_chat(record_from_chat(chat))
+            await self.communities.link_telegram(str(chat.id), int(c["id"]), str(c.get("name") or ""))
+            logger.info("chat %s joined community %s", chat.id, c.get("id"))
+        elif "community_chat_removed" in extra:
+            await self.storage.upsert_chat(record_from_chat(chat))
+            await self.communities.unlink_telegram(str(chat.id))
+            logger.info("chat %s left its community", chat.id)
+        else:
+            return False
+        await self.communities.mark_checked(str(chat.id))
+        self._seen[chat.id] = time.monotonic()
+        return True
+
+    async def _check_community(self, chat_id: int) -> None:
+        """At most daily: which Telegram Community the chat belongs to (``ChatFullInfo.community``)."""
+        try:
+            checked = await self.communities.last_checked(str(chat_id))
+            if checked is not None and datetime.now(UTC) - checked < COMMUNITY_CHECK_EVERY:
+                return
+            full = await self.tbot.app.bot.get_chat(chat_id)
+            community = (full.api_kwargs or {}).get("community")
+            if isinstance(community, dict) and "id" in community:
+                await self.communities.link_telegram(
+                    str(chat_id), int(community["id"]), str(community.get("name") or "")
+                )
+            else:
+                await self.communities.unlink_telegram(str(chat_id))
+            with contextlib.suppress(TelegramError):
+                await self.storage.set_member_count(
+                    PLATFORM, str(chat_id), await self.tbot.app.bot.get_chat_member_count(chat_id)
+                )
+            await self.communities.mark_checked(str(chat_id))
+        except Exception as e:
+            logger.info("community check for %s failed: %s", chat_id, e)
 
     async def on_my_chat_member(self, update: Update, _context) -> None:
         change = update.my_chat_member
@@ -282,6 +347,7 @@ class AdminTools:
                 chat_id, text[2], parse_mode=None, link_preview_options=NO_PREVIEW
             )
 
+        await self.refresh_member_counts(target)
         recipients = await self._recipients(target, exclude=chat_id)
         skipped = await self._excluded_count(target)
         token = secrets.token_hex(6)
@@ -311,12 +377,98 @@ class AdminTools:
         )
 
     async def _recipients(self, target: str, exclude: int | None = None) -> list[ChatRecord]:
+        """A community gets one broadcast, in its largest chat."""
         chats = await self.storage.list_chats(PLATFORM, private=TARGETS[target], reachable_only=True)
-        return [c for c in chats if c.chat_id != str(exclude) and not c.broadcast_excluded]
+        chats = [c for c in chats if c.chat_id != str(exclude) and not c.broadcast_excluded]
+        if self.communities is None:
+            return chats
+        best: dict[int, ChatRecord] = {}
+        out = []
+        for c in chats:
+            community = None if c.is_private else await self.communities.of_chat(PLATFORM, c.chat_id)
+            if community is None:
+                out.append(c)
+                continue
+            current = best.get(community.id)
+            if current is None or (c.member_count or 0) > (current.member_count or 0):
+                best[community.id] = c
+        return out + list(best.values())
+
+    async def refresh_member_counts(self, target: str) -> None:
+        """Before choosing a community's largest chat, ask Telegram how big its chats are."""
+        if self.communities is None or self.tbot is None:
+            return
+        for c in await self.storage.list_chats(PLATFORM, private=False, reachable_only=True):
+            if await self.communities.of_chat(PLATFORM, c.chat_id) is None:
+                continue
+            with contextlib.suppress(TelegramError):
+                count = await self.tbot.app.bot.get_chat_member_count(int(c.chat_id))
+                await self.storage.set_member_count(PLATFORM, c.chat_id, count)
 
     async def _excluded_count(self, target: str) -> int:
         chats = await self.storage.list_chats(PLATFORM, private=TARGETS[target], reachable_only=True)
         return sum(c.broadcast_excluded for c in chats)
+
+    # --- /community -----------------------------------------------------------------------------
+
+    async def community(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """/community [new <name> | add <id> <chat>… | remove <chat>… | rename <id> <name> | delete <id> |
+        set <id> <setting> <value|reset>]"""
+        if not await self._check_admin(update):
+            return
+        message = update.effective_message
+        args = context.args or []
+        f = self._fmt
+        c = self.communities
+        action = args[0].lower() if args else ""
+        try:
+            if action == "new" and len(args) > 1:
+                created = await c.create(" ".join(args[1:]))
+                await message.reply_html(f.t("admin.community_created", id=created.id, name=created.name))
+            elif action == "add" and len(args) > 2 and args[1].isdigit():
+                if await c.get(int(args[1])) is None:
+                    raise ValueError
+                for chat_id in args[2:]:
+                    await c.add(int(args[1]), PLATFORM, str(int(chat_id)))
+                await message.reply_html(f.t("admin.community_added", n=len(args) - 2))
+            elif action == "remove" and len(args) > 1:
+                removed = [chat_id for chat_id in args[1:] if await c.remove(PLATFORM, str(int(chat_id)))]
+                await message.reply_html(f.t("admin.community_removed", n=len(removed)))
+            elif action == "rename" and len(args) > 2 and args[1].isdigit():
+                await c.rename(int(args[1]), " ".join(args[2:]))
+                await message.reply_html(f.t("admin.community_renamed"))
+            elif action == "delete" and len(args) == 2 and args[1].isdigit():
+                await c.delete(int(args[1]))
+                await message.reply_html(f.t("admin.community_deleted"))
+            elif action == "set" and len(args) > 3 and args[1].isdigit():
+                settings = self.tbot.services.shared.extra.get("settings")
+                value = None if args[3].lower() == "reset" else " ".join(args[3:])
+                await settings.set_community(int(args[1]), args[2], value)
+                await message.reply_html(f.t("admin.community_set", key=args[2], value=value or "—"))
+            elif not action:
+                await self._list_communities(message)
+            else:
+                await message.reply_html(f.t("admin.community_usage"))
+        except (ValueError, KeyError):
+            await message.reply_html(f.t("admin.community_usage"))
+
+    async def _list_communities(self, message: Message) -> None:
+        f = self._fmt
+        communities = await self.communities.all()
+        if not communities:
+            await message.reply_html(f"{f.t('admin.community_none')}\n\n{f.t('admin.community_usage')}")
+            return
+        titles = {r.chat_id: r.title for r in await self.storage.list_chats(PLATFORM)}
+        lines = []
+        for com in communities:
+            kind = f.t("admin.community_telegram") if com.telegram_id else f.t("admin.community_manual")
+            lines.append(f.bold(f"{com.id}. {com.name}") + f" ({kind})")
+            for platform, chat_id in com.chats:
+                lines.append(
+                    f"  {f.escape(titles.get(chat_id) or '—')} <code>{chat_id}</code>"
+                    + (f" ({platform})" if platform != PLATFORM else "")
+                )
+        await self._send_chunks(message, f.bold(t("admin.community_title")), lines)
 
     # --- /bcexclude, /bcinclude ------------------------------------------------------------------
 

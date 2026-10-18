@@ -169,6 +169,30 @@ MIGRATIONS: dict[int, list[str]] = {
         "CREATE INDEX sprint_works_work ON sprint_works (work_id)",
         "ALTER TABLE chats ADD COLUMN member_count INTEGER",
     ],
+    # v4.0: communities and their settings
+    7: [
+        """CREATE TABLE communities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            telegram_id INTEGER UNIQUE,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""",
+        """CREATE TABLE community_chats (
+            community_id INTEGER NOT NULL REFERENCES communities (id) ON DELETE CASCADE,
+            platform TEXT NOT NULL,
+            chat_id TEXT NOT NULL,
+            auto INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (platform, chat_id)
+        )""",
+        "CREATE INDEX community_chats_community ON community_chats (community_id)",
+        """CREATE TABLE community_settings (
+            community_id INTEGER NOT NULL REFERENCES communities (id) ON DELETE CASCADE,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (community_id, key)
+        )""",
+        "ALTER TABLE chats ADD COLUMN community_checked TEXT",
+    ],
 }
 SCHEMA_VERSION = max(MIGRATIONS)
 

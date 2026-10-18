@@ -3,7 +3,7 @@
 "use strict";
 
 const tg = window.Telegram && window.Telegram.WebApp;
-const state = { token: null, texts: {}, tabs: [], tab: null, launch: null, config: null, timer: null };
+const state = { token: null, texts: {}, tabs: [], tab: null, launch: null, config: null, timer: null, chat: null };
 
 // --- small helpers ----------------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ function T(key, values) {
   let text = state.texts[key];
   if (Array.isArray(text)) text = text[0];
   if (text === undefined) return key;
-  return String(text).replace(/\{(\w+)\}/g, (_, name) => (values && name in values ? values[name] : ""));
+  return String(text).replace(/\{(\w+)\}/g, (match, name) => (values && name in values ? values[name] : match));
 }
 
 function el(tag, attrs, ...children) {
@@ -87,6 +87,11 @@ async function start() {
     state.token = session.token;
     state.launch = state.launch || session.start || (tg.initDataUnsafe && tg.initDataUnsafe.start_param) || null;
   } else {
+    const fragment = new URLSearchParams(location.hash.slice(1));
+    if (fragment.get("session")) {
+      sessionStorage.setItem("token", fragment.get("session"));
+      history.replaceState(null, "", location.pathname);
+    }
     state.token = sessionStorage.getItem("token");
   }
   if (!state.token) return showLogin();
@@ -124,7 +129,18 @@ async function showApp() {
   nav.replaceChildren(
     ...state.tabs.map((tab) => el("button", { role: "tab", "data-tab": tab, onclick: () => open(tab) }, T("tab_" + tab)))
   );
-  open(state.launch && state.tabs.includes("sprint") ? "sprint" : state.tabs[0]);
+  let first = state.tabs[0];
+  if (state.launch) {
+    const launch = await api("GET", "/api/launch?token=" + encodeURIComponent(state.launch)).catch((e) => { toast(e.message, true); return null; });
+    if (launch && launch.kind === "chat" && state.tabs.includes("chat")) {
+      state.chat = launch.chat_id;
+      state.launch = null;
+      first = "chat";
+    } else if (launch && state.tabs.includes("sprint")) {
+      first = "sprint";
+    }
+  }
+  open(first);
 }
 
 function open(tab) {
@@ -254,9 +270,11 @@ async function renderProgress(view) {
   const parts = [el("div", { class: "stats" },
     stat(T("today"), data.today), stat(T("week"), data.week), stat(T("month"), data.month), stat(T("streak"), data.streak))];
   parts.push(chart(data.days));
-  const week = data.days.slice(-7);
-  parts.push(el("div", { class: "days" }, ...week.map((d) => {
-    const label = new Date(d.day + "T12:00:00").toLocaleDateString([], { weekday: "short" });
+  parts.push(el("h2", {}, T("calendar")));
+  const first = new Date(data.days[0].day + "T12:00:00");
+  const blanks = (first.getDay() + 6) % 7;  // weeks start on Monday
+  parts.push(el("div", { class: "days" }, ...Array.from({ length: blanks }, () => el("div", {})), ...data.days.map((d) => {
+    const label = new Date(d.day + "T12:00:00").getDate();
     const fill = !d.active && d.fillable;
     return el("div", { class: "day" + (d.active ? " on" : "") + (fill ? " fill" : ""), title: fill ? T("fill_day") : "",
       onclick: fill ? () => guarded(async () => { await api("POST", "/api/progress", { text: "✓", day: d.day }); renderProgress(view); }) : null }, label);
@@ -282,6 +300,14 @@ async function renderProgress(view) {
         el("td", {}, w.goal ? `${w.goal_done} / ${w.goal.amount} ${T("per_" + w.goal.period)}` : "")))));
   }
   parts.push(el("p", { class: "muted" }, T("sprints_line", { sprints: data.sprints, minutes: data.minutes })));
+  if (data.recent && data.recent.length) {
+    parts.push(el("h2", {}, T("recent_sprints")), el("table", {},
+      el("tr", {}, el("th", {}, T("when")), el("th", {}, T("minutes")), el("th", {}, T("result"))),
+      ...data.recent.map((r) => el("tr", {},
+        el("td", {}, new Date(r.start).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })),
+        el("td", {}, r.minutes),
+        el("td", {}, r.words ? plural(r.words, "words") : r.percent !== null ? r.percent + "%" : r.completed ? "✓" : "—")))));
+  }
   view.replaceChildren(...parts);
 }
 
@@ -331,11 +357,113 @@ async function renderSettings(view) {
     el("p", { class: "muted" }, T("hide_numbers_hint")),
   ];
   for (const extra of SETTINGS_EXTRAS) parts.push(...(await extra()));
+  parts.push(el("h2", {}, T("my_data")), el("p", { class: "muted" }, T("my_data_hint")));
+  const exportButton = tg && tg.initData
+    ? el("button", { class: "plain", onclick: () => guarded(async () => toast((await api("POST", "/api/export/send", {})).message)) }, T("export_send"))
+    : el("button", { class: "plain", onclick: () => guarded(downloadExport) }, T("export_download"));
+  parts.push(el("div", { class: "row" }, exportButton,
+    el("button", { class: "danger", onclick: () => confirm(T("forget_confirm")) && guarded(async () => {
+      await api("DELETE", "/api/me"); toast(T("forgotten")); renderSettings(view);
+    }) }, T("forget"))));
+  view.replaceChildren(...parts);
+}
+
+async function downloadExport() {
+  const response = await fetch("/api/export", { headers: { Authorization: "Bearer " + state.token } });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || T("error_server")); }
+  const url = URL.createObjectURL(await response.blob());
+  const link = el("a", { href: url, download: "my-writing-data.zip" });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// --- chat settings (chat admins) -----------------------------------------------------------------------
+
+async function pickChat(view, render) {
+  if (state.chat) return state.chat;
+  const data = await guarded(() => api("GET", "/api/chats"));
+  if (!data) return null;
+  if (!data.chats.length) { view.replaceChildren(el("p", { class: "muted" }, T("chat_none"))); return null; }
+  if (data.chats.length === 1) { state.chat = data.chats[0].id; return state.chat; }
+  view.replaceChildren(el("p", {}, T("chat_pick")), ...data.chats.map((c) => el("p", {},
+    el("button", { class: "plain", onclick: () => { state.chat = c.id; render(view); } }, c.title))));
+  return null;
+}
+
+async function renderChat(view) {
+  const chat = await pickChat(view, renderChat);
+  if (!chat) return;
+  const data = await guarded(() => api("GET", `/api/chat/${chat}/settings`));
+  if (!data) return;
+  const save = (body) => guarded(async () => { await api("PATCH", `/api/chat/${chat}/settings`, body); toast(T("saved")); renderChat(view); });
+  const parts = [el("h2", {}, data.title)];
+  if (data.community) parts.push(el("p", { class: "muted" }, T("chat_community", { name: data.community })));
+  for (const s of data.settings) {
+    let input;
+    if (s.kind === "bool") input = el("input", { type: "checkbox", checked: s.value, onchange: (e) => save({ [s.key]: e.target.checked }) });
+    else if (s.kind === "int") input = el("input", { type: "number", min: s.min, max: s.max, value: s.value, onchange: (e) => save({ [s.key]: Number(e.target.value) }) });
+    else if (s.kind === "enum") input = el("select", { onchange: (e) => save({ [s.key]: e.target.value }) }, ...s.choices.map((c) => el("option", { value: c.value, selected: c.value === s.value }, c.label)));
+    else input = el("textarea", { rows: "3", onchange: (e) => save({ [s.key]: e.target.value || null }) }, s.value || "");
+    const inherited = s.source === "community" ? el("span", { class: "muted" }, " · " + T("inherited")) : null;
+    const reset = s.source === "chat" ? el("button", { class: "plain", onclick: () => save({ [s.key]: null }) }, T("reset")) : null;
+    parts.push(el("div", { class: "card" },
+      s.kind === "bool" ? el("label", { class: "switch" }, input, s.label, inherited) : el("div", {}, el("div", {}, s.label, inherited), input),
+      el("p", { class: "muted" }, s.help), reset));
+  }
+  if (data.modules.includes("replies")) parts.push(...(await repliesSection(chat, () => renderChat(view))));
+  view.replaceChildren(...parts);
+}
+
+async function repliesSection(chat, refresh) {
+  const data = await api("GET", `/api/chat/${chat}/replies`).catch(() => null);
+  if (!data) return [];
+  const trigger = el("input", { placeholder: T("reply_trigger") });
+  const answer = el("input", { placeholder: T("reply_answer") });
+  return [
+    el("h2", {}, T("replies")),
+    ...data.replies.map((r) => el("div", { class: "card" }, el("b", {}, r.trigger), el("div", { class: "muted" }, r.answers.join(" · ")),
+      el("button", { class: "danger", onclick: () => guarded(async () => { await api("DELETE", `/api/chat/${chat}/replies/${r.id}`); refresh(); }) }, T("delete")))),
+    el("div", { class: "card" }, el("div", { class: "row" }, el("div", { class: "grow" }, trigger), el("div", { class: "grow" }, answer),
+      el("button", { class: "primary", onclick: () => guarded(async () => { await api("POST", `/api/chat/${chat}/replies`, { trigger: trigger.value, answer: answer.value }); refresh(); }) }, T("add"))),
+      el("p", { class: "muted" }, T("reply_hint"))),
+  ];
+}
+
+// --- prompts (chat admins) -----------------------------------------------------------------------------
+
+async function renderPrompts(view) {
+  const chat = await pickChat(view, renderPrompts);
+  if (!chat) return;
+  const data = await guarded(() => api("GET", `/api/chat/${chat}/prompts`));
+  if (!data) return;
+  const act = (id, action) => guarded(async () => { await api("POST", `/api/chat/${chat}/prompts/${id}/${action}`, {}); toast(T("saved")); renderPrompts(view); });
+  const parts = [
+    el("label", { class: "switch" }, el("input", { type: "checkbox", checked: data.use_shared, onchange: (e) => guarded(async () => {
+      await api("PATCH", `/api/chat/${chat}/settings`, { "prompts.use_shared": e.target.checked }); toast(T("saved"));
+    }) }), T("use_shared")),
+  ];
+  if (data.suggestions.length) {
+    parts.push(el("h2", {}, T("suggestions")));
+    for (const p of data.suggestions) parts.push(el("div", { class: "card" }, el("b", {}, p.category), el("div", {}, p.text || ""),
+      el("div", { class: "row" }, el("button", { class: "primary", onclick: () => act(p.id, "accept") }, T("accept")),
+        el("button", { class: "plain", onclick: () => act(p.id, "reject") }, T("reject")))));
+  }
+  const category = el("input", { placeholder: T("prompt_category") });
+  const text = el("input", { placeholder: T("prompt_text") });
+  parts.push(el("div", { class: "card" }, el("h2", {}, T("prompt_new")), el("div", { class: "row" }, el("div", { class: "grow" }, category), el("div", { class: "grow" }, text),
+    el("button", { class: "primary", onclick: () => guarded(async () => { await api("POST", `/api/chat/${chat}/prompts`, { category: category.value, text: text.value }); renderPrompts(view); }) }, T("add")))));
+  parts.push(el("h2", {}, T("chat_prompts")));
+  if (!data.prompts.length) parts.push(el("p", { class: "muted" }, T("chat_prompts_none")));
+  for (const p of data.prompts) parts.push(el("div", { class: "card" }, el("b", {}, p.category), " ", p.text || (p.url ? el("a", { href: p.url, target: "_blank" }, T("image")) : T("image")),
+    el("div", { class: "row" }, el("button", { class: "plain", onclick: () => act(p.id, "submit") }, T("submit_shared")),
+      el("button", { class: "danger", onclick: () => confirm(T("delete") + "?") && act(p.id, "delete") }, T("delete")))));
   view.replaceChildren(...parts);
 }
 
 // Later phases add tabs and settings sections here.
 const SETTINGS_EXTRAS = [];
-const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings };
+const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings, chat: renderChat, prompts: renderPrompts };
 
 start().catch((e) => toast(e.message || String(e), true));

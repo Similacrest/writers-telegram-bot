@@ -242,3 +242,30 @@ class PromptsStore:
             images[name] = found
             images["all"] += found
         return images
+
+
+def upload_image(settings: GoogleSettings, folder_name: str, data: bytes, filename: str, mime: str) -> tuple[str, str]:
+    """Upload an image prompt to ``folder_name`` under the Drive base folder (created if missing) and share
+    it by link. Returns (file id, a link to show). Blocking: run it in a thread. Needs Drive write access."""
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaInMemoryUpload
+
+    creds = PromptsStore._credentials(settings)
+    files = build("drive", "v3", credentials=creds, cache_discovery=False).files()
+    base = (settings.drive_folder_id or "").replace("'", "")
+    safe = folder_name.replace("'", "")
+    query = f"'{base}' in parents and name = '{safe}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    found = files.list(q=query, fields="files(id)").execute().get("files", [])
+    if found:
+        folder = found[0]["id"]
+    else:
+        body = {"name": folder_name, "mimeType": "application/vnd.google-apps.folder", "parents": [base]}
+        folder = files.create(body=body, fields="id").execute()["id"]
+    media = MediaInMemoryUpload(data, mimetype=mime)
+    created = files.create(
+        body={"name": filename, "parents": [folder]}, media_body=media, fields="id, webContentLink, webViewLink"
+    ).execute()
+    build("drive", "v3", credentials=creds, cache_discovery=False).permissions().create(
+        fileId=created["id"], body={"type": "anyone", "role": "reader"}
+    ).execute()
+    return created["id"], created.get("webContentLink") or created.get("webViewLink") or ""

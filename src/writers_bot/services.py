@@ -8,9 +8,11 @@ import logging
 from dataclasses import dataclass, field
 
 from .botconfig import BotConfig, ProcessConfig
+from .core.communities import Communities
 from .core.links import LinkCounter
 from .core.people import People
 from .core.prompts import PromptsStore
+from .core.settings import SettingsStore
 from .core.storage import Storage
 from .core.works import Works
 from .modules import schemas
@@ -37,6 +39,9 @@ class Services:
             services.storage = Storage(config.common.db_path, schemas(storage_bot.modules))
             services.people = People(services.storage)
             services.works = Works(services.storage)
+            communities = Communities(services.storage)
+            services.extra["communities"] = communities
+            services.extra["settings"] = SettingsStore(services.storage, communities, storage_bot.modules)
         if any("links" in b.needs for b in config.bots.values()):
             services.links = LinkCounter()
         if config.common.google is not None and any(_uses_sheet(b) for b in config.bots.values()):

@@ -281,8 +281,22 @@ def routes(module: "Module", app: WebApp) -> None:
             if w.goal:
                 row["goal_done"] = h.work_period(w, today, w.goal.period)
             work_rows.append(row)
+        recent = []
+        for p in sorted(h.sprints, key=lambda p: p.start_at, reverse=True)[:10]:
+            words = sum(c.amount for c in h.credits if c.sprint_id == p.sprint_id and c.unit == Unit.WORDS)
+            percent = [c.amount for c in h.credits if c.sprint_id == p.sprint_id and c.unit == Unit.PERCENT]
+            recent.append(
+                {
+                    "start": p.start_at.isoformat(),
+                    "minutes": p.minutes,
+                    "words": words,
+                    "percent": max(percent) if percent else None,
+                    "completed": p.completed,
+                }
+            )
         return web.json_response(
             {
+                "recent": recent,
                 "today": h.words(today, today),
                 "week": h.words(today - timedelta(days=today.weekday()), today),
                 "month": h.words(month, today),

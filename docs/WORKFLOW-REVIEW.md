@@ -43,3 +43,30 @@ questions.
    it's visible that they hide them (not the numbers).
 8. **The first goal needs a private chat** with the bot, so it can tell you when you reach it: an extra
    step on the website.
+
+## Round 2: settings, communities, replies, prompt databases, the dashboard (v4.0), `tests/test_wf_phase4.py` and `tests/test_webapp_js.py`, 26 + 4 workflows
+
+### Fixed
+1. **The daily community check undid service messages.** A chat added to a Telegram Community (service
+   message) was unlinked minutes later when the first `getChat` check ran. The service message now counts
+   as the check.
+2. **Admins never learned about suggested prompts.** `/suggest` went into a queue nobody was told about.
+   The /settings card now says how many suggestions are waiting.
+3. **Members saw admin tabs in the web app**, and the Prompts tab opened first. Admin tabs (Chat,
+   Prompts) now show only to people who administer a chat with the bot, after the personal tabs.
+
+### Still open
+1. **The /settings card is long.** Eight to ten toggles plus the −10/−5/+5/+10 row for the sprint length
+   in one private card. It works, but the web app's Chat tab (with explanations) is easier.
+2. **`/replies add /trigger = answer` is a syntax to learn.** It's the only way in chat; the web app has a
+   form.
+3. **The welcome text is typed into the group.** The bot asks for it with a public question (the admin's
+   answer and the question are deleted afterwards), because the bot can't tell which chat a private message
+   is about.
+4. **Submitting a chat's prompt to the shared set** is only in the web app.
+5. **Categories created by suggestions keep the member's spelling** ("комедія" next to "Жахи" from the
+   sheet); admins can rename them in the web app.
+6. **Community management is a command** (`/community add <id> <chat>`); there is no web page for it, and
+   chat ids come from `/chats`.
+7. **`/bcexclude` remains.** The plan says there is no broadcast opt-out; the admin-side exclusion list
+   from v3.1 was kept as an admin tool.

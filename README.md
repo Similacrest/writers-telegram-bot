@@ -16,13 +16,13 @@ a comment saying where it appears; edit them there.
 
 | Module | Options (config file) | Needs | |
 |---|---|---|---|
-| `prompts` | `categories` (allow `/prompt <category>`) | the Google Sheet | `/prompt`, `/image`, `/image_<category>`, `/promptstats`, `/reload` |
+| `prompts` | `source` (`sheet` or `db`), `categories` (allow `/prompt <category>` with the sheet) | the Google Sheet; storage with `db` | `/prompt`, `/image`, `/image_<category>`, `/promptstats`; `/reload` with the sheet; with `db`: `/addprompt`, `/addimage`, `/suggest`, `/suggestions`, `/review` |
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile` |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
 | `dice` | | | `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` |
 | `smash` | | | `/smash` |
-| `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans) |
+| `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
 
 At most one bot has storage (the sprints and anything that keeps data about people); the chat registry,
 super-admin tools, your-data commands and the web app live in that bot. Other bots run without a database.
@@ -57,16 +57,37 @@ press, after an ephemeral command, or at any time when the bot is a chat admin. 
 messages whose buttons only that person can press, deleted after a few minutes. Make the bot a chat admin
 (with "delete messages") for the quiet experience.
 
+### Chat settings and communities (v4.0)
+
+Chat admins change their chat's settings with **`/settings`** (a private card with toggles, and a button to
+the web app's Chat tab): the default sprint length, works and % on or off, the default unit, hidden ✓
+reports, work names on the sprint message, `/top`, deleting report messages, the welcome text, the bot's
+default replies, the shared prompts. Changes apply from the next sprint.
+
+A chat that belongs to a **Telegram Community** (Bot API 10.2) is linked automatically; super-admins can
+also link chats by hand (`/community new <name>`, `/community add <id> <chat id>…`, `/community` to list).
+A community shares `/top`, one prompt set and its settings (`/community set <id> <setting> <value>`; a
+chat's own value wins), and gets one broadcast, in its largest chat.
+
+**Prompt databases** (`prompts = { source = "db" }`): the sheet and the Drive folders are imported once into
+a shared set; each chat (or community) has its own set on top. Categories are named in English with an
+optional Ukrainian alias (`horror` / `жахи`). Chat admins add prompts (`/addprompt жахи текст`, a picture
+with the caption `/addimage пейзаж`, uploaded to Drive when the bot's Google account may write there, else
+kept as the Telegram photo), members suggest them (`/suggest`), admins accept them (`/suggestions`, the web
+app), and chats can submit prompts to the shared set, which super-admins review with `/review`.
+
 ### The web app (optional)
 
 The bot with storage can serve a web app, opened as a Telegram Mini App (from the Панель button on sprint
-messages) or as a website with Telegram Login: the sprint panel (a field per work), your works, progress
-with a 30-day chart and the week, and settings. Without `web.url` (or with the tunnel down) everything
-works in chat and the buttons are hidden.
+messages) or as a website with Telegram Login or Discord: the sprint panel (a field per work), your works,
+progress (charts, the last 30 days with missed days to mark, your latest sprints), settings with export and
+deletion; for chat admins the chat's settings, replies and prompts. Without `web.url` (or with the tunnel
+down) everything works in chat and the buttons are hidden.
 
 Setup (ops): public HTTPS to the web app's port, the bot's Main Mini App set to the URL in @BotFather
 (Mini App methods only work on that domain since Bot API 10.2), and the domain set with `/setdomain` for
-Telegram Login.
+Telegram Login. Discord sign-in needs `web.discord_client_id` and `web.discord_client_secret` (or
+`DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`) and the redirect `https://<web url>/auth/discord/callback`.
 
 ### Admin: chats and broadcasts (super-admins, private chat)
 
@@ -74,6 +95,7 @@ Telegram Login.
 - `/broadcast groups|private|all`: as a reply to the message to broadcast, or with the text after the
   target. A preview and a confirmation come first; chats that removed or blocked the bot are skipped later.
 - `/bcexclude <chat id> ...`, `/bcinclude <chat id> ...`.
+- `/community …`: communities of chats (above).
 
 Telegram has no method that lists a bot's chats, so the bot records chats as updates arrive. Older chats
 can be imported once from the v2 `db.pickle`: `python scripts/import_legacy_chats.py db.pickle`.
@@ -90,6 +112,8 @@ db = "data/bot.sqlite3"
 url = "https://writers.example.org"
 listen = "0.0.0.0:8081"
 secret = "env:WEB_SECRET"              # 16+ characters; signs sessions and launch links
+discord_client_id = "env:DISCORD_CLIENT_ID"          # optional: Discord sign-in
+discord_client_secret = "env:DISCORD_CLIENT_SECRET"
 
 [bots.main]
 modules = ["prompts", "wordcount", "sprints", "dice"]
