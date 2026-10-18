@@ -137,8 +137,8 @@ dust. Which sticker a die gets (`core/dicestickers.py`):
 
 The bot uploads the packs once at start, `dice1_v3_by_<bot username>` and `dice2_v3_by_<bot username>`, owned by the
 super-admin with the lowest id (Telegram wants a person as a pack's owner), and sends the stickers by file id. It finds
-a sticker by its place in the pack and checks the packs against the manifest at every start (a pack with the wrong
-number of stickers, or put out of order, is made again). Each sticker has emoji and search keywords for people (see
+a sticker by its place in the pack and checks the packs against the manifest at every start (a pack put out of order is
+made again; one that is short, from an interrupted upload, is finished). Each sticker has emoji and search keywords for people (see
 `scripts/dice_render/tags.py`): the die's marker first (🧊 d20, 🕛 d12, 💯 d100 ...), then 🌟 crit, 💀 fumble, 🟢
 advantage, 🟣 disadvantage, 🔴 / 🔵 for the d12's colour, ⬆️ / ⬇️ for the highest and lowest roll and the value's digits;
 the search finds `d20 17`.

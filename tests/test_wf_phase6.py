@@ -9,6 +9,9 @@ from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
 
 from writers_bot.core.extras import Outcome, Roll
+from telegram.error import TimedOut
+
+from writers_bot.modules.dice import telegram as dice_telegram
 from writers_bot.modules.dice.telegram import clip_name, manifest
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
@@ -544,16 +547,55 @@ async def test_d07_a_pack_put_out_of_order_is_made_again(make):
     assert len(h.calls("createNewStickerSet")) == before + 1
 
 
-async def test_d08_existing_packs_are_reused_incomplete_ones_remade(make, tmp_path, clock):
+async def test_d08_existing_packs_are_reused_short_ones_finished(make, tmp_path, clock):
     h = await make(DICE)
     await ready_packs(h)
-    h.fake.sticker_sets["dice2_v3_by_writers_test_bot"].pop()  # a broken upload
+    name = "dice2_v3_by_writers_test_bot"
+    del h.fake.sticker_sets[name][80:]  # an interrupted upload, as live: 80 of 120
     h2 = await Harness.create(tmp_path / "again", clock, DICE)
     h2.fake.sticker_sets = h.fake.sticker_sets
     await ready_packs(h2)
-    assert [c["name"] for c in h2.calls("createNewStickerSet")] == ["dice2_v3_by_writers_test_bot"]
-    assert h2.calls("deleteStickerSet")
+    assert not h2.calls("createNewStickerSet") and not h2.calls("deleteStickerSet")
+    assert len(h2.calls("addStickerToSet")) == 40
+    assert len(h2.fake.sticker_sets[name]) == 120
+    assert len(h2.tbot.module("dice").stickers) == len({clip_name(r) for rows in manifest().values() for r in rows})
     await h2.close()
+
+
+async def test_d10_uploads_get_long_timeouts(make):
+    h = await make(DICE)
+    await ready_packs(h)
+    uploads = [t for t in h.fake.timeouts if t[0] in ("createNewStickerSet", "addStickerToSet")]
+    assert uploads and all(read >= 300 and write >= 300 for _, read, write in uploads)
+
+
+async def test_d11_an_upload_that_times_out_but_went_through_is_not_repeated(make, monkeypatch):
+    monkeypatch.setattr(dice_telegram, "SETTLE_DELAY", 0)
+    h = await make(DICE)
+    module = await ready_packs(h)
+    name = module.pack_name("pack1")
+    del h.fake.sticker_sets[name]
+    h.fake.time_out_after = {"createNewStickerSet": 1, "addStickerToSet": 2}  # as live: Telegram keeps going
+    adds = len(h.calls("addStickerToSet"))
+    await module._prepare("pack1", manifest()["pack1"], ADMIN.id)
+    assert len(h.fake.sticker_sets[name]) == 120
+    assert len(h.calls("addStickerToSet")) - adds == 70  # each sticker once
+    assert [s["file_id"] for s in h.fake.sticker_sets[name]] == [f"{name}#{i}" for i in range(1, 121)]
+
+
+async def test_d12_an_upload_that_was_lost_stops_and_the_next_start_finishes(make, monkeypatch):
+    monkeypatch.setattr(dice_telegram, "SETTLE_DELAY", 0)
+    h = await make(DICE)
+    module = await ready_packs(h)
+    name = module.pack_name("pack2")
+    del h.fake.sticker_sets[name]
+    h.fake.time_out_before = {"addStickerToSet": 1}  # the 51st sticker never arrives
+    with pytest.raises(TimedOut):
+        await module._prepare("pack2", manifest()["pack2"], ADMIN.id)
+    assert len(h.fake.sticker_sets[name]) == 50
+    await module._prepare("pack2", manifest()["pack2"], ADMIN.id)
+    assert len(h.fake.sticker_sets[name]) == 120
+    assert not h.calls("deleteStickerSet")
 
 
 async def test_d09_not_a_roll(make):

@@ -18,7 +18,7 @@ from pathlib import PurePosixPath
 
 from telegram import InputFile, InputSticker, ReplyParameters, Update
 from telegram.constants import StickerFormat
-from telegram.error import TelegramError
+from telegram.error import TelegramError, TimedOut
 from telegram.ext import MessageHandler, filters
 
 from ...core import dicestickers, extras
@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 # ones are simply no longer used). 3: the packs of v4.2.2 (a d20 and d12 with advantage looks, a coin, white numerals).
 ANIMATIONS = 3
 FIRST_UPLOAD = 50  # createNewStickerSet takes at most 50; the rest go in one by one
+# Telegram answers a sticker upload only after processing the videos (50 at once in createNewStickerSet), far beyond
+# python-telegram-bot's 5 s defaults; on live Telegram v4.2.5 timed out while the uploads went through.
+UPLOAD_TIMEOUTS = {"read_timeout": 300, "write_timeout": 300}
+SETTLE_TRIES = 12  # after a timeout anyway: look at the pack this many times, SETTLE_DELAY s apart, for the upload
+SETTLE_DELAY = 10.0
 AUTO_STICKERS = 2  # a roll of more dice than this gets stickers only when asked for (-s)
 
 
@@ -76,15 +81,16 @@ class Module(TelegramModule):
         return f"dice{key.removeprefix('pack')}_v{ANIMATIONS}_by_{self.bot.me.username}"
 
     @staticmethod
-    def _intact(rows: list[dict], pack) -> bool:
-        """The pack has all its stickers, each with the die marker (the first emoji, the one Telegram hands back) that the
-        manifest has at its place: the bot finds a sticker by its place, so a pack put out of order is no use."""
-        if len(pack.stickers) != len(rows):
+    def _in_order(rows: list[dict], pack) -> bool:
+        """Each sticker the pack has carries the die marker (the first emoji, the one Telegram hands back) that the manifest
+        has at its place: the bot finds a sticker by its place, so a pack put out of order is no use. A pack that is only
+        short (an interrupted upload) is in order, and is finished rather than made again."""
+        if len(pack.stickers) > len(rows):
             return False
         marker = lambda emoji: (emoji or "").replace("\ufe0f", "")  # noqa: E731
         return all(
             not sticker.emoji or marker(sticker.emoji) == marker(row["emoji"][0])
-            for row, sticker in zip(rows, pack.stickers, strict=True)
+            for row, sticker in zip(rows, pack.stickers, strict=False)
         )
 
     async def prepare_packs(self) -> None:
@@ -103,36 +109,61 @@ class Module(TelegramModule):
             pack = await bot.get_sticker_set(name)
         except TelegramError:
             pack = None
-        if pack is not None and not self._intact(rows, pack) and owner is not None:
-            await bot.delete_sticker_set(
-                name
-            )  # an incomplete pack from an interrupted upload, or one put out of order
+        if pack is not None and not self._in_order(rows, pack) and owner is not None:
+            await bot.delete_sticker_set(name)  # put out of order: no use, it is made again
             pack = None
-        if pack is None:
+        have = len(pack.stickers) if pack is not None else 0
+        if have < len(rows):
             if owner is None:
-                logger.info("no super admin to own the dice sticker packs: rolls go without stickers")
-                return
-            folder = files("writers_bot.assets.dice_packs")
-            stickers = [
-                InputSticker(
-                    InputFile(
-                        folder.joinpath(row["file"]).read_bytes(),
-                        filename=PurePosixPath(row["file"]).name,
-                        attach=True,  # InputSticker only attaches what it parses itself, not a ready InputFile
-                    ),
-                    row["emoji"],
-                    StickerFormat.VIDEO,
-                    keywords=row["keywords"],
-                )
-                for row in rows
-            ]
-            await bot.create_new_sticker_set(owner, name, t(f"dice.{key}_title"), stickers[:FIRST_UPLOAD])
-            for sticker in stickers[FIRST_UPLOAD:]:
-                await bot.add_sticker_to_set(owner, name, sticker)
-            pack = await bot.get_sticker_set(name)
-            logger.info("created the sticker pack %s", name)
+                if pack is None:
+                    logger.info("no super admin to own the dice sticker packs: rolls go without stickers")
+                    return
+            else:
+                if pack is None:
+                    first = [self._input_sticker(row) for row in rows[:FIRST_UPLOAD]]
+                    title = t(f"dice.{key}_title")
+                    await self._upload(
+                        lambda **kw: bot.create_new_sticker_set(owner, name, title, first, **kw), name, len(first)
+                    )
+                    have = len(first)
+                else:
+                    logger.info("the sticker pack %s has %d of %d stickers: adding the rest", name, have, len(rows))
+                for i in range(have, len(rows)):
+                    sticker = self._input_sticker(rows[i])
+                    await self._upload(lambda **kw: bot.add_sticker_to_set(owner, name, sticker, **kw), name, i + 1)
+                pack = await bot.get_sticker_set(name)
+                logger.info("the sticker pack %s is ready", name)
         for row, sticker in zip(rows, pack.stickers, strict=False):
             self.stickers[clip_name(row)] = sticker.file_id
+
+    @staticmethod
+    def _input_sticker(row: dict) -> InputSticker:
+        return InputSticker(
+            InputFile(
+                files("writers_bot.assets.dice_packs").joinpath(row["file"]).read_bytes(),
+                filename=PurePosixPath(row["file"]).name,
+                attach=True,  # InputSticker only attaches what it parses itself, not a ready InputFile
+            ),
+            row["emoji"],
+            StickerFormat.VIDEO,
+            keywords=row["keywords"],
+        )
+
+    async def _upload(self, call, name: str, expected: int) -> None:
+        """One createNewStickerSet or addStickerToSet. A timeout on our side doesn't mean Telegram dropped the upload: it
+        may still be processing it, so look at the pack until it has ``expected`` stickers before giving up (the next
+        start then finishes the pack). Uploading again at once could put a sticker in twice, out of order."""
+        try:
+            await call(**UPLOAD_TIMEOUTS)
+            return
+        except TimedOut:
+            logger.info("a sticker upload to %s timed out: waiting for Telegram to show it", name)
+        for _ in range(SETTLE_TRIES):
+            await asyncio.sleep(SETTLE_DELAY)
+            with contextlib.suppress(TelegramError):
+                if len((await self.bot.app.bot.get_sticker_set(name)).stickers) >= expected:
+                    return
+        raise TimedOut(f"the upload to {name} timed out and the pack has fewer than {expected} stickers")
 
     # --- rolling ---------------------------------------------------------------------------------
 

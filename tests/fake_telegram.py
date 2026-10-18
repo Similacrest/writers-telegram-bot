@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from telegram import Update
+from telegram.error import TimedOut
 from telegram.request import BaseRequest, RequestData
 
 BOT_ID = 999
@@ -102,6 +103,11 @@ class FakeTelegram(BaseRequest):
         self.incoming_ephemeral: dict[tuple[int, int], float] = {}  # (chat, ephemeral id) -> time
         self.documents: list[dict] = []
         self.sticker_sets: dict[str, list[dict]] = {}
+        # Slow calls, as live Telegram's sticker uploads: method -> how many of its next calls time out on the bot's side
+        # after Telegram took them ("after") or before ("before"); the timeouts the bot asked for, per call
+        self.time_out_after: dict[str, int] = {}
+        self.time_out_before: dict[str, int] = {}
+        self.timeouts: list[tuple[str, float | None, float | None]] = []
         self.files: dict[str, bytes] = {}  # file_id -> content (getFile / download); else a tiny PNG
         self.photos: list[bytes] = []  # pictures the bot uploaded
         self._request: RequestData | None = None
@@ -128,7 +134,7 @@ class FakeTelegram(BaseRequest):
     async def shutdown(self) -> None:
         pass
 
-    async def do_request(self, url, method, request_data: RequestData | None = None, **_kwargs):
+    async def do_request(self, url, method, request_data: RequestData | None = None, **kwargs):
         if "/file/bot" in url:  # downloading a file found with getFile
             file_id = url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
             return 200, self.files.get(file_id) or _tiny_png()
@@ -154,6 +160,9 @@ class FakeTelegram(BaseRequest):
             ):
                 params[key] = json.loads(value)
         self.calls.append((name, params))
+        self.timeouts.append((name, _seconds(kwargs.get("read_timeout")), _seconds(kwargs.get("write_timeout"))))
+        if self._take(self.time_out_before, name):
+            raise TimedOut("Timed out")
         handler = getattr(self, f"m_{name}", None)
         if handler is None:
             return 200, json.dumps({"ok": True, "result": True}).encode()
@@ -162,9 +171,18 @@ class FakeTelegram(BaseRequest):
         except ApiError as e:
             code = 403 if str(e).startswith("Forbidden") else 400
             return code, json.dumps({"ok": False, "error_code": code, "description": str(e)}).encode()
+        if self._take(self.time_out_after, name):
+            raise TimedOut("Timed out")  # Telegram did it; the bot never hears
         return 200, json.dumps({"ok": True, "result": result}).encode()
 
     # --- helpers -------------------------------------------------------------------------------------
+
+    @staticmethod
+    def _take(counts: dict[str, int], name: str) -> bool:
+        if counts.get(name, 0) > 0:
+            counts[name] -= 1
+            return True
+        return False
 
     def now(self) -> float:
         return self.clock.now().timestamp() if self.clock else time.time()
@@ -616,6 +634,10 @@ class FakeTelegram(BaseRequest):
 
 class ApiError(Exception):
     pass
+
+
+def _seconds(value) -> float | None:
+    return value if isinstance(value, int | float) else None  # PTB's DEFAULT_NONE sentinel: the request's default
 
 
 def _short(m: "Msg", width: int = 160) -> str:
