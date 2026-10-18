@@ -86,7 +86,7 @@ phase 4.
   in the dashboard.
 - *People* are linked across platforms by the users themselves, by signing in to the web app with both
   accounts, which joins them to one `person_id`. Nobody is merged by matching names.
-- `/top` and `/me` in a linked chat count every chat of the community and add up a person's
+- `/top` and `/profile` in a linked chat count every chat of the community and add up a person's
   accounts. Works, goals and streaks are kept per person, achievements per community.
 - Shared sprints (one sprint posted on both sides, people joining from either) need both adapters to share
   one sprint engine. Simplest: run both clients in one process, with one `SprintManager` and a presenter that
@@ -156,7 +156,8 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   OAuth as the fallback. In this phase it holds the sprint panel and your works; phase 4 grows it into
   the dashboard. It needs public HTTPS into the homelab (a reverse proxy or a tunnel), an ops decision that
   now has to be made before this phase. Since Bot API 10.2, Mini App methods only work on the Mini App's
-  own domain, so the app has a fixed domain of its own. Only the bot with storage serves it (see
+  own domain, so the app has a fixed domain of its own. The web app is optional: without it (no domain
+  configured, or the tunnel down) everything works in chat and its buttons are hidden. Only the bot with storage serves it (see
   "Architecture: modules"), so there is one domain and one bot token to check `initData` and Telegram
   Login against.
   - **Opening it from a group**: inline `web_app` buttons only work in private chats. In groups the bot
@@ -231,16 +232,16 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   Joining never needs you to share anything. A chat can turn hidden ✓ reports off (phase 4); that only
   affects its future sprints, and people who don't want to share there can skip them.
 - **Board**: a words section and a % section, each sorted high to low, then ✓ and ✗. One line per person
-  per section, summed over their works (the split is only in `/me`). No medals and no winner. Records and goals go in one summary line on the board, not separate posts.
+  per section, summed over their works (the split is only in `/profile`). No medals and no winner. Records and goals go in one summary line on the board, not separate posts.
 - **No fixed report window**: late reports are accepted until your next sprint or about 12 hours, and the
   board is edited when they arrive, so someone in the zone can keep writing.
 - **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
   it reacts), and confirmations are ephemeral where Telegram allows, with an Undo button that takes the
   report back.
-- **`/me`** (was `/mystats`): the private view (ephemeral in groups): each work with its goal and month total, the
+- **`/profile`** (was `/mystats`): the private view (ephemeral in groups): each work with its goal and month total, the
   streak with the last 7 days (gaps within 3 days can be filled from there), completed sprints and
   minutes, visibility. Buttons for `/progress`, works and settings. No rankings or comparisons.
-- **Your data**: `/export` and `/forgetme` come out of preview and are found in `/me` → Settings →
+- **Your data**: `/export` and `/forgetme` come out of preview and are found in `/profile` → Settings →
   My data (the commands stay as fallbacks, off the group menu). Export covers works, goals and
   `/progress` entries as well as sprints; deletion covers works too. With one bot holding the database, `/forgetme` deletes everything it
   holds about you, on every platform once your accounts are linked. The first sprint you join says
@@ -256,9 +257,9 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   to post it, so it shows your numbers even if you hide them. With nothing this year there is no Share
   button, so a zero is never posted. A %-only writer shares sprints and minutes. With arguments,
   `/progress` reports quietly.
-- **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/count` (`/wc` and `/stats`
+- **Command names**: `/stats` → `/promptstats`, `/mystats` → `/profile`, `/wc` → `/count` (`/wc` and `/stats`
   stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/підрахуй`, `/спринт`,
-  `/прогрес`, `/я`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
+  `/прогрес`, `/профіль`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
   Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
   sees all messages (privacy mode off, or the bot is an admin); they aren't in the menu.
 - **`/top`**: total minutes of completed sprints in the chat over N days; writers who hide their numbers
@@ -312,7 +313,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   admin for a new one. No custom emoji: bots can only send them with a username bought on Fragment.
 - **Awarding by command** (chat admins; alias `/нагорода`): reply to the member's message with `/award`, then pick the
   achievement from buttons, or `/award <name>`; `/unaward` takes it back. The bot posts the sticker and one
-  line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/me`.
+  line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/profile`.
 - Achievements belong to the community where there is one, otherwise to the chat.
 
 ### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.2)
@@ -328,7 +329,6 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   - **Broadcasts** go to the server's `#general` channel (the system channel if there is none). A server on
     its own is a community, and its channels are its chats; a server that joins a Telegram community (E2)
     gets one broadcast in `#general` alongside the community's largest Telegram chat.
-  - **`/me` is `/profile` on Discord** (localized as `я`), since Discord has a built-in `/me`.
   - **Web app**: the website with Discord OAuth; no Discord Activity.
   - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
   - Phrase triggers of `replies` and the `greeter` are not on Discord (they need privileged intents);
@@ -336,7 +336,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
 - E1 per-server settings come with phase 4.
 - E2: a Discord server joins a community from phase 4. Linking is done in the web app by someone who is an
   admin on both sides. People link their accounts in the web app too: signing in with both Telegram and
-  Discord joins them into one person (no `/link` codes). `/me`, works, goals and streaks are then per
+  Discord joins them into one person (no `/link` codes). `/profile`, works, goals and streaks are then per
   person; `/top` and achievements per community.
 - Shared sprints through **channel links**: an admin links a Telegram chat (or forum topic) with a Discord
   channel. A sprint started in either is posted in both, people join from either side, and there is one
@@ -351,7 +351,7 @@ The bot is built from modules that can be served as one bot or as several, set i
   (welcome messages, the text a chat setting), `dice`, `smash`, `achievements`, `replies` (below). Each
   one brings
   its handlers, commands (menu, `/help`, Ukrainian aliases), settings, migrations and web app pages, and
-  adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
+  adds sections to the shared screens (`/profile`, `/help`, the board summary line, web app tabs), so a bot
   shows only what its modules do.
 - **A small runtime** in every bot: config, the platform clients, the command menu and `/help`, the chat
   allowlist, logging, error alerts and `/health`. Nothing else is required: `wordcount`, `dice` and
@@ -362,7 +362,8 @@ The bot is built from modules that can be served as one bot or as several, set i
   Admin (chat registry, chat list, broadcasts) and your data (export, deletion) come with storage. Other
   bots don't record their chats, get no broadcasts, and take their module settings from the config file.
   Needs per module:
-  `sprints`, `achievements` → storage, settings, people, web app; `sprints` with works and `wordcount` →
+  `sprints`, `achievements` → storage, settings, people, and the web app when it is configured (they work
+  fully in chat without it); `sprints` with works and `wordcount` →
   link counting; `greeter`, `replies` → settings (the config file in a bot without storage); `prompts` →
   its source (the sheet now, storage from phase 4).
 - Modules don't call each other; they share only the core and the database.
