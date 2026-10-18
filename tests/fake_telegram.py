@@ -179,8 +179,11 @@ class FakeTelegram(BaseRequest):
             "chat": self.chat(m.chat_id).to_dict(),
             "from": m.sender,
         }
-        if m.kind == "text":
+        if m.kind == "text" and "sticker" not in m.extra and "photo" not in m.extra:
             d["text"] = m.text
+        for key in ("sticker", "photo", "caption"):
+            if key in m.extra:
+                d[key] = m.extra[key]
         if m.markup and "inline_keyboard" in m.markup:
             d["reply_markup"] = m.markup
         if m.thread_id:

@@ -148,3 +148,12 @@ async def test_works_and_progress(h, client):
     bob = await login(client, BOB)
     assert (await client.delete(f"/api/works/{work['id']}", headers=bob)).status == 404
     assert (await client.delete(f"/api/works/{work['id']}", headers=alice)).status == 200
+
+
+async def test_panel_for_a_sprint_in_a_private_chat(h, client):
+    await h.dm(ALICE, "/sprint 10 0")
+    sprint = h.sprint()
+    token = h.services.web.signer.launch(ALICE.id, sprint.id)
+    alice = await login(client, ALICE)
+    r = await client.get(f"/api/sprint?launch={token}", headers=alice)
+    assert r.status == 200 and (await r.json())["sprint"]["joined"] is True

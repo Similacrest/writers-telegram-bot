@@ -327,6 +327,8 @@ baseline_plain = "Запам'ятав загальну кількість. Да�
 done = "готово ✓"
 # Didn't make it ✗
 failed = "не вийшло ✗. Нічого страшного!"
+# A report that changed nothing (e.g. the same number again)
+nothing_new = "Записано."
 # Button that takes the report back
 undo = "Скасувати звіт"
 # After pressing it
@@ -433,6 +435,7 @@ reload = "Перезавантажити промпти (адміни)"
 settings = "Налаштування чату (адміни)"
 suggest = "Запропонувати промпт: /suggest жахи Текст"
 review = "Адмін: пропозиції до спільних промптів"
+achievements = "Досягнення цього чату"
 chats = "Адмін: усі чати з ботом"
 broadcast = "Адмін: розсилка (groups / private / all)"
 bcexclude = "Адмін: прибрати чати з розсилок"
@@ -454,6 +457,8 @@ help = "допомога"
 export = "експорт"
 forgetme = "забудьмене"
 suggest = "запропонуй"
+# The plan gives the admin command /award a Ukrainian name too
+award = "нагорода"
 
 # ------------------------------------------------------------------------------------------------
 [help]
@@ -472,6 +477,7 @@ top = "/top [днів] — хвилини у спринтах за період"
 export = "/export — ваші дані у файлі, /forgetme — видалити їх"
 addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
 suggest = "/suggest <категорія> <текст> — запропонувати промпт"
+achievements = "/achievements — досягнення чату (адміни нагороджують: /award у відповідь на повідомлення)"
 dice = "/d20, /2d6+1, /r 4к6 — кинути кубики"
 smash = "/smash — keyboard smash"
 
@@ -830,6 +836,10 @@ prompt_text = "Текст промпту"
 chat_prompts = "Промпти чату"
 chat_prompts_none = "Своїх промптів ще немає."
 submit_shared = "Запропонувати до спільних"
+# The Achievements tab (chat admins)
+achievements_none = "Досягнень ще немає. Створіть: надішліть боту стікер зі свого набору в особисті."
+holders = "Мають: {list}"
+description = "Опис"
 image = "картинка"
 
 # ------------------------------------------------------------------------------------------------
@@ -886,3 +896,46 @@ prompts_use_shared = "Спільні промпти"
 prompts_use_shared_help = "Брати промпти й зі спільного набору, не лише з набору чату."
 achievements_enabled = "Досягнення"
 achievements_enabled_help = "Нагороди-стікери від адмінів."
+
+# ------------------------------------------------------------------------------------------------
+[achievements]
+# Achievements: made and awarded by chat admins; each is a sticker from the admins' own pack
+title = "Досягнення"
+# A line in /achievements: "«Нічна сова» — пише після півночі (3)"
+line = "«{name}»{description} ({count})"
+none_yet = "Досягнень ще немає. Адміни створюють їх зі стікера свого набору: /newachievement Назва — опис у відповідь на стікер."
+# /achievements in a private chat
+yours = "Ваші досягнення: {list}"
+yours_none = "У вас ще немає досягнень."
+# In /profile
+profile = "Досягнення: {list}"
+# Creating
+new_usage = "Відповідайте на стікер зі свого набору: /newachievement Назва — опис (опис не обов'язковий)."
+dm_how = "Надішліть мені стікер зі свого набору, і я спитаю назву досягнення."
+not_from_a_pack = "Цей стікер не з набору. Створіть набір у @Stickers і візьміть стікер звідти."
+no_chats = "Ви не адмін жодного чату з цим ботом."
+ask_name = "Як назвати досягнення? Можна з описом: Нічна сова — пише після півночі."
+name_placeholder = "Нічна сова"
+which_chat = "Для якого чату?"
+created = "Досягнення «{name}» створено. Нагородити: /award у відповідь на повідомлення учасника."
+duplicate = "Досягнення «{name}» уже є."
+# Awarding (/award, /unaward: in reply to a member's message, chat admins)
+award_usage = "Відповідайте на повідомлення учасника: /award або /award Назва."
+unaward_usage = "Відповідайте на повідомлення учасника: /unaward або /unaward Назва."
+pick = "Яке досягнення для {name}?"
+pick_remove = "Яке досягнення забрати в {name}?"
+unknown = "Не знаю досягнення «{name}»."
+already = "{name} вже має «{achievement}»."
+has_none = "У {name} немає досягнень цього чату."
+# The one public line when an achievement is awarded (after its sticker): "Taras отримує «Нічна сова»"
+awarded = "{who} отримує «{achievement}»"
+unawarded = "«{achievement}» забрано в {name}."
+off = "Досягнення в цьому чаті вимкнено (/settings)."
+# The sticker is gone from the admins' pack: a reply question to the awarding admin
+sticker_gone = "{who}, стікера для «{achievement}» більше немає в наборі. Надішліть новий стікер у відповідь на це повідомлення."
+sticker_replaced = "Стікер оновлено."
+# The same question in the private chat with the admin (preferred: it doesn't clutter the group)
+sticker_gone_dm = "Стікера для «{achievement}» більше немає у вашому наборі, тож я нагородив без нього. Надішліть мені новий стікер з набору."
+sticker_placeholder = "стікер"
+# A text instead of the sticker the bot asked for
+send_a_sticker = "Надішліть стікер з набору (не текст)."

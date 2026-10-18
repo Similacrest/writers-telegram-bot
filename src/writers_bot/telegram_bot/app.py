@@ -63,6 +63,8 @@ PLATFORM = "telegram"
 NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
 ALIAS_RE = re.compile(r"^/([^\W\d_A-Za-z][\w'ʼ’]*)(?:@(\w+))?(?:\s+(.*))?$", re.DOTALL)
 COMMAND_RE = re.compile(r"^/(\w+)(?:@\w+)?(?:\s|$)")
+ADMIN_CACHE_TTL = 10 * 60
+MAX_ADMIN_CHATS = 60
 
 
 def chat_key(message: Message) -> ChatKey:
@@ -136,6 +138,7 @@ class TelegramBot:
         self._aliases: dict[str, Command] = {}
         self._asks: dict[str, Callable] = {}
         self._payloads: dict[str, Callable] = {}
+        self._admin_cache: dict[int, tuple[float, list[dict]]] = {}
 
     # --- module access -----------------------------------------------------------------------------
 
@@ -518,6 +521,29 @@ class TelegramBot:
 
         text, markup = await self.settings_view(query.from_user)
         await self.asks.edit(Sent.from_query(query), text, markup)
+
+    async def admin_chats(self, user_id: int) -> list[dict]:
+        """Groups with this bot that ``user_id`` administers (getChatMember for each, cached a while)."""
+        cached = self._admin_cache.get(user_id)
+        if cached and time.monotonic() - cached[0] < ADMIN_CACHE_TTL:
+            return cached[1]
+        if self.storage is None:
+            return []
+        groups = [
+            c
+            for c in await self.storage.list_chats(PLATFORM, private=False, reachable_only=True)
+            if c.type != "channel"
+        ]
+        semaphore = asyncio.Semaphore(5)
+
+        async def check(chat):
+            async with semaphore:
+                return chat if await self.is_chat_admin(int(chat.chat_id), user_id) else None
+
+        mine = [c for c in await asyncio.gather(*(check(c) for c in groups[:MAX_ADMIN_CHATS])) if c is not None]
+        out = [{"id": int(c.chat_id), "title": c.title or c.chat_id} for c in mine]
+        self._admin_cache[user_id] = (time.monotonic(), out)
+        return out
 
     # --- the web app ----------------------------------------------------------------------------------
 

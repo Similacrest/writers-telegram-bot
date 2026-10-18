@@ -70,3 +70,33 @@ questions.
    chat ids come from `/chats`.
 7. **`/bcexclude` remains.** The plan says there is no broadcast opt-out; the admin-side exclusion list
    from v3.1 was kept as an admin tool.
+
+## Round 3: achievements (v4.1) and whole journeys, `tests/test_wf_phase5.py`, 21 workflows
+
+### Fixed
+1. **A vanished sticker was handled in public.** When the admins had removed an achievement's sticker
+   from their pack, the bot posted "the sticker is gone, send a new one" in the group, before the award
+   line. It now posts the award first and asks the admin in the private chat (in the group only if the bot
+   can't write to them).
+2. **The works card at every sprint.** Someone with one kept work got the "what are you writing?" card at
+   each sprint, with nothing to choose. The card now shows only when there's a choice (two or more works,
+   or a work not kept) or for the first-sprint notice; "Мої твори" still opens it.
+
+### Still open
+1. **An award is two messages** (the sticker, then the line), since stickers can't carry text. That's the
+   plan's design; in a busy chat it's the most visible thing the bot posts after the board.
+2. **The `/sprint` command stays in the chat.** Everything else of a sprint ends up as one board message,
+   but the command that started it is the user's own message and isn't deleted (as in v2).
+3. **Creating an achievement in a group** means replying to a sticker with a command
+   (`/newachievement Назва — опис`); the private chat flow (send a sticker, answer with the name) is
+   friendlier, but not discoverable from the group.
+4. **The board's "✓ Bob" for hidden numbers and "✗ Carol"** are on separate lines below the numbers;
+   people who prefer not to share are visibly grouped (see round 1, item 7).
+
+## Summary
+
+- 34 + 26 + 21 modelled workflows (plus 4 web-app rendering checks), all passing; 13 problems fixed on
+  the way.
+- The open items above are design questions rather than bugs: mostly Telegram limits (no force-reply to
+  an ephemeral message, ephemeral messages only for admin bots or right after a button press) and
+  command syntaxes that the web app covers better.

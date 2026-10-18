@@ -280,3 +280,24 @@ async def test_forget_person(env, clock, storage):
     assert removed == 1
     assert await people.find("test", "1") is None
     assert await storage.fetchall("SELECT * FROM works") == []
+
+
+async def test_done_naming_a_work(env, clock):
+    engine, rep, people, works, _ = env
+    person = await people.person_id("test", "1", "Alice")
+    novel = await works.create(person, "Роман", Unit.WORDS)
+    await works.set_flag(novel, "keep", False)
+    sprint = await start(engine, rep)
+    await clock.advance(10 * 60)
+    res = await rep.report(sprint, ALICE, r("✓ роман"))
+    assert res.status == Status.OK and res.outcome == Outcome.DONE
+    assert novel.id in sprint.participants["1"].works and sprint.participants["1"].completed
+
+
+def test_confirmation_is_never_empty():
+    from zoneinfo import ZoneInfo
+
+    from writers_bot.core.board import confirmation
+    from writers_bot.core.fmt import HtmlFormatter
+
+    assert confirmation(HtmlFormatter(ZoneInfo("Europe/Kyiv")), [], None) == "Записано."

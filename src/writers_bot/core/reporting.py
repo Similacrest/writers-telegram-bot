@@ -388,7 +388,8 @@ class Reporting:
         if problem is not None:
             problem.sprint = sprint
             return problem
-        outcome = next((i.outcome for i in parsed.items if i.outcome and not i.hint), None)
+        # ✓ / ✗ are about the whole sprint, also when they name a work ("✓ роман" attaches it too).
+        outcome = next((i.outcome for i in parsed.items if i.outcome), None)
         if not pairs and outcome is None:
             return Result(Status.NOTHING, sprint)
         if error := self._validate(pairs):

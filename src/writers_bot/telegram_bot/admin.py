@@ -174,8 +174,8 @@ class AdminTools:
 
     @property
     def communities(self):
-        if self.tbot is None:
-            return None
+        if self.tbot is None or not (self.tbot.config.admin or self.tbot.config.chat_settings):
+            return None  # the v2 set has no communities
         return self.tbot.services.shared.extra.get("communities")
 
     def _spawn(self, coro) -> None:

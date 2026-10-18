@@ -1,8 +1,6 @@
 """The runtime's part of the web app: launch links, the chats you administer and their settings, and your
 data (export and deletion). Modules add their own routes (sprints, replies, prompts)."""
 
-import asyncio
-import time
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -16,13 +14,10 @@ if TYPE_CHECKING:
     from .app import TelegramBot
 
 PLATFORM = "telegram"
-CHATS_TTL = 10 * 60
-MAX_CHATS = 60
 
 
 def routes(tbot: "TelegramBot", app: WebApp) -> None:
     settings = tbot.services.shared.extra.get("settings")
-    admin_cache: dict[str, tuple[float, list[dict]]] = {}
 
     async def launch(request: web.Request, user: WebUser) -> web.Response:
         try:
@@ -35,28 +30,9 @@ def routes(tbot: "TelegramBot", app: WebApp) -> None:
         )
 
     async def admin_chats(user: WebUser) -> list[dict]:
-        """Groups with this bot that you administer (checked with getChatMember, cached for a while)."""
         if user.platform != "telegram":
             return []
-        cached = admin_cache.get(user.user_id)
-        if cached and time.monotonic() - cached[0] < CHATS_TTL:
-            return cached[1]
-        groups = [
-            c
-            for c in await tbot.storage.list_chats(PLATFORM, private=False, reachable_only=True)
-            if c.type != "channel"
-        ]
-        groups = groups[:MAX_CHATS]
-        semaphore = asyncio.Semaphore(5)
-
-        async def check(chat):
-            async with semaphore:
-                return chat if await tbot.is_chat_admin(int(chat.chat_id), int(user.user_id)) else None
-
-        mine = [c for c in await asyncio.gather(*(check(c) for c in groups)) if c is not None]
-        out = [{"id": int(c.chat_id), "title": c.title or c.chat_id} for c in mine]
-        admin_cache[user.user_id] = (time.monotonic(), out)
-        return out
+        return await tbot.admin_chats(int(user.user_id))
 
     async def chats(_request: web.Request, user: WebUser) -> web.Response:
         return web.json_response({"chats": await admin_chats(user)})

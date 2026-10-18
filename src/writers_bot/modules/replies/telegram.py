@@ -51,7 +51,9 @@ class Module(TelegramModule):
     def __init__(self, bot, options):
         super().__init__(bot, options)
         self.static = config_entries(options)
-        self.store = ReplyStore(bot.storage) if bot.storage is not None else None
+        # In the database (managed by chat admins) only where the bot has /settings; v2 setups keep the
+        # config and the sheet, so edits to the sheet still count.
+        self.store = ReplyStore(bot.storage) if bot.storage is not None and bot.config.chat_settings else None
         if self.store is not None:
             bot.services.shared.extra["replies"] = self.store
 

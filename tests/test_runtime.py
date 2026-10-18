@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
-from harness import ADMIN, ALICE, BOB, Harness
+from harness import ADMIN, ALICE, BOB, GROUP, Harness
 
 from writers_bot.botconfig import from_env, from_file
 from writers_bot.config import ConfigError
@@ -211,5 +211,26 @@ async def test_super_admin_tools(tmp_path, clock):
         assert "Writers" in h.dms(ADMIN)[-1].text or "chat" in h.dms(ADMIN)[-1].text
         await h.say(BOB, "/chats")  # silent for everyone else
         assert not [m for m in h.bot_public() if "Чати з ботом" in m.text]
+    finally:
+        await h.close()
+
+
+async def test_v2_extras_keep_reading_the_sheet(env, clock, tmp_path):
+    """EXTRAS without the preview: the welcome text comes from the sheet every time."""
+    env.setenv("EXTRAS", "1")
+    config = from_env("telegram")
+    bot = config.bots["main"]
+    assert not bot.chat_settings and not bot.admin
+    h = await Harness.create(tmp_path, clock, {k: v for k, v in bot.modules.items()})
+    h.tbot.services.sheet = FakeSheet(welcome_messages={str(GROUP): "Привіт, {name}!"}, imafan_messages={"": "Фан!"})
+    try:
+        greeter = h.tbot.module("greeter")
+        greeter.bot.config = bot  # the environment's bot: no /settings
+        assert not greeter.managed
+        await h.say(ALICE, "", new_chat_members=[BOB.to_dict()])
+        assert "Привіт" in h.last_public().text
+        h.tbot.services.sheet.data["welcome_messages"] = {str(GROUP): "Вітаю, {name}!"}  # edited in the sheet
+        await h.say(ALICE, "", new_chat_members=[BOB.to_dict()])
+        assert "Вітаю" in h.last_public().text
     finally:
         await h.close()

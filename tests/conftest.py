@@ -55,3 +55,14 @@ async def storage(tmp_path):
     await s.open()
     yield s
     await s.close()
+
+
+@pytest.fixture(autouse=True)
+async def _close_harnesses():
+    """A test that fails before closing its bot would leave the database thread running, and pytest would
+    never exit."""
+    yield
+    from harness import OPEN
+
+    while OPEN:
+        await OPEN.pop().close()

@@ -343,7 +343,10 @@ class Module(TelegramModule):
         if self.works_on and not works:
             last.append(self.bot.dm_button("card.manage", "works"))
         rows.append(last)
-        return text, InlineKeyboardMarkup(rows), bool(works) or first_time
+        # Worth showing only when there's a choice to make: one kept work is simply in the sprint (the
+        # "Мої твори" button still opens the card).
+        choice = len(works) > 1 or any(not w.keep for w in works)
+        return text, InlineKeyboardMarkup(rows), choice or first_time
 
     async def send_card(
         self, sprint: Sprint, user, *, callback_query_id: str | None = None, force: bool = False

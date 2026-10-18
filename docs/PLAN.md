@@ -120,6 +120,20 @@ As planned in phase 4, with these decisions:
   admins. Discord sign-in with OAuth (`identify`).
 - Discord servers get settings and communities in phase 6.
 
+## Done in v4.1: achievements (phase 5)
+
+As planned in phase 5, with these decisions:
+- An admin makes an achievement by replying to a sticker from their pack with
+  `/newachievement Назва — опис`, or by sending the sticker to the bot in private (it asks for the name, and
+  for the chat when they administer several).
+- `/award` and `/unaward` (also `/нагорода`) in reply to a member's message, by name or from a private
+  card with buttons; admin rights are checked at the press. The bot posts the sticker and one line.
+- When the sticker is gone from the pack, the award still happens (by name) and the awarding admin is
+  asked for a new sticker in private (in the chat if the bot can't write to them).
+- `/achievements` lists a chat's achievements; `/profile` lists yours; the web app's Achievements tab lets
+  chat admins rename, describe and delete them; export and `/forgetme` include awards. A chat setting turns
+  achievements off.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
@@ -348,7 +362,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   - The Google Sheet and Drive folders are imported once into the shared set when the settings move to the
     database, and the sheet is retired; `/reload` goes with it.
 
-### Phase 5: achievements (v4.1)
+### Phase 5: achievements (done in v4.1)
 - **Achievements** (9), made and awarded by hand. No rules, no automation, and no tie to sprints, works
   or stats. No XP.
 - Each achievement is a name, an optional description and a **sticker**. The chat admins own the sticker

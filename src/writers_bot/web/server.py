@@ -201,6 +201,8 @@ class WebApp:
 
     async def require_member(self, user: WebUser, chat_id: int) -> None:
         """The launch link doesn't prove which chat it came from, so check the member list."""
+        if user.platform == "telegram" and chat_id == int(user.user_id):
+            return  # their own private chat with the bot
         tbot = self.bot_for(user)
         try:
             member = await tbot.app.bot.get_chat_member(chat_id, int(user.user_id))

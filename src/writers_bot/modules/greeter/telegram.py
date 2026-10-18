@@ -17,8 +17,8 @@ class Module(TelegramModule):
         """The v2 config sheet's welcome_message rows become the chats' settings, once."""
         settings = self.bot.services.shared.extra.get("settings")
         sheet = self.bot.services.sheet
-        if settings is None or self.bot.storage is None or sheet is None or not self.options.get("from_sheet"):
-            return
+        if not self.managed or settings is None or sheet is None or not self.options.get("from_sheet"):
+            return  # v2 setups keep reading the sheet, so edits there still count
         if await self.bot.storage.get_chat_setting("telegram", "*", "greeter.imported"):
             return
         for chat_id, text in sheet.config_texts("welcome_message").items():
@@ -33,9 +33,14 @@ class Module(TelegramModule):
     def handlers(self):
         return [(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.welcome), 0)]
 
+    @property
+    def managed(self) -> bool:
+        """Chat admins manage the text (a bot with storage and /settings); else the config and the sheet."""
+        return self.bot.storage is not None and self.bot.config.chat_settings
+
     async def text_for(self, chat_id: int) -> str | None:
         settings = self.bot.services.shared.extra.get("settings")
-        if settings is not None and self.bot.storage is not None:
+        if settings is not None and self.managed:
             value = await settings.get_chat("telegram", str(chat_id), SETTING)
             if value:
                 return value

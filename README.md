@@ -22,6 +22,7 @@ a comment saying where it appears; edit them there.
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
 | `dice` | | | `/d20`, `/2d6+1`, `/r 4к6 Caption`, `/d20adv` |
 | `smash` | | | `/smash` |
+| `achievements` | | storage | Achievements made from the admins' sticker pack: `/newachievement` (reply to a sticker, or send one in private), `/award` (`/нагорода`), `/unaward`, `/achievements` |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
 
 At most one bot has storage (the sprints and anything that keeps data about people); the chat registry,

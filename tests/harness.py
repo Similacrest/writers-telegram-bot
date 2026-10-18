@@ -74,6 +74,9 @@ class FakeLinks:
         return LinkedText("telegraph", "", "слово " * await self.count(url), url)
 
 
+OPEN: list["Harness"] = []  # closed after every test by conftest, even when the test fails early
+
+
 class Harness:
     def __init__(self, tbot: TelegramBot, fake: FakeTelegram, clock, services: Services):
         self.tbot = tbot
@@ -114,6 +117,7 @@ class Harness:
         await app.initialize()
         await tbot.post_init(app)
         h = cls(tbot, fake, clock, services)
+        OPEN.append(h)
         if web is not None:
             services.web.attach([tbot])
         return h

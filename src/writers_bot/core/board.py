@@ -213,7 +213,8 @@ def confirmation(f: Formatter, changes: list[Change], outcome: Outcome | None) -
     if outcome == Outcome.FAILED:
         parts.append(f.t("confirm.failed"))
     head = f.t("confirm.recorded", list=f.join(parts, "; ")) if parts else None
-    return f.join([x for x in [head, *notes] if x], " ")
+    # never an empty message (Telegram refuses those): e.g. the same report again
+    return f.join([x for x in [head, *notes] if x], " ") or f.t("confirm.nothing_new")
 
 
 def minutes_top_text(f: Formatter, entries: list[MinutesEntry], days: int) -> Markup:

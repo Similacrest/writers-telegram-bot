@@ -464,6 +464,33 @@ async function renderPrompts(view) {
 
 // Later phases add tabs and settings sections here.
 const SETTINGS_EXTRAS = [];
-const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings, chat: renderChat, prompts: renderPrompts };
+// --- achievements (chat admins) ---------------------------------------------------------------------------
+
+async function renderAchievements(view) {
+  const chat = await pickChat(view, renderAchievements);
+  if (!chat) return;
+  const data = await guarded(() => api("GET", `/api/chat/${chat}/achievements`));
+  if (!data) return;
+  const parts = [];
+  if (!data.achievements.length) parts.push(el("p", { class: "muted" }, T("achievements_none")));
+  for (const a of data.achievements) {
+    const name = el("input", { value: a.name });
+    const description = el("input", { value: a.description || "", placeholder: T("description") });
+    const save = () => guarded(async () => {
+      await api("PATCH", `/api/chat/${chat}/achievements/${a.id}`, { name: name.value, description: description.value });
+      toast(T("saved"));
+    });
+    parts.push(el("div", { class: "card" },
+      el("div", { class: "row" }, el("div", { class: "grow" }, name), el("div", { class: "grow" }, description),
+        el("button", { class: "plain", onclick: save }, T("save"))),
+      a.holders.length ? el("p", { class: "muted" }, T("holders", { list: a.holders.map((h) => h.name).join(", ") })) : null,
+      el("button", { class: "danger", onclick: () => confirm(T("delete") + " «" + a.name + "»?") && guarded(async () => {
+        await api("DELETE", `/api/chat/${chat}/achievements/${a.id}`); renderAchievements(view);
+      }) }, T("delete"))));
+  }
+  view.replaceChildren(...parts);
+}
+
+const TABS = { sprint: renderSprint, works: renderWorks, progress: renderProgress, settings: renderSettings, chat: renderChat, prompts: renderPrompts, achievements: renderAchievements };
 
 start().catch((e) => toast(e.message || String(e), true));

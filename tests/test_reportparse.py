@@ -71,3 +71,15 @@ def test_not_a_report(text):
 def test_chat_text_is_names():
     # "500 нарешті!" parses (a name hint), and the caller rejects it unless "нарешті!" is a work
     assert p("500 нарешті!").items[0].hint == "нарешті!"
+
+
+def test_parser_never_crashes():
+    import random
+
+    alphabet = "0123456789 +=%✓✗,.'’ абвгдежзиклмнопрстуфхцчшщьюяabc/:-—\n "
+    rng = random.Random(42)
+    for _ in range(3000):
+        text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 30)))
+        parse(text, find_url, today=TODAY)
+    parse("https://telegra.ph/x " * 5, find_url, today=TODAY)
+    parse("31.02 +100", find_url, today=TODAY)  # an impossible date
