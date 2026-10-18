@@ -110,9 +110,9 @@ E3 therefore needs nothing beyond E2 except bridge configuration and a short set
 
 ## Roadmap
 
-From the earlier list of 20 ideas, these go ahead: goals (2), streaks (3), personal bests (5),
-achievements managed by chat admins (9), per-user time zone (15), ephemeral replies (16), a dashboard (17,
-reworked as below), Google Docs word count (18) and ops quality (20). The rest are dropped: `.docx`
+From the earlier list of 20 ideas, these go ahead: goals (2), streaks (3), achievements managed by chat
+admins (9), ephemeral replies (16), a dashboard (17, reworked as below), Google Docs word count (18) and ops
+quality (20). Personal bests (5) and per-user time zones (15) were built and then cancelled (phase 2). The rest are dropped: `.docx`
 uploads, projects, scheduled and chained sprints, cross-chat boards (replaced by communities in E2),
 NaNoWriMo events, team word wars, generators beyond dice, the welcome flow beyond the existing welcome
 messages, and an English interface.
@@ -146,7 +146,8 @@ Built and kept behind `PREVIEW_FEATURES` until phase 3 replaces it. The October 
 ### Phase 3: sprint redesign (v3.4)
 Decided in the October 2026 roadmap review; nothing here has been tried with a focus group yet. Writers
 join and report with replies and buttons, nobody is pushed to share their work or to compete, and the
-chat stays quiet. It replaces the preview reporting flow. Before the redesign, the extra link sources
+chat stays quiet. It replaces the preview reporting flow. It is piloted in one chat first, on a separate
+test deployment (its own bot and database), before it reaches everyone. Before the redesign, the extra link sources
 (WriteFreely, Ellipsus, Google Docs) come out of `PREVIEW_FEATURES`.
 - **Modules first** (before works and the web app, so they aren't built into the old `app.py`): see
   "Architecture: modules" below.
@@ -155,86 +156,126 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
   OAuth as the fallback. In this phase it holds the sprint panel and your works; phase 4 grows it into
   the dashboard. It needs public HTTPS into the homelab (a reverse proxy or a tunnel), an ops decision that
   now has to be made before this phase. Since Bot API 10.2, Mini App methods only work on the Mini App's
-  own domain, so the app has a fixed domain of its own.
-- **Minimal settings store first**: per user, board visibility, progress unit and the current works; per
-  chat, the default unit. The rest of the settings store is in phase 4.
+  own domain, so the app has a fixed domain of its own. Only the bot with storage serves it (see
+  "Architecture: modules"), so there is one domain and one bot token to check `initData` and Telegram
+  Login against.
+  - **Opening it from a group**: inline `web_app` buttons only work in private chats. In groups the bot
+    uses a URL button to its Main Mini App, `t.me/<bot>?startapp=<token>`. The token is short-lived,
+    signed by the server, and names the chat and the sprint. Because the launch itself doesn't prove which
+    chat it came from, the server also checks membership with `getChatMember`. In a DM a plain `web_app`
+    button works.
+- **Minimal settings store first**: per user, visibility ("hide my numbers"), the unit for new works and
+  the current works; per chat, the default unit. A new work takes your unit for new works if you set one,
+  otherwise the chat's default; after that only the work's own unit counts. The rest of the settings store
+  is in phase 4; until then the greeter text and the `replies` entries come from the config file.
 - **One reporting command**: `/join` and `/words` are removed. You join with the button and report by
-  replying to the sprint message (`500`, `+300`, a link) or with the buttons at the end. `/progress`
+  replying to the sprint message (`500`, `+300`, `=5000`, or a link when works are on) or with the
+  buttons at the end. `/progress`
   covers everything else (below). Richer input goes
   in the sprint panel of the web app (below).
-- **Works**: a name and an optional link. One sprint can have several works. Whether a work carries over
+- **What a number means**: in a sprint, `500` is your count for this sprint (sending it again replaces
+  it) and `+300` adds to it. Outside a sprint, `400` and `+400` both add 400. `=5000` is the work's total,
+  and the bot records the difference from the last counted total; a link counts as a total. A reply to
+  the sprint message counts only when it is nothing but a report (numbers, work names, `+`, `=`, a link);
+  any other reply is left alone. Replies from people who haven't joined are ignored and never deleted.
+- **Works**: a name and an optional link, up to 5 per person (also the number of fields a Discord modal
+  holds). One sprint can have several works. Works, goals and streaks are stored per person (`person_id`)
+  from the start, so linking accounts in phase 6 needs no migration. Whether a work carries over
   to your next sprint is your choice (a "keep for next sprint" toggle). The work's link is counted again
   at the end, as sprint links are now. Progress per work over time comes later.
+- **Each word is counted once**: every work keeps a last counted total. Every path that credits words (a
+  sprint report, `/progress`, the end-of-sprint and daily recounts of a link, a `=` total) starts from it
+  and updates it in one transaction that checks the total is still the one it read (compare and set), and
+  retries otherwise. So two sprints in different chats ending together, or a recount racing a report,
+  can't credit the same words twice. A typed number on a linked work moves the total too, so the next
+  recount credits only the rest; growth during two overlapping sprints goes to whichever recounts first.
+  A shrinking document credits 0 and lowers the total. Links need the link-counting service, so works
+  need it; without works a sprint takes numbers only.
 - **Goals belong to a work**: "Novel, 1,000 words a day" or "Thesis, 20,000 this month". No work, no goal.
   Sprints and `/progress` both count towards it. A goal reached during a sprint goes on that sprint's
-  board summary line (without the number for private writers); otherwise only the writer is told, in
-  private. The bot never asks for progress.
+  board summary line (without the number if you hide your numbers, and as "a goal" if the work hides its
+  title); otherwise only the writer is told, by DM. Since a bot can only DM people who have started it,
+  setting your first goal asks you to write to the bot privately first ("write me privately to start
+  using goals"). The bot never asks for progress.
 - **`/progress`**: inside or outside a sprint, in DM or a group (reply ephemeral or deleted there):
-  `+400`, a total, or the work's link, optionally for a named work, and optionally for an earlier day
-  up to 3 days back (`/progress +400 yesterday`). During a sprint you joined, it is also your report.
+  `+400`, `=5000` (a total), or the work's link, optionally for a named work, and optionally for an earlier day
+  up to 3 days back (`/progress +400 yesterday`). During a sprint you joined, it is also your report. A % work has no % outside a sprint: there,
+  `/progress` on it either corrects your report for one of your sprints in the last 3 days or marks today
+  as a writing day (✓) for the streak.
 - **Streaks**: days in a row with writing: a completed sprint in any chat, a `/progress` update, or growth
   of a linked work (its link is re-counted once a day at reset). Late updates up to 3 days back fill the
   gap, so missing a chat sprint or forgetting to report doesn't break a streak, and there are no
   reminders.
 - **Day boundary**: one bot-wide day starting at 03:00 Kyiv time, for goals, streaks and `/top`.
-- **Units**: words or %, chosen per work, defaulting to the chat's unit (replaces the per-chat
+- **Units**: words or %, chosen per work, defaulting to your unit for new works or else the chat's (replaces the per-chat
   `/sprintmode`); a work without a document is no different. In a sprint, % always means the share of
   what you planned for that sprint, labelled "% of plan" on the board; there is no whole-work percentage.
   Goals are in words.
-- **Which work a report goes to**: joining attaches the works marked "keep for next sprint" (none is
-  fine). Linked works are re-counted at the end, each with its own delta. A typed number goes to the only
-  unlinked work in the sprint with that unit, so `520 50%` in one reply fills a words work and a % work.
+- **Which work a report goes to**: joining attaches the works marked "keep for next sprint". With none,
+  or in a chat with works off, reports go to your unnamed work in the chat's default unit. It has no goal
+  and counts for streaks, minutes and the board like any other work. Linked works are re-counted at the end, each with its own delta. A typed number goes to the only
+  unlinked work in the sprint with that unit (without one, the only linked one), so `520 50%` in one reply fills a words work and a % work.
   Only when two works share a unit does the bot ask once (`500 → [Novel] [Essay] [Split]`); naming them
   avoids it (`+300 novel +200 essay`). The Report button asks per work. `/progress` follows the same
   rule. Someone with works in both units appears in both board sections.
 - **Asking privately**: ephemeral where Telegram allows; otherwise a normal reply whose buttons only that
-  person can press, deleted after the tap. Not a DM.
+  person can press, deleted after the tap, or after a few minutes if nobody taps. Not a DM.
 - **Outcomes**: a number, **Done ✓** (no number), or **Didn't make it ✗**. A sprint counts as completed
   with any positive progress: words or % above 0, or Done. A 0, ✗ or no report doesn't count.
-- **Visibility**: public (the default) or private. Private numbers count towards your own stats, and the
-  board shows ✓ in their place. Joining never needs you to share anything.
+- **Visibility**: two separate switches, named so they can't be mixed up, both off by default.
+  - **Hide my numbers** (per writer): your numbers count towards your own stats, the board shows ✓ in
+    their place, and you stay off `/top`.
+  - **Hide the title** (per work): the work's name is shown nowhere public; its numbers still go into your
+    board line.
+
+  Joining never needs you to share anything. A chat can turn hidden ✓ reports off (phase 4); that only
+  affects its future sprints, and people who don't want to share there can skip them.
 - **Board**: a words section and a % section, each sorted high to low, then ✓ and ✗. One line per person
-  per section, summed over their works (the split is only in `/mystats`). No medals and no winner. Records and goals go in one summary line on the board, not separate posts.
+  per section, summed over their works (the split is only in `/me`). No medals and no winner. Records and goals go in one summary line on the board, not separate posts.
 - **No fixed report window**: late reports are accepted until your next sprint or about 12 hours, and the
   board is edited when they arrive, so someone in the zone can keep writing.
 - **Less clutter**: report replies are deleted once recorded (when the bot may delete messages; otherwise
-  it reacts), and confirmations are ephemeral where Telegram allows.
+  it reacts), and confirmations are ephemeral where Telegram allows, with an Undo button that takes the
+  report back.
 - **`/me`** (was `/mystats`): the private view (ephemeral in groups): each work with its goal and month total, the
   streak with the last 7 days (gaps within 3 days can be filled from there), completed sprints and
   minutes, visibility. Buttons for `/progress`, works and settings. No rankings or comparisons.
-- **Your data**: `/export` and `/forgetme` come out of preview and are found in `/mystats` → Settings →
+- **Your data**: `/export` and `/forgetme` come out of preview and are found in `/me` → Settings →
   My data (the commands stay as fallbacks, off the group menu). Export covers works, goals and
-  `/progress` entries as well as sprints; deletion covers works too. The first sprint you join says
+  `/progress` entries as well as sprints; deletion covers works too. With one bot holding the database, `/forgetme` deletes everything it
+  holds about you, on every platform once your accounts are linked. The first sprint you join says
   once that your numbers are stored and where to export or delete them. `/sprinthelp` is removed.
 - **Join card**: starting or joining a sprint shows your works as toggles (ephemeral, or a reply only you
   can press), on for the works kept for the next sprint. Toggling a work also changes whether it is kept for
   the next sprint (remembered by default); the card can be reopened from the sprint message (`[My works]`) at any time, and a work added mid-sprint
-  has its link counted when added. The sprint message lists who is in and, for public writers, their
-  works: names for public works (the default; a work can be made private), otherwise a count. Private writers show no
-  works.
-- **Bragging**: `/progress` with no arguments posts one public line with your progress for the shortest
-  calendar period that has any (today, this week, this month, this year), plus the goal and streak where
-  they apply. It's your choice to post, so it shows private writers' numbers too. A %-only writer gets
-  sprints and minutes. With arguments, `/progress` reports quietly.
+  has its link counted when added. The sprint message lists who is in and their works: names, or a count
+  for works that hide their title. Writers who hide their numbers show no works.
+- **Bragging**: `/progress` with no arguments opens your private panel (ephemeral in groups) with a
+  **Share** button. Sharing posts one public line with your progress for the shortest calendar period that
+  has any (today, this week, this month, this year), plus the goal and streak where they apply. You choose
+  to post it, so it shows your numbers even if you hide them. With nothing this year there is no Share
+  button, so a zero is never posted. A %-only writer shares sprints and minutes. With arguments,
+  `/progress` reports quietly.
 - **Command names**: `/stats` → `/promptstats`, `/mystats` → `/me`, `/wc` → `/count` (`/wc` and `/stats`
-  stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/слова`, `/спринт`,
+  stay as hidden aliases). Every user command gets a Ukrainian alias: `/промпт`, `/картинка`, `/рахуй`, `/спринт`,
   `/прогрес`, `/я`, `/топ`, `/допомога`, `/експорт`, `/забудьмене`; admin commands get none.
   Telegram doesn't treat Cyrillic as commands, so these are matched as text and only work where the bot
   sees all messages (privacy mode off, or the bot is an admin); they aren't in the menu.
-- **`/top`**: total minutes of completed sprints in the chat over N days, private writers included (minutes
-  reveal nothing about the work). You get credit from when you joined: joining 20 minutes into a
+- **`/top`**: total minutes of completed sprints in the chat over N days; writers who hide their numbers
+  aren't on it. You get credit from when you joined: joining 20 minutes into a
   30-minute sprint gives 10.
 
 ### Phase 4: settings store, communities and dashboard (v4.0)
 - **Settings in the database** instead of environment variables and the config sheet, per chat, changed by
   chat admins in the web app (`/settings` opens it); per-user settings arrived in phase 3:
   - sprints: default length, default unit (when % is on), works on/off (off also means no goals on the
-    board), private ✓ reports on/off, % unit on/off;
+    board), hidden ✓ reports on/off (affects only future sprints), % unit on/off;
   - in the chat: work names on the sprint message, `/top` on/off, deleting report messages;
   - achievements on/off (phase 5).
   Module settings such as the greeter's welcome text and the `replies` entries are set by chat admins
   too. There is no broadcast opt-out:
-  `/broadcast` reaches every chat, except that a community gets it only in its largest chat. The sheet
+  `/broadcast` reaches every chat, except that a community gets it once per platform: in its largest
+  Telegram chat and in its Discord server's `#general` (the system channel if there is none). The sheet
   stays as a one-time import source.
 - **Communities** (Telegram first): `communities` and `community_chats` tables. A chat that belongs to a
   Telegram Community (Bot API 10.2: the bot can see a chat's community through `getChat` and its service
@@ -265,10 +306,10 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 - Each achievement is a name, an optional description and a **sticker**. The chat admins own the sticker
   pack and manage it themselves (through @Stickers); the bot only stores which sticker belongs to which
   achievement (the set name and the sticker's `file_unique_id`). To create an achievement, an admin sends
-  the bot a sticker from the pack with a name, in the web app or in chat. If a sticker is removed from
-  the pack, the achievement keeps its name and the bot asks for a new sticker. The pack can also be a
-  custom emoji pack, so achievements appear inline in `/me`; whether the bot may send custom emoji in its
-  messages is to be checked against the Bot API when this is built.
+  the bot a sticker from the pack with a name, in a private chat with the bot or in the group; this is
+  the same in a community with a Discord server. When an achievement is awarded, the bot checks the pack
+  (`getStickerSet`); if the sticker is gone, the achievement keeps its name and the bot asks the awarding
+  admin for a new one. No custom emoji: bots can only send them with a username bought on Fragment.
 - **Awarding by command** (chat admins; alias `/нагорода`): reply to the member's message with `/award`, then pick the
   achievement from buttons, or `/award <name>`; `/unaward` takes it back. The bot posts the sticker and one
   line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/me`.
@@ -282,9 +323,12 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
     text (E3).
   - Join card as an ephemeral multi-select menu; `/count` also as a message context-menu command;
     `/award` also as a user context-menu command.
-  - **Achievements use server emoji**, not stickers (server sticker slots are few).
-  - **Broadcasts** go to the server's `#general` channel (the system channel if there is none). A server is
-    a community; its channels are its chats.
+  - **Achievements show the Telegram sticker as an image**: static stickers as they are, animated and
+    video stickers by their thumbnail.
+  - **Broadcasts** go to the server's `#general` channel (the system channel if there is none). A server on
+    its own is a community, and its channels are its chats; a server that joins a Telegram community (E2)
+    gets one broadcast in `#general` alongside the community's largest Telegram chat.
+  - **`/me` is `/profile` on Discord** (localized as `я`), since Discord has a built-in `/me`.
   - **Web app**: the website with Discord OAuth; no Discord Activity.
   - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
   - Phrase triggers of `replies` and the `greeter` are not on Discord (they need privileged intents);
@@ -312,13 +356,15 @@ The bot is built from modules that can be served as one bot or as several, set i
 - **A small runtime** in every bot: config, the platform clients, the command menu and `/help`, the chat
   allowlist, logging, error alerts and `/health`. Nothing else is required: `wordcount`, `dice` and
   `smash` run without a database.
-- **Shared services**, started only when a bot's modules need them: storage (one database shared by every
-  bot), the settings store, people and accounts, communities, ephemeral replies and the web app server.
-  Admin (chat registry, chat list, broadcasts) and your data (export, deletion) come with storage; a bot
-  without storage doesn't record its chats and gets no broadcasts. `/broadcast` reaches only the chats of
-  the bot it is sent from. Needs per module:
-  `sprints`, `achievements` → storage, settings, people, web app; `greeter`, `replies` → settings;
-  `prompts` → its source (the sheet now, storage from phase 4).
+- **Shared services**, started only when a bot's modules need them: storage, the settings store, people
+  and accounts, communities, link counting, ephemeral replies and the web app server. **At most one bot
+  has storage**, and what builds on it (settings, people, communities, the web app) runs in that bot.
+  Admin (chat registry, chat list, broadcasts) and your data (export, deletion) come with storage. Other
+  bots don't record their chats, get no broadcasts, and take their module settings from the config file.
+  Needs per module:
+  `sprints`, `achievements` → storage, settings, people, web app; `sprints` with works and `wordcount` →
+  link counting; `greeter`, `replies` → settings (the config file in a bot without storage); `prompts` →
+  its source (the sheet now, storage from phase 4).
 - Modules don't call each other; they share only the core and the database.
 - **`replies`** replaces `/imafan` and the slogan replies: chat admins set up triggers and answers in
   the web app. A trigger is a command (`/imafan` answers with a random text from its list) or a phrase
@@ -341,7 +387,7 @@ The bot is built from modules that can be served as one bot or as several, set i
   ```
   One process can run several bots, or each bot can run in its own container from the same image
   (`--bot greeter`); that is up to ops. `PREVIEW_FEATURES` and `EXTRAS` become the choice of modules; the
-  default config is the v2 set.
+  default config is the v2 set of modules, with the redesigned `sprints` (works off) once phase 3 ships.
 
 ### Decisions
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
