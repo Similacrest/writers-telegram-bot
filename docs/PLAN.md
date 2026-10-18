@@ -309,9 +309,14 @@ The bot is built from modules that can be served as one bot or as several, set i
   its handlers, commands (menu, `/help`, Ukrainian aliases), settings, migrations and web app pages, and
   adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
   shows only what its modules do.
-- **Shared core**, in every bot: storage (one database for every bot), the settings store, people and
-  accounts, communities, ephemeral replies, the web app server, admin (chat list, broadcasts) and your
-  data (export, deletion).
+- **A small runtime** in every bot: config, the platform clients, the command menu and `/help`, the chat
+  allowlist, logging, error alerts and `/health`. Nothing else is required: `wordcount`, `dice` and
+  `smash` run without a database.
+- **Shared services**, started only when a bot's modules need them: storage (one database shared by every
+  bot), the settings store, people and accounts, communities, ephemeral replies and the web app server.
+  Admin (chat list, broadcasts) and your data (export, deletion) come with storage. Needs per module:
+  `sprints`, `achievements` → storage, settings, people, web app; `greeter`, `replies` → settings;
+  `prompts` → its source (the sheet now, storage from phase 4).
 - Modules don't call each other; they share only the core and the database.
 - **`replies`** replaces `/imafan` and the slogan replies: chat admins set up triggers and answers in
   the web app. A trigger is a command (`/imafan` answers with a random text from its list) or a phrase
