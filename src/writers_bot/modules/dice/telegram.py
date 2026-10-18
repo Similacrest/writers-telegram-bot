@@ -115,7 +115,11 @@ class Module(TelegramModule):
             folder = files("writers_bot.assets.dice_packs")
             stickers = [
                 InputSticker(
-                    InputFile(folder.joinpath(row["file"]).read_bytes(), filename=PurePosixPath(row["file"]).name),
+                    InputFile(
+                        folder.joinpath(row["file"]).read_bytes(),
+                        filename=PurePosixPath(row["file"]).name,
+                        attach=True,  # InputSticker only attaches what it parses itself, not a ready InputFile
+                    ),
                     row["emoji"],
                     StickerFormat.VIDEO,
                     keywords=row["keywords"],

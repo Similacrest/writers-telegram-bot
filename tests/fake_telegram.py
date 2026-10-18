@@ -149,6 +149,7 @@ class FakeTelegram(BaseRequest):
                     "scope",
                     "reaction",
                     "stickers",
+                    "sticker",
                 )
             ):
                 params[key] = json.loads(value)
@@ -485,8 +486,15 @@ class FakeTelegram(BaseRequest):
     def m_sendChatAction(self, _p):
         return True
 
+    def _check_input_sticker(self, sticker) -> None:
+        """What the real Bot API insists on: an InputSticker's "sticker" is a string (a file_id, a URL or attach://)."""
+        if not isinstance(sticker, dict) or not isinstance(sticker.get("sticker"), str):
+            raise ApiError('Bad Request: can\'t parse InputSticker: field "sticker" must be of type String')
+
     def m_createNewStickerSet(self, p):
         name = p["name"]
+        for sticker in p["stickers"]:
+            self._check_input_sticker(sticker)
         if name in self.sticker_sets:
             raise ApiError("Bad Request: sticker set name is already occupied")
         self.sticker_sets[name] = [
@@ -497,6 +505,7 @@ class FakeTelegram(BaseRequest):
         return True
 
     def m_addStickerToSet(self, p):
+        self._check_input_sticker(p["sticker"])
         stickers = self.sticker_sets[p["name"]]
         i = len(stickers) + 1
         stickers.append({**stickers[0], "file_id": f"{p['name']}#{i}", "file_unique_id": f"{p['name']}-{i}"})
