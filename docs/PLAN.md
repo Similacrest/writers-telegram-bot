@@ -527,3 +527,25 @@ The bot is built from modules that can be served as one bot or as several, set i
 ### Decisions
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
   features it lacks are called directly and kept in one module, so they can be dropped when it catches up.
+
+## Done in v4.2.6
+- **Dice stickers**: every d100 re-rendered with the two dice close together (a 0.1-unit gap instead of 0.35); every d4
+  slightly turned, so one face shows more; each die type has a colour of its own (d4 purple, d6 red, d8 grey, d10 green,
+  d12 blue with a red 1, d20 orange, d100 a pink tens die and a green d10, the coin silver); the 0 of a d10 and the "00" of
+  the tens die were upside down (a symmetric numeral hid it from the calibration) and are turned the right way.
+- **d12**: blue by default, a 1 stays red (lone: the red disadvantage 1, the blue advantage 12 for crits).
+- **The bot no longer uploads the dice packs.** `scripts/upload_dice_packs.py` makes them once (with the token of a bot of
+  their own); every bot names the same two packs in `dice = { packs = [...] }` (or `DICE_PACKS`). The names have no
+  version (Telegram forces `_by_<bot>` on a bot-made pack, so a separate bot owns them). A pack that is missing, broken or
+  out of order is left out with a warning.
+- **Achievements**: a sticker sent to the bot in private no longer starts "new achievement" (v4.2.5 asked for a name for
+  every sticker); `/newachievement` in private starts the steps (picture, name, chat). The picture can be a sticker (in a
+  pack or not), a photo or an image file, in a group (reply to it) and in private.
+- **`/help`** is generated entirely from the commands (`Command.description`, `usage`, `uk`, `module`, `scope`) with a button
+  and a page per module (plus your data, the chat's settings, the bot's admin tools); no hand-written help line per command.
+  The menu flag `menu=False` keeps a command out of Telegram's menu but not out of /help.
+- **Ukrainian commands** start with `!` (`!промпт`, `!к12`; `/промпт` works too) and /help shows them next to every command.
+- **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `2d20kh1` / `2d20kl1` (with an
+  optional flat bonus) are `adv` / `dis`; the die that counts comes first (in the stickers too).
+- **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
+  operating system's generator when the pool is empty.

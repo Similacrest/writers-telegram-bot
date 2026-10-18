@@ -92,7 +92,7 @@ class Module(TelegramModule):
     def commands(self) -> list[Command]:
         if self.store is None:
             return []
-        return [Command("replies", self.manage, "commands.replies", scope="chat_admin", help="help.replies")]
+        return [Command("replies", self.manage, "commands.replies", scope="chat_admin")]
 
     def handlers(self):
         return [

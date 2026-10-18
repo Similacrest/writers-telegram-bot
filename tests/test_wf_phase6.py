@@ -1,6 +1,7 @@
 """Round 4 of the user workflows (v4.2): pausing and switching works, the split tip, explicit % corrections,
 getting started, achievement pictures and the dice stickers."""
 
+import importlib.util
 import os
 from pathlib import Path
 
@@ -10,12 +11,13 @@ from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
 from telegram.error import TimedOut
 
 from writers_bot.core.extras import Outcome, Roll
-from writers_bot.modules.dice import telegram as dice_telegram
 from writers_bot.modules.dice.telegram import clip_name, manifest
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
 ACH = {"achievements": {}, **FULL}
-DICE = {"dice": {"stickers": True}}
+DICE = {
+    "dice": {"stickers": True, "packs": ["dice1_by_writers_test_bot", "t.me/addstickers/dice2_by_writers_test_bot"]}
+}
 OWL = {"file_id": "OWL_FILE", "file_unique_id": "owl", "type": "regular", "width": 512, "height": 512,
        "is_animated": False, "is_video": False, "set_name": "writers_pack"}  # fmt: skip
 CAT = {**OWL, "file_id": "CAT_FILE", "file_unique_id": "cat"}
@@ -415,19 +417,34 @@ def clips(messages):
     return [clip(m.extra["sticker"]) for m in messages if m.kind == "sticker"]
 
 
-async def ready_packs(h):
-    module = h.tbot.module("dice")
-    if module._packs is not None:
-        await module._packs
+def uploader():
+    """scripts/upload_dice_packs.py, which makes the packs (the bot only reads them)."""
+    path = Path(__file__).resolve().parent.parent / "scripts" / "upload_dice_packs.py"
+    spec = importlib.util.spec_from_file_location("upload_dice_packs", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
     return module
 
 
-async def test_d01_two_packs_made_once_and_a_bare_roll_is_a_sticker(make):
+async def ready_packs(h):
+    """The packs uploaded as the script does (the bot's own start found none), then read by the bot."""
+    module = h.tbot.module("dice")
+    if module._packs is not None:
+        await module._packs
+    if "dice1_by_writers_test_bot" not in h.fake.sticker_sets:
+        await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
+    await module.load_packs()
+    return module
+
+
+async def test_d01_the_script_makes_the_packs_the_bot_only_reads_them_and_a_bare_roll_is_a_sticker(make):
     h = await make(DICE)
+    assert not h.calls("createNewStickerSet")  # the bot never uploads
     await ready_packs(h)
     created = h.calls("createNewStickerSet")
     assert len(created) == 2 and {int(c["user_id"]) for c in created} == {ADMIN.id}
-    for name in ("dice1_v3_by_writers_test_bot", "dice2_v3_by_writers_test_bot"):
+    assert [c["name"] for c in created] == ["dice1_by_writers_test_bot", "dice2_by_writers_test_bot"]  # no version
+    for name in ("dice1_by_writers_test_bot", "dice2_by_writers_test_bot"):
         assert len(h.fake.sticker_sets[name]) == 120  # 50 at first, the rest added
     mark = h.mark()
     await h.say(ALICE, "/d20")
@@ -477,7 +494,7 @@ async def test_d03_one_or_two_dice_get_stickers_more_only_when_asked(make):
 
 
 async def test_d03b_the_limit_is_configurable(make):
-    h = await make({"dice": {"stickers": True, "max_stickers": 1}})
+    h = await make({"dice": {**DICE["dice"], "max_stickers": 1}})
     await ready_packs(h)
     for text in ("/2d6", "/2d6 -s"):
         mark = h.mark()
@@ -503,10 +520,10 @@ async def test_d04_percentile_and_odd_dice(make):
     assert clips(h.public_since(mark))[0].startswith("d2_")  # the coin
 
 
-async def test_d05_no_owner_no_stickers(make):
-    h = await make(DICE, super_admins=frozenset())
-    await ready_packs(h)
-    assert not h.calls("createNewStickerSet")
+async def test_d05_no_packs_named_no_stickers(make):
+    h = await make({"dice": {"stickers": True}})
+    assert h.tbot.module("dice")._packs is not None
+    await h.tbot.module("dice")._packs
     mark = h.mark()
     await h.say(ALICE, "/d20")
     assert [m.kind for m in h.public_since(mark)] == ["text"]
@@ -534,67 +551,91 @@ async def test_d06_which_stickers_a_roll_gets(make):
     assert module.pick(Roll("d20", None, "x", False), out((20, 7))) is None
 
 
-async def test_d07_a_pack_put_out_of_order_is_made_again(make):
+async def test_d07_a_pack_put_out_of_order_is_not_used_and_the_script_needs_replace(make):
     h = await make(DICE)
     module = await ready_packs(h)
-    name = module.pack_name("pack1")
-    for sticker in h.fake.sticker_sets[name]:
+    for sticker in h.fake.sticker_sets["dice1_by_writers_test_bot"]:
         sticker["emoji"] = "🎲"  # not the die markers the manifest has, as if the owner had shuffled the pack
+    await module.load_packs()
+    assert "d20_1" not in module.stickers and "d100_1" in module.stickers  # pack 1 left out, pack 2 read
+    with pytest.raises(RuntimeError, match="--replace"):
+        await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
+    await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice", replace=True)
+    assert h.calls("deleteStickerSet")[-1]["name"] == "dice1_by_writers_test_bot"
+
+
+async def test_d08_the_script_leaves_complete_packs_alone_and_the_bot_skips_a_broken_one(make):
+    h = await make(DICE)
+    module = await ready_packs(h)
     before = len(h.calls("createNewStickerSet"))
-    await module._prepare("pack1", manifest()["pack1"], ADMIN.id)
-    assert h.calls("deleteStickerSet")[-1]["name"] == name
-    assert len(h.calls("createNewStickerSet")) == before + 1
+    await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
+    assert len(h.calls("createNewStickerSet")) == before
+    h.fake.sticker_sets["dice2_by_writers_test_bot"].pop()  # a broken upload
+    await module.load_packs()
+    assert "d20_1" in module.stickers and "d100_1" not in module.stickers
 
 
-async def test_d08_existing_packs_are_reused_short_ones_finished(make, tmp_path, clock):
+async def test_d09b_the_script_finishes_a_short_pack_and_uploads_get_long_timeouts(make):
     h = await make(DICE)
-    await ready_packs(h)
-    name = "dice2_v3_by_writers_test_bot"
-    del h.fake.sticker_sets[name][80:]  # an interrupted upload, as live: 80 of 120
-    h2 = await Harness.create(tmp_path / "again", clock, DICE)
-    h2.fake.sticker_sets = h.fake.sticker_sets
-    await ready_packs(h2)
-    assert not h2.calls("createNewStickerSet") and not h2.calls("deleteStickerSet")
-    assert len(h2.calls("addStickerToSet")) == 40
-    assert len(h2.fake.sticker_sets[name]) == 120
-    assert len(h2.tbot.module("dice").stickers) == len({clip_name(r) for rows in manifest().values() for r in rows})
-    await h2.close()
-
-
-async def test_d10_uploads_get_long_timeouts(make):
-    h = await make(DICE)
-    await ready_packs(h)
+    script = uploader()
+    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
     uploads = [t for t in h.fake.timeouts if t[0] in ("createNewStickerSet", "addStickerToSet")]
     assert uploads and all(read >= 300 and write >= 300 for _, read, write in uploads)
-
-
-async def test_d11_an_upload_that_times_out_but_went_through_is_not_repeated(make, monkeypatch):
-    monkeypatch.setattr(dice_telegram, "SETTLE_DELAY", 0)
-    h = await make(DICE)
-    module = await ready_packs(h)
-    name = module.pack_name("pack1")
-    del h.fake.sticker_sets[name]
-    h.fake.time_out_after = {"createNewStickerSet": 1, "addStickerToSet": 2}  # as live: Telegram keeps going
+    name = "dice2_by_writers_test_bot"
+    del h.fake.sticker_sets[name][80:]  # an interrupted upload, as live: 80 of 120
+    created, deleted = len(h.calls("createNewStickerSet")), len(h.calls("deleteStickerSet"))
     adds = len(h.calls("addStickerToSet"))
-    await module._prepare("pack1", manifest()["pack1"], ADMIN.id)
-    assert len(h.fake.sticker_sets[name]) == 120
-    assert len(h.calls("addStickerToSet")) - adds == 70  # each sticker once
-    assert [s["file_id"] for s in h.fake.sticker_sets[name]] == [f"{name}#{i}" for i in range(1, 121)]
+    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
+    assert len(h.calls("createNewStickerSet")) == created and len(h.calls("deleteStickerSet")) == deleted
+    assert len(h.calls("addStickerToSet")) - adds == 40 and len(h.fake.sticker_sets[name]) == 120
 
 
-async def test_d12_an_upload_that_was_lost_stops_and_the_next_start_finishes(make, monkeypatch):
-    monkeypatch.setattr(dice_telegram, "SETTLE_DELAY", 0)
+async def test_d09c_an_upload_that_times_out_but_went_through_is_not_repeated(make, monkeypatch):
+    script = uploader()
+    monkeypatch.setattr(script, "SETTLE_DELAY", 0)
     h = await make(DICE)
-    module = await ready_packs(h)
-    name = module.pack_name("pack2")
-    del h.fake.sticker_sets[name]
+    h.fake.time_out_after = {"createNewStickerSet": 1, "addStickerToSet": 2}  # as live: Telegram keeps going
+    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
+    name = "dice1_by_writers_test_bot"
+    assert len(h.fake.sticker_sets[name]) == len(manifest()["pack1"])
+    assert [s["file_id"] for s in h.fake.sticker_sets[name]] == [
+        f"{name}#{i}" for i in range(1, len(manifest()["pack1"]) + 1)
+    ]  # each sticker once, in order
+
+
+async def test_d09d_an_upload_that_was_lost_stops_and_running_again_finishes(make, monkeypatch):
+    script = uploader()
+    monkeypatch.setattr(script, "SETTLE_DELAY", 0)
+    h = await make(DICE)
     h.fake.time_out_before = {"addStickerToSet": 1}  # the 51st sticker never arrives
     with pytest.raises(TimedOut):
-        await module._prepare("pack2", manifest()["pack2"], ADMIN.id)
-    assert len(h.fake.sticker_sets[name]) == 50
-    await module._prepare("pack2", manifest()["pack2"], ADMIN.id)
-    assert len(h.fake.sticker_sets[name]) == 120
+        await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
+    assert len(h.fake.sticker_sets["dice1_by_writers_test_bot"]) == 50
+    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
+    assert all(
+        len(h.fake.sticker_sets[n]) == len(manifest()[f"pack{n[4]}"])
+        for n in h.fake.sticker_sets
+        if n.startswith("dice")
+    )
     assert not h.calls("deleteStickerSet")
+
+
+async def test_d12_true_random_dice_draw_from_random_org(make, monkeypatch):
+    from writers_bot.core import randomness
+
+    asked = []
+
+    async def fake_random_org(key, nbytes, **_):
+        asked.append((key, nbytes))
+        return b"\x80" * nbytes  # a d20 shows 17 on these bits
+
+    monkeypatch.setattr(randomness, "random_org", fake_random_org)
+    h = await make({"dice": {"randomness": "random.org", "random_org_key": "KEY"}})
+    assert asked and asked[0][0] == "KEY"  # the first pool is fetched at start
+    await h.say(ALICE, "/d20")
+    assert "17" in h.last_public().text
+    await h.say(ALICE, "/2d20kh1")
+    assert h.last_public().text.count("17") >= 2
 
 
 async def test_d09_not_a_roll(make):
@@ -656,8 +697,10 @@ async def test_h02_chat_admin_sees_their_section(make):
     h = await make(ALL)
     await h.say(DAN, "/help")
     text = h.last_private(DAN).text
-    assert "Для адмінів чату" in text and "/settings" in text and "/award" in text and "/replies" in text
+    assert "Налаштування чату" in text and "/settings" in text and "/award" in text and "/replies" in text
     assert "Для адмінів бота" not in text
+    await h.press(DAN, h.last_private(DAN), "Досягнення")
+    assert "/award" in h.last_private(DAN).text and "(адміни чату)" in h.last_private(DAN).text
 
 
 async def test_h03_features_off_in_this_chat_leave_help_and_menu(make):
@@ -667,8 +710,11 @@ async def test_h03_features_off_in_this_chat_leave_help_and_menu(make):
     await settings.set("telegram", str(GROUP), "achievements.enabled", False)
     await settings.set("telegram", str(GROUP), "sprints.default_length", 25)
     await h.say(ALICE, "/help")
-    text = h.last_private(ALICE).text
-    assert "/top" not in text and "/achievements" not in text and "тут за замовчуванням 25 хв" in text
+    card = h.last_private(ALICE)
+    assert "/top" not in card.text and "/achievements" not in card.text
+    assert "Досягнення" not in card.buttons()
+    await h.press(ALICE, card, "Спринти і прогрес")
+    assert "тут за замовчуванням 25 хв" in card.text and "/top" not in card.text
     chat_menus = [c for c in h.calls("setMyCommands") if (c.get("scope") or {}).get("chat_id") == GROUP]
     members = next(c for c in reversed(chat_menus) if c["scope"]["type"] == "chat")
     names = {c["command"] for c in members["commands"]}
@@ -699,7 +745,63 @@ async def test_h06_categories_in_help(make):
     h = await make(ALL)
     await h.say(DAN, "/addprompt жахи Хтось стукає у двері")
     await h.say(ALICE, "/help")
-    assert "з однієї: " in h.last_private(ALICE).text and "жахи" in h.last_private(ALICE).text
+    card = h.last_private(ALICE)
+    await h.press(ALICE, card, "Промпти")
+    assert "[категорія: " in card.text and "жахи" in card.text
+
+
+async def test_h07_help_is_generated_with_a_submenu_per_module(make):
+    h = await make(ALL)
+    await h.dm(ALICE, "/help")
+    card = h.dms(ALICE)[-1]
+    assert sorted(card.buttons()) == sorted(["Промпти", "Спринти і прогрес", "Кубики", "Досягнення", "Ваші дані"])
+    assert "!промпт" in card.text  # the Ukrainian way is what the first page asks for
+    await h.press(ALICE, card, "Кубики")
+    for line in ("<b>/d4</b> (!к4)", "<b>/d12</b> (!к12)", "<b>/d100</b> (!к100)", "<b>/d2</b> (!к2)", "/r 4d6kh3"):
+        assert line in card.text, line
+    assert card.buttons() == ["← Назад"]
+    await h.press(ALICE, card, "← Назад")
+    assert "Бот для письменників" in card.text and "Кубики" in card.buttons()
+    await h.press(ALICE, card, "Спринти і прогрес")
+    assert "<b>/sprint [хвилин] [затримка]</b> (!спринт) — Почати спринт" in card.text
+    other = await h.press(BOB, card, "← Назад")  # somebody else's buttons are not for them
+    assert card.buttons() == ["← Назад"] and other
+
+
+async def test_h08_every_die_is_a_command_in_the_menu_and_works_as_a_ukrainian_word(make):
+    h = await make(ALL)
+    private = next(c for c in h.calls("setMyCommands") if c["scope"]["type"] == "all_private_chats")
+    menu = {c["command"]: c["description"] for c in private["commands"]}
+    assert {f"d{n}" for n in (2, 4, 6, 8, 10, 12, 20, 100)} <= set(menu) and menu["d12"] == "Кинути d12"
+    for text in ("!к12", "/к12", "!к20+5 Атака", "!2к6"):
+        await h.say(ALICE, text)
+        assert "Результат" in h.last_public().text or "Атака" in h.last_public().text, text
+    assert "d12" in h.last_public().text or "2d6" in h.last_public().text
+
+
+async def test_h09_ukrainian_commands_start_with_an_exclamation_mark_or_a_slash(make):
+    h = await make(ALL)
+    await h.say(ALICE, "!допомога")
+    assert "Бот для письменників" in h.last_private(ALICE).text
+    await h.say(ALICE, "/допомога")
+    assert "Бот для письменників" in h.last_private(ALICE).text
+
+
+async def test_h10_a_v2_bot_keeps_one_flat_help_and_no_die_commands_in_its_menu(make):
+    h = await make({"prompts": {}, "sprints": {}, "dice": {"commands": False}}, admin=False)
+    await h.say(ALICE, "/help")
+    card = h.last_public()
+    assert card.buttons() == [] and "/sprint" in card.text and "Для адмінів" not in card.text
+    assert all("d20" not in {x["command"] for x in c["commands"]} for c in h.calls("setMyCommands"))
+    await h.say(ALICE, "/d20")  # the roll itself works
+    assert "Результат" in h.last_public().text
+
+
+async def test_h11_a_bang_that_is_not_a_command_reaches_the_other_handlers(make):
+    h = await make(ALL)
+    await h.say(ALICE, "!привіт усім")  # no such command: nobody answers, and nothing breaks
+    await h.say(ALICE, "!r 2d6 Атака")  # a roll the alias handler must not take
+    assert "Атака" in h.last_public().text
 
 
 # --- the admin tools (v4.2 suggestions) -------------------------------------------------------------------

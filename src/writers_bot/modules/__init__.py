@@ -80,7 +80,14 @@ MODULES: dict[str, ModuleSpec] = {
         ),
         ModuleSpec(
             "dice",
-            defaults={"stickers": False, "max_stickers": 4},
+            defaults={
+                "stickers": False,
+                "max_stickers": 4,
+                "packs": [],
+                "commands": True,
+                "randomness": "pseudo",
+                "random_org_key": "",
+            },
             platforms=frozenset({"telegram"}),
             description="dice rolls",
         ),

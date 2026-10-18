@@ -122,7 +122,7 @@ class Module(TelegramModule):
     def commands(self) -> list[Command]:
         commands = [
             Command(
-                "sprint", self.sprint, "commands.sprint", uk="aliases.sprint", help="help.sprint", section="sprints",
+                "sprint", self.sprint, "commands.sprint", uk="aliases.sprint", usage="help.usage_sprint",
                 values=self._help_length,
             )
         ]  # fmt: skip
@@ -134,8 +134,7 @@ class Module(TelegramModule):
                     "commands.progress",
                     uk="aliases.progress",
                     ephemeral=True,
-                    help="help.progress",
-                    section="progress",
+                    usage="help.usage_progress",
                     values=self._help_percent,
                 ),
                 Command(
@@ -143,8 +142,7 @@ class Module(TelegramModule):
                     self.top,
                     "commands.top",
                     uk="aliases.top",
-                    help="help.top",
-                    section="sprints",
+                    usage="help.usage_top",
                     when=self._top_on,
                 ),
             ]
@@ -155,8 +153,6 @@ class Module(TelegramModule):
                     self.works_command,
                     "commands.works",
                     uk="aliases.works",
-                    help="help.works",
-                    section="progress",
                     when=self._works_here,
                 )
             )

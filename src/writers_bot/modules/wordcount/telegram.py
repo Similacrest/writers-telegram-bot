@@ -23,8 +23,8 @@ class Module(TelegramModule):
     def commands(self) -> list[Command]:
         return [
             Command(
-                "count", self.count, "commands.count", uk="aliases.count", aliases=("wc",), help="help.count",
-                section="tools",
+                "count", self.count, "commands.count", uk="aliases.count", aliases=("wc",),
+                usage="help.usage_count",
             )
         ]  # fmt: skip
 

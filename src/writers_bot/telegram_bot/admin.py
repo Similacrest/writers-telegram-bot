@@ -148,15 +148,11 @@ class AdminTools:
         from .base import Command
 
         return [
-            Command("chats", self.chats, "commands.chats", scope="admin", help="help.chats"),
-            Command("broadcast", self.broadcast, "commands.broadcast", scope="admin", help="help.broadcast"),
-            Command("bcexclude", self.exclude, "commands.bcexclude", scope="admin", help="help.bcexclude"),
-            Command("bcinclude", self.include, "commands.bcinclude", scope="admin"),
-            *(
-                [Command("community", self.community, "commands.community", scope="admin", help="help.community")]
-                if self.communities
-                else []
-            ),
+            Command("chats", self.chats, "commands.chats", scope="admin"),
+            Command("broadcast", self.broadcast, "commands.broadcast", scope="admin", usage="help.usage_broadcast"),
+            Command("bcexclude", self.exclude, "commands.bcexclude", scope="admin"),
+            Command("bcinclude", self.include, "commands.bcinclude", scope="admin", menu=False),
+            *([Command("community", self.community, "commands.community", scope="admin")] if self.communities else []),
         ]
 
     def handlers(self):

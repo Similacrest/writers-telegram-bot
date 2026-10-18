@@ -57,8 +57,7 @@ class Module(TelegramModule):
                 "commands.prompt",
                 uk="aliases.prompt",
                 aliases=("prompt_ua",),
-                help="help.prompt_categories" if self.categories else "help.prompt",
-                section="prompts",
+                usage="help.usage_category" if self.categories else None,
                 values=self._text_categories,
             ),
             Command(
@@ -66,34 +65,44 @@ class Module(TelegramModule):
                 self.image,
                 "commands.image",
                 uk="aliases.image",
-                help="help.image_categories" if self.categories else "help.image",
-                section="prompts",
+                usage="help.usage_category" if self.categories else None,
                 values=self._image_categories,
             ),
-            Command("promptstats", self.stats, None, aliases=("stats",), help="help.promptstats", section="prompts"),
+            Command("promptstats", self.stats, "commands.promptstats", aliases=("stats",), menu=False),
         ]
         if self.db is None:
-            commands.append(Command("reload", self.reload, None, scope="chat_admin", help="help.reload"))
+            commands.append(Command("reload", self.reload, "commands.reload", scope="chat_admin", menu=False))
         else:
             commands += [
-                Command("addprompt", self.add_prompt, "commands.addprompt", scope="chat_admin", help="help.addprompt"),
+                Command(
+                    "addprompt",
+                    self.add_prompt,
+                    "commands.addprompt",
+                    scope="chat_admin",
+                    usage="help.usage_addprompt",
+                ),
                 Command(
                     "suggest",
                     self.suggest,
                     "commands.suggest",
                     uk="aliases.suggest",
-                    help="help.suggest",
-                    section="prompts",
+                    usage="help.usage_addprompt",
                 ),
                 Command(
                     "suggestions",
                     self.suggestions,
                     "commands.suggestions",
                     scope="chat_admin",
-                    help="help.suggestions",
                 ),
-                Command("addimage", self.add_image, None, scope="chat_admin"),  # in help.addprompt
-                Command("review", self.review, "commands.review", scope="admin", help="help.review"),
+                Command(
+                    "addimage",
+                    self.add_image,
+                    "commands.addimage",
+                    scope="chat_admin",
+                    menu=False,
+                    usage="help.usage_addprompt",
+                ),
+                Command("review", self.review, "commands.review", scope="admin"),
             ]
         return commands
 

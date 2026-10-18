@@ -51,7 +51,8 @@ ds = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ds)
 GOLD, RED = ds.GOLD, ds.RED
 ADV, DIS = (96, 200, 140), (190, 96, 150)  # the quiet halos for the higher / lower of two d20s (and d12s)
-AMBER = (0.78, 0.56, 0.24)  # the d100's tens die: its light marble made deeper, so white numerals read
+PINK = (0.80, 0.26, 0.86)  # the d100's tens die (light marble, deepened so white numerals read): no other die is pink
+D20_HUE = 160  # degrees: the theme's navy d20 turned orange, as the d12 is blue and the d10 green
 TINTS = {"r": (0.86, 0.26, 0.26), "b": (0.28, 0.42, 0.9)}  # the d12's red and blue
 SLATE = (0.42, 0.46, 0.56)  # a d12 without a colour of its own
 OFFSETS = json.loads((HERE / "roll_offsets.json").read_text())  # per face: the turn that puts its numeral upright
@@ -102,8 +103,8 @@ def job(name: str) -> tuple[list[dict], int, int, str]:
     if sides == 100:  # a tens die (00-90) and a d10 for the ones (0 counts as 10), landing a moment apart
         tens, ones = value // 10 % 10 * 10, value % 10 or 10
         dice = [
-            die(100, tens, 100 + value, x=-0.68, scale=0.7, tint=list(AMBER)),
-            die(10, ones, 101 + value, x=0.68, scale=0.7, delay=4),
+            die(100, tens, 100 + value, x=-0.43, scale=0.7, tint=list(PINK)),
+            die(10, ones, 101 + value, x=0.43, scale=0.7, delay=4),
         ]
         return dice, sides, value, ""
     if sides == 2:  # a coin: 1 = the coat of arms, 2 = "5 копійок"; no fading, no crit effects
@@ -111,6 +112,8 @@ def job(name: str) -> tuple[list[dict], int, int, str]:
     extra = {}
     if sides == 12:  # light marble with dark numerals: coloured, the numerals made white
         extra = {"tint": list(TINTS.get(variant[:1], SLATE))}
+    if sides == 20:
+        extra = {"hue": D20_HUE}
     return [die(sides, value, sides * 7 + value, scale=1.1, **extra)], sides, value, variant
 
 

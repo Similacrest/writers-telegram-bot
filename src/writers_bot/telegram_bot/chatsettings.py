@@ -52,7 +52,7 @@ class ChatSettingsUI:
         self._pending: dict[int, tuple[int, str, float]] = {}  # admin -> (chat, setting key, since)
 
     def commands(self) -> list[Command]:
-        return [Command("settings", self.command, "commands.settings", scope="chat_admin", help="help.settings")]
+        return [Command("settings", self.command, "commands.settings", scope="chat_admin")]
 
     def asks(self) -> dict:
         return {"cs": self.on_button}

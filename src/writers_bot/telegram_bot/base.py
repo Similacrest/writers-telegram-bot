@@ -63,22 +63,26 @@ class HelpContext:
 
 @dataclass(frozen=True, slots=True)
 class Command:
-    """A command a module offers. ``uk`` is its Ukrainian alias (matched as text, never in the menu).
+    """A command a module offers. ``uk`` is its Ukrainian alias (written as ``!команда`` or ``/команда``, matched as
+    text, never in the menu).
 
-    /help and the command menus are built per chat and person from these: ``section`` groups the /help
-    lines, ``when`` hides a command where its feature is off (a chat setting), and ``values`` fills its
-    /help line and menu description (this chat's sprint length, its prompt categories)."""
+    The command menus and /help are generated from these, per chat and person: ``description`` is the menu text and
+    the /help line (``menu=False`` keeps a command out of the menu but not out of /help), ``usage`` the arguments
+    shown after the name, ``module`` the /help submenu it sits in (set from the module that offers it), ``when``
+    hides a command where its feature is off (a chat setting), and ``values`` fills the texts of its description and
+    usage (this chat's sprint length, its prompt categories)."""
 
     name: str
     callback: Callback
-    description: str | None = None  # locale key for the menu; None = not in the menu
+    description: str | None = None  # locale key; None = neither in the menu nor in /help
     uk: str | None = None  # locale key of the Ukrainian alias
     aliases: tuple[str, ...] = ()  # hidden Latin aliases (/wc for /count)
     # all | private (private chats only) | chat_admin (group admins' menu and /help) | admin (super-admins)
     scope: str = "all"
     ephemeral: bool = False  # marked is_ephemeral in the group menu (EPHEMERAL_COMMANDS)
-    help: str | None = None  # locale key of its /help line
-    section: str = "tools"  # prompts | sprints | progress | achievements | tools | you (see app.HELP_SECTIONS)
+    menu: bool = True  # in Telegram's command menu (not only in /help)
+    usage: str | None = None  # locale key of its arguments: "[хвилин] [затримка]"
+    module: str = ""  # the /help submenu: a module's name, or you | chat | admin (see app.HELP_GROUPS)
     when: Callable[[HelpContext], Awaitable[bool]] | None = None
     values: Callable[[HelpContext], Awaitable[dict]] | None = None
 
@@ -108,7 +112,7 @@ class TelegramModule:
         return []
 
     async def help_lines(self, ctx: HelpContext) -> list[tuple[str, str, dict]]:
-        """/help lines that don't belong to a command: (section, locale key, values)."""
+        """/help lines that don't belong to a command, for the module's submenu: (module, locale key, values)."""
         return []
 
     def asks(self) -> dict[str, Callback]:

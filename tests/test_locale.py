@@ -132,3 +132,15 @@ def test_every_setting_has_a_label():
         name = "chatsettings." + key.replace(".", "_")
         raw(name)
         raw(name + "_help")
+
+
+def test_every_help_group_has_a_title_and_every_die_a_ukrainian_name():
+    """/help names a group for each module (and your data, the chat, the bot's admins); each die has its !к name."""
+    from writers_bot.core.i18n import t
+    from writers_bot.modules import MODULES
+    from writers_bot.telegram_bot.app import HELP_GROUPS
+
+    for name in (*MODULES, *HELP_GROUPS):
+        assert t(f"help.group_{name}"), name
+    for sides in (2, 4, 6, 8, 10, 12, 20, 100):
+        assert t(f"aliases.d{sides}") == f"к{sides}"

@@ -11,6 +11,7 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import datetime
 
 from telegram import (
@@ -63,12 +64,26 @@ logger = logging.getLogger(__name__)
 
 PLATFORM = "telegram"
 NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
-ALIAS_RE = re.compile(r"^/([^\W\d_A-Za-z][\w'ʼ’]*)(?:@(\w+))?(?:\s+(.*))?$", re.DOTALL)
+# !команда or /команда: Ukrainian commands start with ! (Telegram doesn't treat Cyrillic as a command), / works too
+ALIAS_RE = re.compile(r"^[/!]([^\W\d_A-Za-z][\w'ʼ’]*)(?:@(\w+))?(?:\s+(.*))?$", re.DOTALL)
 COMMAND_RE = re.compile(r"^/(\w+)(?:@\w+)?(?:\s|$)")
 ADMIN_CACHE_TTL = 10 * 60
-# /help's sections in order (locale: help.section_<name>); commands name theirs, admin scopes have their own
-HELP_SECTIONS = ("prompts", "sprints", "progress", "achievements", "tools", "you", "chat_admin", "bot_admin")
+# /help's submenus after the modules' own (locale: help.group_<name>): your data, this chat's tools, the bot's admins
+HELP_GROUPS = ("you", "chat", "admin")
 MAX_ADMIN_CHATS = 60
+
+
+class _Alias(filters.MessageFilter):
+    """A message that starts with a Ukrainian command the bot has (!промпт, /промпт). A message that only looks like
+    one (!привіт) is nobody's command here: it must reach the handlers after this one (PTB runs the first match)."""
+
+    def __init__(self, aliases: dict[str, "Command"]):
+        super().__init__(name="ukrainian_command")
+        self.aliases = aliases
+
+    def filter(self, message: Message) -> bool:
+        m = ALIAS_RE.match(message.text or "")
+        return bool(m) and m[1].casefold() in self.aliases
 
 
 def chat_key(message: Message) -> ChatKey:
@@ -91,7 +106,7 @@ def command_args_text(message: Message) -> str:
             # Entity offsets are in UTF-16 code units.
             encoded = text.encode("utf-16-le")
             return encoded[2 * entity.length :].decode("utf-16-le").strip()
-    if text.startswith("/"):
+    if text.startswith(("/", "!")):
         return text.split(maxsplit=1)[1].strip() if len(text.split(maxsplit=1)) > 1 else ""
     return text.strip()
 
@@ -178,12 +193,12 @@ class TelegramBot:
 
     def all_commands(self) -> list[Command]:
         commands = [
-            Command("start", self.start, help=None),
+            Command("start", self.start),
             Command("help", self.help, "commands.help", uk="aliases.help"),
             Command("debuginfo", self.debuginfo),
         ]
         for module in self.modules:
-            commands += module.commands()
+            commands += [replace(c, module=c.module or module.name) for c in module.commands()]
         if self.profile_enabled:
             commands.append(
                 Command(
@@ -193,16 +208,15 @@ class TelegramBot:
                     uk="aliases.profile",
                     aliases=("mystats",),
                     ephemeral=True,
-                    help="help.profile",
-                    section="you",
+                    module="you",
                 )
             )
         if self.data is not None:
-            commands += self.data.commands()
+            commands += [replace(c, module="you") for c in self.data.commands()]
         if self.chat_settings is not None:
-            commands += self.chat_settings.commands()
+            commands += [replace(c, module="chat") for c in self.chat_settings.commands()]
         if self.admin is not None and self.config.admin:
-            commands += self.admin.commands()
+            commands += [replace(c, module="admin") for c in self.admin.commands()]
         return commands
 
     @property
@@ -225,7 +239,7 @@ class TelegramBot:
             if command.uk:
                 self._aliases[t(command.uk).casefold()] = command
         if self._aliases:
-            handlers.append((MessageHandler(filters.TEXT & filters.Regex(ALIAS_RE), self.on_alias), 0))
+            handlers.append((MessageHandler(filters.TEXT & _Alias(self._aliases), self.on_alias), 0))
         if self.chat_settings is not None:
             handlers += self.chat_settings.handlers()
             self._asks |= self.chat_settings.asks()
@@ -234,6 +248,7 @@ class TelegramBot:
             handlers += module.handlers()
             self._asks |= module.asks()
             self._payloads |= module.start_payloads()
+        self._asks["hp"] = self.on_help_button
         if self.profile_enabled:
             self._asks |= self.profile_asks()
         if self.data is not None:
@@ -283,33 +298,88 @@ class TelegramBot:
         prompts = self.module("prompts")
         return prompts.config_text("help_message") if prompts is not None else None
 
-    async def help_text(self, ctx: HelpContext) -> str:
-        """/help for one person in one chat: the enabled features only, grouped, with this chat's values."""
+    async def _help_line(self, c: Command, ctx: HelpContext) -> str:
+        """One /help line of a command: its name with arguments, its Ukrainian alias, what it does, who it is for."""
+        f = self.fmt
+        values = await c.values(ctx) if c.values else {}
+        name = f"/{c.name}" + (f" {f.t(c.usage, **values)}" if c.usage else "")
+        parts = [f.bold(name)]
+        if c.uk:
+            parts.append(f.t("help.alias", alias=t(c.uk)))
+        line = " ".join(parts) + f" — {f.t(c.description, **values)}"
+        who = {"chat_admin": "help.for_chat_admins", "admin": "help.for_bot_admins"}.get(c.scope)
+        return line + (f" ({f.t(who)})" if who else "")
+
+    async def help_groups(self, ctx: HelpContext) -> dict[str, list[tuple[str, str]]]:
+        """What /help says to one person in one chat, generated from the commands there: for each group (a module, or
+        your data / this chat / the bot's admins) with something in it, its commands as (name, line); the module's own
+        extra lines have no name."""
+        f = self.fmt
+        groups: dict[str, list[tuple[str, str]]] = {
+            name: [] for name in (*(m.name for m in self.modules), *HELP_GROUPS)
+        }
+        for c in self.all_commands():
+            if c.description and c.module and await self._shown(c, ctx):
+                groups.setdefault(c.module, []).append((c.name, await self._help_line(c, ctx)))
+        for module in self.modules:
+            for group, key, values in await module.help_lines(ctx):
+                groups.setdefault(group, []).append(("", f.t(key, **values)))
+        return {name: lines for name, lines in groups.items() if lines}
+
+    async def help_text(self, ctx: HelpContext, group: str | None = None) -> str:
+        """/help: the groups with their commands' names, or one group (a module's submenu) with each command in full.
+        A bot without the redesign (v2) has no submenus: one page with every command in full."""
         if override := self._help_override():
             return override
         f = self.fmt
-        sections: dict[str, list] = {name: [] for name in HELP_SECTIONS}
-        for c in self.all_commands():
-            if not c.help or not await self._shown(c, ctx):
-                continue
-            values = await c.values(ctx) if c.values else {}
-            section = {"chat_admin": "chat_admin", "admin": "bot_admin"}.get(c.scope, c.section)
-            sections.setdefault(section, []).append(f.t(c.help, **values))
-        for module in self.modules:
-            for section, key, values in await module.help_lines(ctx):
-                sections.setdefault(section, []).append(f.t(key, **values))
-        lines = [f.bold(t("help.title"))]
-        for name, entries in sections.items():
-            if entries:
-                lines += ["", f.bold(t(f"help.section_{name}")), *entries]
+        groups = await self.help_groups(ctx)
+        if not self.config.admin:
+            lines = [f.bold(t("help.title"))]
+            for name, entries in groups.items():
+                lines += ["", f.bold(t(f"help.group_{name}")), *(line for _, line in entries)]
+            return "\n".join(lines)
+        if group in groups:
+            return "\n".join([f.bold(t(f"help.group_{group}")), "", *(line for _, line in groups[group])])
+        lines = [f.bold(t("help.title")), t("help.intro")]
+        for name, entries in groups.items():
+            names = ", ".join(f"/{command}" for command, _ in entries if command)
+            lines += ["", f.bold(t(f"help.group_{name}")) + (f": {names}" if names else "")]
         if not ctx.private and (self.profile_enabled or self.data is not None):
             lines += ["", f.t("help.more_in_private")]
         return "\n".join(lines)
 
+    async def help_markup(
+        self, ctx: HelpContext, user_id: int, group: str | None = None
+    ) -> InlineKeyboardMarkup | None:
+        """The submenu buttons: one per group on the first page, a way back on a group's page."""
+        if self._help_override() or not self.config.admin:
+            return None
+        if group is not None:
+            return InlineKeyboardMarkup([[button(t("common.back"), user_id, "hp:all")]])
+        groups = await self.help_groups(ctx)
+        buttons = [button(t(f"help.group_{name}"), user_id, f"hp:{name}") for name in groups]
+        return InlineKeyboardMarkup([buttons[i : i + 2] for i in range(0, len(buttons), 2)]) if buttons else None
+
+    async def on_help_button(self, query, args: list[str]) -> None:
+        """A /help submenu button: ``hp:<group>`` opens a group, ``hp:all`` goes back to the first page."""
+        from .base import Sent
+
+        sent = Sent.from_query(query)
+        chat = query.message.chat if query.message is not None else None
+        if chat is None or sent is None:
+            await self.asks.toast(query, "common.stale")
+            return
+        ctx = await self.help_context(query.from_user, chat)
+        group = args[0] if args and args[0] != "all" else None
+        await query.answer()
+        await self.asks.edit(
+            sent, await self.help_text(ctx, group), await self.help_markup(ctx, query.from_user.id, group)
+        )
+
     async def menu(self, ctx: HelpContext) -> list[BotCommand]:
         out = []
         for c in self.all_commands():
-            if c.description is None or not await self._shown(c, ctx, menu=True):
+            if c.description is None or not c.menu or not await self._shown(c, ctx, menu=True):
                 continue
             values = await c.values(ctx) if c.values else {}
             out.append(BotCommand(c.name, t(c.description, **values)[:256]))
@@ -494,7 +564,12 @@ class TelegramBot:
                 await handler(update, context, rest)
                 return
         ctx = await self.help_context(message.from_user, message.chat)
-        await self._reply_html_safe(message, await self.help_text(ctx), link_preview_options=NO_PREVIEW)
+        await self._reply_html_safe(
+            message,
+            await self.help_text(ctx),
+            reply_markup=await self.help_markup(ctx, message.from_user.id),
+            link_preview_options=NO_PREVIEW,
+        )
         if message.chat.type == ChatType.PRIVATE and message.from_user:
             for module in self.modules:
                 await module.private_start(message)
@@ -504,10 +579,11 @@ class TelegramBot:
         message = update.effective_message
         ctx = await self.help_context(message.from_user, message.chat)
         text = await self.help_text(ctx)
+        markup = await self.help_markup(ctx, message.from_user.id)
         if ctx.private or not self.config.admin or self._help_override():  # v2: a public reply, as it was
-            await self._reply_html_safe(message, text, link_preview_options=NO_PREVIEW)
+            await self._reply_html_safe(message, text, reply_markup=markup, link_preview_options=NO_PREVIEW)
         else:
-            await self.asks.respond(message, text, delete_command=True)
+            await self.asks.respond(message, text, markup, delete_command=True)
 
     async def debuginfo(self, update: Update, _context) -> None:
         message = update.effective_message

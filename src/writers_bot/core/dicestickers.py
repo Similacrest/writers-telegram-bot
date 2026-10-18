@@ -10,23 +10,23 @@
 - Two d12 are Daggerheart's duality dice: the first is blue, the second red. The blue one is larger: it is from the
   blue advantage set. The red one is larger: it is from the red disadvantage set. A tie: both are. A die showing
   1 or 12 is crit-less. Crits work differently there, so the crit effects stay off.
-- A d12 on its own is red from 1 to 6 and blue from 7 up, with a red disadvantage 1 and a blue advantage 12 for crits.
+- A d12 is blue (each die type has its own colour) except for its red 1; on its own the 1 is the red disadvantage 1 and its 12 the blue
+  advantage 12, for the crit effects.
 """
 
 from collections.abc import Sequence
 
 NEXT_EVEN = {3: 4, 5: 6, 7: 8, 9: 10, 11: 12}
 SUPPORTED = frozenset({2, 4, 6, 8, 10, 12, 20, 100, *NEXT_EVEN})
-RED_UP_TO = 6  # a d12 without a colour of its own: red up to this, blue above
 
 
 def plain_d12(value: int) -> str:
-    """A d12 without crit effects: red for the low half, blue for the high one."""
-    return f"d12r_{value}" if value <= RED_UP_TO else f"d12b_{value}"
+    """A d12 without crit effects: blue, except for the red 1."""
+    return "d12r_1" if value == 1 else f"d12b_{value}"
 
 
 def lone_d12(value: int) -> str:
-    """A d12 on its own: the crit effects come from the disadvantage 1 (red) and the advantage 12 (blue)."""
+    """A d12 on its own: the crit effects come from the disadvantage 1 (red) and the advantage 12 (blue); the rest is blue."""
     if value == 1:
         return "d12rd_1"
     if value == 12:

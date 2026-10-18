@@ -57,3 +57,34 @@ def test_smash():
     for _ in range(50):
         s = smash()
         assert 9 <= len(s) <= 21 and all(c in "qwertyuiop[]asdfghjkl;'zxcvbnm,./" for c in s)
+
+
+def test_keep_one_of_two_is_advantage_and_disadvantage():
+    """2d20kh1 is d20adv, 2d20kl1 is d20dis (also with a flat bonus and the Cyrillic ka); other keeps are left alone."""
+    for text, expression, mode in (
+        ("/2d20kh1", "d20", "adv"), ("/2d20kl1+3", "d20+3", "dis"), ("!2к20KH1-2 Атака", "d20-2", "adv"),
+        ("/r 2d12kh1", "d12", "adv"), ("/d20adv", "d20", "adv"), ("/d20dis", "d20", "dis"),
+    ):  # fmt: skip
+        r = parse_roll(text)
+        assert (r.expression, r.mode) == (expression, mode), text
+    assert parse_roll("!2к20KH1-2 Атака").caption == "Атака"
+    assert parse_roll("/4d6kh3").mode is None and parse_roll("/4d6kh3").expression == "4d6kh3"
+    assert parse_roll("/3d20kh1").mode is None  # three dice: the library's own keep
+    assert parse_roll("/2d20kh1+1d4").mode is None  # more than a bonus: the library's own keep
+
+
+def test_a_bang_starts_a_dice_command_as_a_slash_does():
+    assert parse_roll("!к12").expression == "d12" and parse_roll("!d20+5 Атака").caption == "Атака"
+    assert parse_roll("!r 4d6kh3").expression == "4d6kh3" and parse_roll("!промпт") is None
+
+
+def test_advantage_and_disadvantage_put_the_die_that_counts_first():
+    import random
+
+    from writers_bot.core.extras import throw
+
+    for seed in range(40):
+        adv = throw(F, parse_roll("/2d20kh1"), random.Random(seed)).dice
+        dis = throw(F, parse_roll("/2d20kl1"), random.Random(seed)).dice
+        assert adv[0][1] >= adv[1][1] and dis[0][1] <= dis[1][1], seed
+        assert adv == throw(F, parse_roll("/d20adv"), random.Random(seed)).dice  # one behaviour, two spellings

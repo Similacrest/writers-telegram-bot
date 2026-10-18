@@ -1,12 +1,13 @@
-"""Dice rolls: /d20, /2d6+1, /r 4d6kh3 Ініціатива, /d20adv (the d20 library's notation, see ``core.extras``).
+"""Dice rolls: /d20, /2d6+1, /r 4d6kh3 Ініціатива, /d20adv, !к12 (the d20 library's notation, see ``core.extras``).
 
 With ``stickers = true`` a roll is answered with animated stickers of the dice landing on their results (the
 packs are made by ``scripts/dice_render`` and kept in ``assets/dice_packs``; ``core.dicestickers`` says which sticker
 each die gets). One or two dice get stickers on their own; three or four only when the roll has ``-s`` (``/3d6 -s``);
-``-q`` silences them (``/d20 -q``); more than ``max_stickers`` (4) dice, or a die without stickers (d13), and the roll
-is only the line. The bot uploads the two packs once, ``dice1_v3_by_<bot>`` and ``dice2_v3_by_<bot>``, owned by the
-super admin with the lowest id (Telegram wants a person as a pack's owner), and from then on sends the stickers by
-``file_id``. A bare ``/d20`` is just the sticker; with a bonus or a caption the usual line follows.
+``-q`` silences them (``/d20 -q``); more than ``max_stickers`` (4) dice, or a die without stickers (d13), and the
+roll is only the line. The bot never uploads the packs: ``scripts/upload_dice_packs.py`` does it once, and every bot
+names the same two packs in its ``packs`` option (names or t.me/addstickers links). The bot reads them at start and
+from then on sends the stickers by ``file_id``. A bare ``/d20`` is just the sticker; with a bonus or a caption the
+usual line follows.
 """
 
 import asyncio
@@ -16,26 +17,16 @@ import logging
 from importlib.resources import files
 from pathlib import PurePosixPath
 
-from telegram import InputFile, InputSticker, ReplyParameters, Update
-from telegram.constants import StickerFormat
-from telegram.error import TelegramError, TimedOut
+from telegram import ReplyParameters, Update
+from telegram.error import TelegramError
 from telegram.ext import MessageHandler, filters
 
-from ...core import dicestickers, extras
-from ...core.i18n import t
-from ...telegram_bot.base import TelegramModule
+from ...core import dicestickers, extras, randomness
+from ...telegram_bot.base import Command, TelegramModule
 
 logger = logging.getLogger(__name__)
 
-# Part of the pack names: bump it when the animations change, so the bot uploads them as new packs (the old
-# ones are simply no longer used). 3: the packs of v4.2.2 (a d20 and d12 with advantage looks, a coin, white numerals).
-ANIMATIONS = 3
-FIRST_UPLOAD = 50  # createNewStickerSet takes at most 50; the rest go in one by one
-# Telegram answers a sticker upload only after processing the videos (50 at once in createNewStickerSet), far beyond
-# python-telegram-bot's 5 s defaults; on live Telegram v4.2.5 timed out while the uploads went through.
-UPLOAD_TIMEOUTS = {"read_timeout": 300, "write_timeout": 300}
-SETTLE_TRIES = 12  # after a timeout anyway: look at the pack this many times, SETTLE_DELAY s apart, for the upload
-SETTLE_DELAY = 10.0
+DICE = (2, 4, 6, 8, 10, 12, 20, 100)  # the dice with a command of their own
 AUTO_STICKERS = 2  # a roll of more dice than this gets stickers only when asked for (-s)
 
 
@@ -55,21 +46,50 @@ class Module(TelegramModule):
         super().__init__(bot, options)
         self.stickers_on = bool(options.get("stickers"))
         self.max_stickers = int(options.get("max_stickers", 4))  # more dice than this, even with -s: text only
+        # "random.org": the dice come from true random bytes (core.randomness) instead of Python's generator
+        self.rng: randomness.TrueRandom | None = None
+        if options.get("randomness") == "random.org":
+            key = str(options.get("random_org_key") or "")
+            self.rng = randomness.TrueRandom(lambda n: randomness.random_org(key, n))
         self.stickers: dict[str, str] = {}  # sticker name ("d20_17") -> file_id in the bot's packs
         self._packs: asyncio.Task | None = None
+
+    def commands(self) -> list[Command]:
+        """Each die is a command of its own (/d20 ... in the menu and /help), also as !к20; the rest of the notation
+        (/2d6+3, /r 4d6kh3) is read by ``handlers``."""
+
+        if not self.options.get("commands", True):  # a v2 bot's menu has none; the rolls themselves work
+            return []
+
+        async def values(_ctx, sides=0):
+            return {"sides": sides}
+
+        return [
+            Command(
+                f"d{sides}", self.roll, "commands.die", uk=f"aliases.d{sides}",
+                values=lambda ctx, sides=sides: values(ctx, sides),
+            )
+            for sides in DICE
+        ]  # fmt: skip
 
     def handlers(self):
         # Not only command entities: whether Telegram marks "/2d6" (a digit first) as a command is unclear
         return [(MessageHandler((filters.COMMAND | filters.TEXT) & filters.Regex(extras.ROLL_RE), self.roll), 0)]
 
     async def help_lines(self, ctx) -> list[tuple[str, str, dict]]:
-        return [("tools", "help.dice", {})]
+        return [("dice", "help.dice", {})]
 
     async def post_init(self) -> None:
+        if self.rng is not None:
+            await (
+                self.rng.start()
+            )  # the first pool before the first roll; the bot starts without it if random.org is down
         if self.stickers_on:
-            self._packs = asyncio.create_task(self.prepare_packs(), name="dice-packs")
+            self._packs = asyncio.create_task(self.load_packs(), name="dice-packs")
 
     async def shutdown(self) -> None:
+        if self.rng is not None:
+            await self.rng.stop()
         if self._packs is not None and not self._packs.done():
             self._packs.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -77,95 +97,44 @@ class Module(TelegramModule):
 
     # --- the sticker packs -------------------------------------------------------------------------
 
-    def pack_name(self, key: str) -> str:
-        return f"dice{key.removeprefix('pack')}_v{ANIMATIONS}_by_{self.bot.me.username}"
+    @staticmethod
+    def pack_name(reference: str) -> str:
+        """A pack's name from what the config says: the name itself or a t.me/addstickers link."""
+        return reference.strip().rstrip("/").rsplit("/", 1)[-1]
 
     @staticmethod
-    def _in_order(rows: list[dict], pack) -> bool:
-        """Each sticker the pack has carries the die marker (the first emoji, the one Telegram hands back) that the manifest
-        has at its place: the bot finds a sticker by its place, so a pack put out of order is no use. A pack that is only
-        short (an interrupted upload) is in order, and is finished rather than made again."""
-        if len(pack.stickers) > len(rows):
+    def _intact(rows: list[dict], pack) -> bool:
+        """The pack has all its stickers, each with the die marker (the first emoji, the one Telegram hands back) that the
+        manifest has at its place: the bot finds a sticker by its place, so a pack put out of order is no use."""
+        if len(pack.stickers) != len(rows):
             return False
         marker = lambda emoji: (emoji or "").replace("\ufe0f", "")  # noqa: E731
         return all(
             not sticker.emoji or marker(sticker.emoji) == marker(row["emoji"][0])
-            for row, sticker in zip(rows, pack.stickers, strict=False)
+            for row, sticker in zip(rows, pack.stickers, strict=True)
         )
 
-    async def prepare_packs(self) -> None:
-        """Find the packs (or make the missing ones) and remember their stickers' file ids."""
-        owner = min(self.bot.settings.super_admins) if self.bot.settings.super_admins else None
-        for key, rows in manifest().items():
-            try:
-                await self._prepare(key, rows, owner)
-            except Exception:  # one pack failing shouldn't stop the other; its rolls then go without stickers
-                logger.exception("could not prepare the dice sticker pack %s", key)
-
-    async def _prepare(self, key: str, rows: list[dict], owner: int | None) -> None:
-        bot = self.bot.app.bot
-        name = self.pack_name(key)
-        try:
-            pack = await bot.get_sticker_set(name)
-        except TelegramError:
-            pack = None
-        if pack is not None and not self._in_order(rows, pack) and owner is not None:
-            await bot.delete_sticker_set(name)  # put out of order: no use, it is made again
-            pack = None
-        have = len(pack.stickers) if pack is not None else 0
-        if have < len(rows):
-            if owner is None:
-                if pack is None:
-                    logger.info("no super admin to own the dice sticker packs: rolls go without stickers")
-                    return
-            else:
-                if pack is None:
-                    first = [self._input_sticker(row) for row in rows[:FIRST_UPLOAD]]
-                    title = t(f"dice.{key}_title")
-                    await self._upload(
-                        lambda **kw: bot.create_new_sticker_set(owner, name, title, first, **kw), name, len(first)
-                    )
-                    have = len(first)
-                else:
-                    logger.info("the sticker pack %s has %d of %d stickers: adding the rest", name, have, len(rows))
-                for i in range(have, len(rows)):
-                    sticker = self._input_sticker(rows[i])
-                    await self._upload(
-                        lambda sticker=sticker, **kw: bot.add_sticker_to_set(owner, name, sticker, **kw), name, i + 1
-                    )
-                pack = await bot.get_sticker_set(name)
-                logger.info("the sticker pack %s is ready", name)
-        for row, sticker in zip(rows, pack.stickers, strict=False):
-            self.stickers[clip_name(row)] = sticker.file_id
-
-    @staticmethod
-    def _input_sticker(row: dict) -> InputSticker:
-        return InputSticker(
-            InputFile(
-                files("writers_bot.assets.dice_packs").joinpath(row["file"]).read_bytes(),
-                filename=PurePosixPath(row["file"]).name,
-                attach=True,  # InputSticker only attaches what it parses itself, not a ready InputFile
-            ),
-            row["emoji"],
-            StickerFormat.VIDEO,
-            keywords=row["keywords"],
-        )
-
-    async def _upload(self, call, name: str, expected: int) -> None:
-        """One createNewStickerSet or addStickerToSet. A timeout on our side doesn't mean Telegram dropped the upload: it
-        may still be processing it, so look at the pack until it has ``expected`` stickers before giving up (the next
-        start then finishes the pack). Uploading again at once could put a sticker in twice, out of order."""
-        try:
-            await call(**UPLOAD_TIMEOUTS)
+    async def load_packs(self) -> None:
+        """Read the configured packs and remember their stickers' file ids; a pack that is missing, incomplete or put out
+        of order is left out (its dice get no stickers) with a warning: ``scripts/upload_dice_packs.py`` makes them."""
+        references = list(self.options.get("packs") or [])
+        if len(references) != 2:
+            logger.warning("dice stickers are on but `packs` does not name the two packs: rolls go without stickers")
             return
-        except TimedOut:
-            logger.info("a sticker upload to %s timed out: waiting for Telegram to show it", name)
-        for _ in range(SETTLE_TRIES):
-            await asyncio.sleep(SETTLE_DELAY)
-            with contextlib.suppress(TelegramError):
-                if len((await self.bot.app.bot.get_sticker_set(name)).stickers) >= expected:
-                    return
-        raise TimedOut(f"the upload to {name} timed out and the pack has fewer than {expected} stickers")
+        found: dict[str, str] = {}
+        for (key, rows), reference in zip(manifest().items(), references, strict=True):
+            name = self.pack_name(reference)
+            try:
+                pack = await self.bot.app.bot.get_sticker_set(name)
+            except TelegramError as e:
+                logger.warning("the dice sticker pack %s (%s) cannot be read: %s", name, key, e)
+                continue
+            if not self._intact(rows, pack):
+                logger.warning("the dice sticker pack %s (%s) is incomplete or out of order: not used", name, key)
+                continue
+            for row, sticker in zip(rows, pack.stickers, strict=True):
+                found[clip_name(row)] = sticker.file_id
+        self.stickers = found
 
     # --- rolling ---------------------------------------------------------------------------------
 
@@ -187,7 +156,7 @@ class Module(TelegramModule):
         roll = extras.parse_roll(message.text or message.caption or "")
         if roll is None:
             return
-        outcome = extras.throw(self.bot.fmt, roll)
+        outcome = extras.throw(self.bot.fmt, roll, self.rng)
         names = self.pick(roll, outcome)
         if names:
             sent = 0

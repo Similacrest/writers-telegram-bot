@@ -70,10 +70,14 @@ the crit-less highest before the crit highest.
 - The theme's bump map is not used: its low-resolution normals draw dotted outlines on the numerals.
 - The rolled face keeps the theme's colours and full white numerals; the other numerals are faded (`FADE` in the page).
 - The d12 and the d100's tens die come as light marble with dark numerals in the theme; they are coloured and
-  their numerals made white (the d12 red or blue, the tens die amber).
-- A d4 is read at its top vertex, so it is drawn looking straight at that vertex, the number three times.
+  their numerals made white (the d12 red or blue, the tens die pink); a d20 is turned orange, so no two dice types share a colour.
+- A d4 is read at its top vertex, so it is drawn looking at that vertex, the number three times, turned a little off the
+  camera axis (`tilt4` in the page) so one of the three faces shows more.
+- The d100's two dice sit close together (`x=±0.43` in `render.py`).
 - Numerals that came out wrong in the automatic calibration were set by hand in `roll_offsets.json`: the d12's 10
-  and 11, the d100's 10 and 20.
+  and 11, the d100's 10 and 20. The d10's 0 and the tens die's 00 are symmetric, so the calibration could not tell their
+  turn: they were drawn upside down (the numeral in the top of the face, the point down) until v4.2.6 turned them by 180°.
+  Look at the contact sheet of a die's stills for such a face.
 
 ## Licences of what it fetches
 

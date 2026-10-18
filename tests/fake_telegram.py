@@ -206,9 +206,9 @@ class FakeTelegram(BaseRequest):
             "chat": self.chat(m.chat_id).to_dict(),
             "from": m.sender,
         }
-        if m.kind == "text" and "sticker" not in m.extra and "photo" not in m.extra:
+        if m.kind == "text" and not {"sticker", "photo", "document"} & m.extra.keys():
             d["text"] = m.text
-        for key in ("sticker", "photo", "caption"):
+        for key in ("sticker", "photo", "document", "caption"):
             if key in m.extra:
                 d[key] = m.extra[key]
         if m.markup and "inline_keyboard" in m.markup:
@@ -594,13 +594,14 @@ class FakeTelegram(BaseRequest):
             "new_chat_members",
             "sticker",
             "photo",
+            "document",
             "caption",
             "community_chat_added",
             "community_chat_removed",
         ):
             if key in m.extra:
                 d[key] = m.extra[key]
-                if key in ("sticker", "photo"):
+                if key in ("sticker", "photo", "document"):
                     d.pop("text", None)
         return {"update_id": next(self._update_id), "message": d}
 

@@ -32,8 +32,6 @@ class YourData:
                 "commands.export",
                 uk="aliases.export",
                 scope="private",
-                help="help.export",
-                section="you",
             ),
             Command("forgetme", self.forget_command, "commands.forgetme", uk="aliases.forgetme", scope="private"),
         ]

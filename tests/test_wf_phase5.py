@@ -141,7 +141,7 @@ async def test_a08_sticker_gone_from_the_pack(make):
     question = h.dms(DAN)[-1]
     assert "більше немає у вашому наборі" in question.text  # asked privately, not in the group
     await h.say(DAN, "", DAN.id, sticker=CAT)
-    assert "Стікер оновлено" in h.dms(DAN)[-1].text
+    assert "Картинку оновлено" in h.dms(DAN)[-1].text
     await h.reply(DAN, await h.say(BOB, "привіт"), "/award Нічна сова")
     assert h.calls("getFile")[-1]["file_id"] == "CAT_FILE"  # the new sticker is the card's icon
     assert not h.calls("sendSticker")
@@ -157,13 +157,14 @@ async def test_a08b_sticker_gone_admin_without_private_chat(make):
     question = h.last_public()
     assert "більше немає в наборі" in question.text
     answer = await h.say(DAN, "", reply_to=question, sticker=CAT)
-    assert question.deleted and answer.deleted and "Стікер оновлено" in h.last_private(DAN).text
+    assert question.deleted and answer.deleted and "Картинку оновлено" in h.last_private(DAN).text
     await h.close()
 
 
 async def test_a09_create_in_private(make):
     h = await make()
     await h.say(DAN, "hi")  # the registry knows the group
+    await h.dm(DAN, "/newachievement")
     await h.say(DAN, "", DAN.id, sticker=OWL)
     question = h.dms(DAN)[-1]
     assert "Як назвати досягнення" in question.text
@@ -179,6 +180,7 @@ async def test_a10_private_with_two_chats(make):
     h.fake.chats[OTHER] = Chat(OTHER, title="Second", roles={DAN.id: "administrator"})
     await h.say(DAN, "hi")
     await h.say(DAN, "hi", chat=OTHER)
+    await h.dm(DAN, "/newachievement")
     await h.say(DAN, "", DAN.id, sticker=OWL)
     await h.dm(DAN, "Сова", reply_to=h.dms(DAN)[-1])
     pick = h.dms(DAN)[-1]
@@ -191,11 +193,60 @@ async def test_a10_private_with_two_chats(make):
     await h.close()
 
 
-async def test_a11_not_from_a_pack(make):
+async def test_a11_a_sticker_outside_a_pack_is_a_picture_like_any_other(make):
     h = await make()
     sticker = await h.say(DAN, "", sticker=LOOSE)
     await h.reply(DAN, sticker, "/newachievement Щось")
-    assert "не з набору" in h.last_private(DAN).text
+    assert "«Щось» створено" in h.last_private(DAN).text
+    await h.close()
+
+
+async def test_a11b_a_sticker_sent_to_the_bot_starts_nothing(make):
+    h = await make()
+    await h.say(DAN, "hi")
+    before = len(h.dms(DAN))
+    await h.say(DAN, "", DAN.id, sticker=OWL)
+    await h.say(DAN, "", DAN.id, sticker=LOOSE)
+    assert len(h.dms(DAN)) == before  # no question about a name
+    await h.say(ALICE, "/achievements")
+    assert "Досягнень ще немає" in h.last_public().text
+    await h.close()
+
+
+PHOTO = [{"file_id": "PH_S", "file_unique_id": "ph-s", "width": 90, "height": 90},
+         {"file_id": "PH_L", "file_unique_id": "ph-l", "width": 800, "height": 800}]  # fmt: skip
+IMAGE_FILE = {"file_id": "IMG_FILE", "file_unique_id": "img", "mime_type": "image/png", "file_name": "owl.png",
+              "file_size": 1000}  # fmt: skip
+
+
+async def test_a11c_a_photo_or_an_image_file_makes_an_achievement(make):
+    h = await make()
+    photo = await h.say(DAN, "", photo=PHOTO)
+    await h.reply(DAN, photo, "/newachievement Фотограф — знімає все")
+    image = await h.say(DAN, "", document=IMAGE_FILE)
+    await h.reply(DAN, image, "/newachievement З файлу")
+    document = await h.say(DAN, "", document={**IMAGE_FILE, "mime_type": "application/pdf"})
+    await h.reply(DAN, document, "/newachievement Не картинка")
+    store = h.tbot.module("achievements").store
+    owner = await h.tbot.module("achievements").owner(GROUP)
+    made = {a.name: a for a in await store.of_owner(owner)}
+    assert set(made) == {"Фотограф", "З файлу"} and "Відповідайте" in h.last_private(DAN).text
+    assert (made["Фотограф"].sticker_set, made["Фотограф"].sticker_file_id) == (None, "PH_L")  # the biggest size
+    await h.say(ALICE, "hi")
+    reply = await h.say(ALICE, "hello")
+    await h.reply(DAN, reply, "/award Фотограф")
+    assert h.calls("getFile")[-1]["file_id"] == "PH_L"  # the photo is the card's icon, with no pack to check
+    assert not [c for c in h.calls("getStickerSet") if c["name"] == "None"]
+    await h.close()
+
+
+async def test_a11d_create_in_private_with_a_photo_and_the_name_in_the_command(make):
+    h = await make()
+    await h.say(DAN, "hi")
+    await h.dm(DAN, "/newachievement Нічна сова — пише після півночі")
+    assert "картинку" in h.dms(DAN)[-1].text
+    await h.say(DAN, "", DAN.id, photo=PHOTO)
+    assert "«Нічна сова» створено" in h.dms(DAN)[-1].text
     await h.close()
 
 

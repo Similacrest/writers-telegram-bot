@@ -1,20 +1,21 @@
 """Achievements on Telegram (PLAN phase 5).
 
-* **Creating**: a chat admin replies to a sticker from their pack with ``/newachievement Назва — опис``,
-  or sends the sticker to the bot in private (the bot asks for the name, and for the chat if they
-  administer several).
+* **Creating**: a chat admin replies to a sticker, a photo or an image file with ``/newachievement Назва — опис``,
+  or sends ``/newachievement`` to the bot in private (the bot asks for the image or sticker, the name, and the
+  chat if they administer several). A sticker alone, sent to the bot, starts nothing.
 * **Awarding**: reply to a member's message with ``/award`` (alias ``/нагорода``) and pick from buttons,
   or ``/award Назва``; ``/unaward`` takes it back. The bot posts one picture, an "achievement unlocked"
   card with the sticker as its icon (:mod:`.render`), with one line as its caption.
 * **Listing**: ``/achievements`` in a group is the community's board (a picture: who has the most) with the
   list as its caption; ``/achievements мої`` (or as a reply to someone) is a person's collection, the
   achievements they don't have yet greyed out. In the private chat it is your own collection.
-* Before awarding, the bot checks the pack (``getStickerSet``); if the sticker is gone, the achievement keeps
-  its name (the card gets a drawn medal) and the awarding admin is asked for a new sticker.
+* Before awarding, the bot checks the pack (``getStickerSet``) of an achievement made from a pack's sticker; if the
+  sticker is gone, the achievement keeps its name (the card gets a drawn medal) and the awarding admin is asked for
+  a new picture. An achievement made from a photo or an image file keeps the picture by its ``file_id``.
 
-Outside creating one, the raw sticker is never posted.
+Outside creating one, the raw picture is never posted.
 
-The admins own the sticker pack and manage it through @Stickers; the bot only remembers which sticker means
+The admins own their sticker packs and manage them through @Stickers; the bot only remembers which picture means
 which achievement. Achievements belong to the community where there is one, otherwise to the chat.
 """
 
@@ -47,6 +48,7 @@ ICON_CACHE = 300
 COLLECTION_MAX = 30
 CAPTION_MAX = 1024
 PENDING_TTL = 10 * 60
+MAX_IMAGE = 10 * 1024 * 1024  # an image file bigger than this is not taken (the cards are small)
 SEPARATOR = re.compile(r"\s+[—–-]\s+|\n")
 
 
@@ -89,20 +91,22 @@ class Module(TelegramModule):
         return [
             Command(
                 "award", self.award_command, "commands.award", uk="aliases.award", scope="chat_admin",
-                help="help.award", when=self._on_here,
+                usage="help.usage_award", when=self._on_here,
             ),
-            Command("unaward", self.unaward_command, None, scope="chat_admin", when=self._on_here),
+            Command(
+                "unaward", self.unaward_command, "commands.unaward", scope="chat_admin", menu=False,
+                usage="help.usage_award", when=self._on_here,
+            ),
             Command(
                 "newachievement", self.new_command, "commands.newachievement", scope="chat_admin",
-                help="help.newachievement", when=self._on_here,
+                usage="help.usage_newachievement", when=self._on_here,
             ),
             Command(
-                "achievements", self.list_command, "commands.achievements", help="help.achievements",
-                section="achievements", when=self._on_here,
+                "achievements", self.list_command, "commands.achievements", usage="help.usage_achievements",
+                when=self._on_here,
             ),
             Command(
-                "myachievements", self.mine_command, "commands.myachievements", help="help.myachievements",
-                section="achievements", when=self._on_here,
+                "myachievements", self.mine_command, "commands.myachievements", when=self._on_here,
             ),
         ]  # fmt: skip
 
@@ -114,7 +118,6 @@ class Module(TelegramModule):
             return []
         return [
             (MessageHandler(_Waiting(self) & ~filters.COMMAND, self.on_input), 0),
-            (MessageHandler(filters.ChatType.PRIVATE & filters.Sticker.ALL, self.on_private_sticker), 0),
             # who is who, for /achievements <name>: its own group, so it never stops other handlers
             (MessageHandler(filters.ChatType.GROUPS & filters.ALL, self.note_user), 6),
         ]
@@ -155,98 +158,121 @@ class Module(TelegramModule):
         return parts[0], (parts[1] if len(parts) > 1 else None)
 
     @staticmethod
-    def _sticker(message: Message | None):
-        return message.sticker if message is not None and message.sticker is not None else None
+    def _media(message: Message | None) -> tuple[str | None, str, str] | None:
+        """The picture of a message as (sticker pack or None, file_unique_id, file_id): a sticker, a photo (its
+        biggest size) or an image file. A sticker outside a pack that is animated has only its thumbnail to offer."""
+        if message is None:
+            return None
+        if (sticker := message.sticker) is not None:
+            if sticker.set_name:
+                return sticker.set_name, sticker.file_unique_id, sticker.file_id
+            source = sticker.thumbnail if (sticker.is_animated or sticker.is_video) else sticker
+            return (None, source.file_unique_id, source.file_id) if source is not None else None
+        if message.photo:
+            photo = message.photo[-1]
+            return None, photo.file_unique_id, photo.file_id
+        document = message.document
+        if (
+            document is not None
+            and (document.mime_type or "").startswith("image/")
+            and (document.file_size or 0) <= MAX_IMAGE
+        ):
+            return None, document.file_unique_id, document.file_id
+        return None
 
     # --- creating ----------------------------------------------------------------------------------
 
     async def new_command(self, update: Update, _context) -> None:
-        """/newachievement Назва — опис, as a reply to a sticker from the admins' pack."""
+        """/newachievement Назва — опис, as a reply to a sticker, a photo or an image file (in private: the steps)."""
         message = update.effective_message
         f = self.bot.fmt
+        name, description = self._split(command_args_text(message))
         if message.chat.type == ChatType.PRIVATE:
-            await message.reply_html(f.t("achievements.dm_how"))
+            await self._start_private(message, name, description)
             return
         if not await self.bot.is_chat_admin(message.chat, message.from_user.id):
             await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
-        sticker = self._sticker(message.reply_to_message)
-        name, description = self._split(command_args_text(message))
-        if sticker is None or not name:
+        media = self._media(message.reply_to_message)
+        if media is None or not name:
             await self.bot.asks.respond(message, f.t("achievements.new_usage"), delete_command=True)
             return
-        await self.create(message, message.chat_id, name, description, sticker)
+        await self.create(message, message.chat_id, name, description, media)
 
-    async def create(self, message: Message, chat_id: int, name: str, description: str | None, sticker) -> None:
+    async def create(self, message: Message, chat_id: int, name: str, description: str | None, media) -> None:
         f = self.bot.fmt
-        if not sticker.set_name:
-            await self.bot.asks.respond(message, f.t("achievements.not_from_a_pack"), delete_command=True)
-            return
         try:
             achievement = await self.store.create(
-                await self.owner(chat_id),
-                name,
-                description,
-                (sticker.set_name, sticker.file_unique_id, sticker.file_id),
-                str(message.from_user.id),
+                await self.owner(chat_id), name, description, media, str(message.from_user.id)
             )
         except ValueError:
             await self.bot.asks.respond(message, f.t("achievements.duplicate", name=name), delete_command=True)
             return
         await self.bot.asks.respond(message, f.t("achievements.created", name=achievement.name), delete_command=True)
 
-    async def on_private_sticker(self, update: Update, _context) -> None:
-        await self._start_private(update.effective_message)
-
-    async def _start_private(self, message: Message) -> None:
+    async def _start_private(self, message: Message, name: str = "", description: str | None = None) -> None:
+        """/newachievement in private: ask for the picture (and the name, if the command had none)."""
         f = self.bot.fmt
-        sticker = message.sticker
-        pending = self._dm.get(message.from_user.id)
-        if pending and pending.get("replace") and time.monotonic() - pending["since"] < PENDING_TTL:
-            if not sticker.set_name:
-                await message.reply_html(f.t("achievements.not_from_a_pack"))
-                return
-            self._dm.pop(message.from_user.id)
-            await self.store.update(
-                pending["replace"],
-                sticker_set=sticker.set_name,
-                sticker_unique_id=sticker.file_unique_id,
-                sticker_file_id=sticker.file_id,
-            )
-            await message.reply_html(f.t("achievements.sticker_replaced"))
-            return
-        if not sticker.set_name:
-            await message.reply_html(f.t("achievements.not_from_a_pack"))
-            return
         chats = await self.bot.admin_chats(message.from_user.id)
         if not chats:
             await message.reply_html(f.t("achievements.no_chats"))
             return
-        self._dm[message.from_user.id] = {"sticker": sticker, "chats": chats, "since": time.monotonic(), "name": None}
+        self._dm[message.from_user.id] = {
+            "media": None, "chats": chats, "since": time.monotonic(), "name": name or None, "description": description,
+        }  # fmt: skip
+        await message.reply_html(
+            f.t("achievements.dm_how"),
+            reply_markup=ForceReply(input_field_placeholder=t("achievements.image_placeholder")),
+        )
+
+    async def _take_image(self, message: Message, media) -> None:
+        """A picture sent in private while the bot waits for one: the new picture of an achievement, or the
+        picture of the one being made (then its name, or the chat, is next)."""
+        f = self.bot.fmt
+        pending = self._dm[message.from_user.id]
+        if pending.get("replace"):
+            self._dm.pop(message.from_user.id)
+            await self.store.update(
+                pending["replace"], sticker_set=media[0], sticker_unique_id=media[1], sticker_file_id=media[2]
+            )
+            await message.reply_html(f.t("achievements.sticker_replaced"))
+            return
+        pending["media"] = media
+        if pending.get("name"):
+            await self._choose_chat(message, pending)
+            return
         await message.reply_html(
             f.t("achievements.ask_name"),
             reply_markup=ForceReply(input_field_placeholder=t("achievements.name_placeholder")),
         )
 
+    async def _choose_chat(self, message: Message, pending: dict) -> None:
+        """Everything is known but the chat: the only one is taken, else the admin picks."""
+        if len(pending["chats"]) == 1:
+            self._dm.pop(message.from_user.id)
+            await self.create(
+                message, pending["chats"][0]["id"], pending["name"], pending.get("description"), pending["media"]
+            )
+            return
+        rows = [[button(c["title"], message.from_user.id, f"ac:mk:{c['id']}")] for c in pending["chats"][:8]]
+        await message.reply_html(self.bot.fmt.t("achievements.which_chat"), reply_markup=InlineKeyboardMarkup(rows))
+
     async def on_input(self, update: Update, _context) -> None:
         message = update.effective_message
         if message.chat.type == ChatType.PRIVATE:
-            await self._private_name(message)
+            await self._private_input(message)
             return
         pending = self._prompts.pop((message.chat.id, message.reply_to_message.message_id))
         if pending["admin"] != message.from_user.id:
             self._prompts[(message.chat.id, message.reply_to_message.message_id)] = pending
             return
-        sticker = message.sticker
-        if sticker is None or not sticker.set_name:
-            await self.bot.asks.respond(message, self.bot.fmt.t("achievements.not_from_a_pack"), ttl=60)
+        media = self._media(message)
+        if media is None:
+            await self.bot.asks.respond(message, self.bot.fmt.t("achievements.send_an_image"), ttl=60)
             self._prompts[(message.chat.id, message.reply_to_message.message_id)] = pending
             return
         await self.store.update(
-            pending["achievement"],
-            sticker_set=sticker.set_name,
-            sticker_unique_id=sticker.file_unique_id,
-            sticker_file_id=sticker.file_id,
+            pending["achievement"], sticker_set=media[0], sticker_unique_id=media[1], sticker_file_id=media[2]
         )
         with contextlib.suppress(TelegramError):
             await message.reply_to_message.delete()
@@ -255,26 +281,23 @@ class Module(TelegramModule):
                 await message.delete()
         await self.bot.asks.respond(message, self.bot.fmt.t("achievements.sticker_replaced"), ttl=60)
 
-    async def _private_name(self, message: Message) -> None:
+    async def _private_input(self, message: Message) -> None:
+        """What the admin sends in private while the bot waits for a picture or a name."""
         f = self.bot.fmt
         pending = self._dm[message.from_user.id]
-        if message.sticker is not None:  # a sticker: the replacement, or start over with it
-            await self._start_private(message)
+        media = self._media(message)
+        if media is not None:  # a picture: the one asked for, or another one instead
+            await self._take_image(message, media)
             return
-        if pending.get("replace"):
-            await message.reply_html(f.t("achievements.send_a_sticker"))
+        if pending.get("replace") or pending["media"] is None:
+            await message.reply_html(f.t("achievements.send_an_image"))
             return
         name, description = self._split(message.text or "")
         if not name:
             await message.reply_html(f.t("achievements.ask_name"), reply_markup=ForceReply())
             return
         pending["name"], pending["description"] = name, description
-        if len(pending["chats"]) == 1:
-            self._dm.pop(message.from_user.id)
-            await self.create(message, pending["chats"][0]["id"], name, description, pending["sticker"])
-            return
-        rows = [[button(c["title"], message.from_user.id, f"ac:mk:{c['id']}")] for c in pending["chats"][:8]]
-        await message.reply_html(f.t("achievements.which_chat"), reply_markup=InlineKeyboardMarkup(rows))
+        await self._choose_chat(message, pending)
 
     # --- awarding ----------------------------------------------------------------------------------
 
@@ -348,29 +371,43 @@ class Module(TelegramModule):
             return None
         return next((s for s in pack.stickers if s.file_unique_id == achievement.sticker_unique_id), None)
 
-    async def sticker_ok(self, achievement) -> bool:
-        """Is the sticker still in the admins' pack?"""
-        return await self._in_pack(achievement, fresh=True) is not None
-
-    async def icon(self, achievement, *, fresh: bool = False) -> bytes | None:
-        """The picture of the achievement's sticker (a static sticker itself, or an animated one's thumbnail),
-        for the cards; None draws a medal instead."""
+    async def _source(self, achievement, *, fresh: bool = False) -> tuple[str, str | None] | None:
+        """What draws the achievement's picture, as (file_unique_id, file_id to download or None); None when it is
+        gone. A photo or image file is kept by its file id; a sticker of a pack must still be in it (an animated one is
+        drawn from its thumbnail)."""
+        if not achievement.sticker_file_id:
+            return None
+        if not achievement.sticker_set:
+            return achievement.sticker_unique_id or achievement.sticker_file_id, achievement.sticker_file_id
         sticker = await self._in_pack(achievement, fresh=fresh)
         if sticker is None:
             return None
-        if sticker.file_unique_id in self._icons:
-            return self._icons[sticker.file_unique_id]
         source = sticker.thumbnail if (sticker.is_animated or sticker.is_video) else sticker
+        return sticker.file_unique_id, source.file_id if source is not None else None
+
+    async def sticker_ok(self, achievement) -> bool:
+        """Is the picture still there (a sticker still in the admins' pack)?"""
+        return await self._source(achievement, fresh=True) is not None
+
+    async def icon(self, achievement, *, fresh: bool = False) -> bytes | None:
+        """The achievement's picture for the cards (a static sticker itself, an animated one's thumbnail, a photo);
+        None draws a medal instead."""
+        source = await self._source(achievement, fresh=fresh)
+        if source is None:
+            return None
+        unique_id, file_id = source
+        if unique_id in self._icons:
+            return self._icons[unique_id]
         data = None
-        if source is not None:
+        if file_id is not None:
             try:
-                file = await self.bot.app.bot.get_file(source.file_id)
+                file = await self.bot.app.bot.get_file(file_id)
                 data = bytes(await file.download_as_bytearray())
             except TelegramError as e:
-                logger.info("no picture for sticker %s: %s", sticker.file_unique_id, e)
+                logger.info("no picture for achievement picture %s: %s", unique_id, e)
         if len(self._icons) >= ICON_CACHE:
             self._icons.pop(next(iter(self._icons)))
-        self._icons[sticker.file_unique_id] = data
+        self._icons[unique_id] = data
         return data
 
     def _date(self, when) -> str:
@@ -526,9 +563,12 @@ class Module(TelegramModule):
             await query.answer()
             try:
                 achievement = await self.store.create(
-                    await self.owner(chat_id), pending["name"], pending.get("description"),
-                    (pending["sticker"].set_name, pending["sticker"].file_unique_id, pending["sticker"].file_id), str(query.from_user.id),
-                )  # fmt: skip
+                    await self.owner(chat_id),
+                    pending["name"],
+                    pending.get("description"),
+                    pending["media"],
+                    str(query.from_user.id),
+                )
             except ValueError:
                 await self.bot.asks.edit(sent, f.t("achievements.duplicate", name=pending["name"]))
                 return

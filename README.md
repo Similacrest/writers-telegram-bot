@@ -20,9 +20,9 @@ a comment saying where it appears; edit them there.
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | `stickers` (animated dice stickers, see below) | a super-admin to own the sticker packs, for `stickers` | `/d20`, `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`, `/d100`: [notation](#dice) |
+| `dice` | `stickers`, `packs`, `max_stickers` (animated dice stickers, see below), `commands` (a command per die in the menu, default on; off in the environment without `PREVIEW_FEATURES`); `randomness`, `random_org_key` (true random dice) | the two sticker packs, made once with `scripts/upload_dice_packs.py`, for `stickers`; a random.org API key for `randomness` | a command for each die (`/d2`, `/d4`, `/d6`, `/d8`, `/d10`, `/d12`, `/d20`, `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
-| `achievements` | | storage | Achievements made from the admins' sticker pack: `/newachievement` (reply to a sticker, or send one in private), `/award` (`/нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
+| `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
 
 At most one bot has storage (the sprints and anything that keeps data about people); the chat registry,
@@ -62,14 +62,19 @@ super-admin tools, your-data commands and the web app live in that bot. Other bo
   days can be marked), completed sprints and minutes, and settings: "hide my numbers", the unit for new works,
   My data (export as a ZIP of CSV files, delete everything). `/export` and `/forgetme` stay as commands.
 - **`/top [days]`**: minutes of completed sprints in this chat; people who hide their numbers aren't on it.
-- **Ukrainian command names** (`/спринт`, `/прогрес`, `/профіль`, `/промпт`, `/картинка`, `/підрахуй`,
-  `/топ`, `/допомога`, `/експорт`, `/забудьмене`) work where the bot sees all messages.
+- **Ukrainian command names** are written with an exclamation mark, `!спринт`, `!прогрес`, `!профіль`, `!промпт`,
+  `!картинка`, `!підрахуй`, `!топ`, `!допомога`, `!експорт`, `!забудьмене`, `!к12` (`/спринт` works too, but `!` is what
+  /help shows and encourages). They work where the bot sees all messages (Telegram doesn't treat Cyrillic as commands).
 
-**`/help`** is built for the person and the chat: only what is on there (a chat with `/top` or achievements
-off doesn't list them), grouped in sections, with the chat's values (its default sprint length, its prompt
-categories), the chat admins' commands only for chat admins and the bot's admin commands only for
-super-admins in the private chat. In a group it is a private answer. The **command menus** follow the same
-rules: one for private chats, one for group members, one for chat admins (`all_chat_administrators`), one for
+**`/help`** is generated from the commands the bot has, for the person and the chat, so a new command or module shows up
+without anyone writing help text. The first page lists the groups (one per module, then "Ваші дані", the chat's
+settings, the bot's admin tools) with their commands' names and a button for each group; a group's page has every
+command in full: its name and arguments, its Ukrainian name, what it does, and for whom (chat admins, bot admins). Only
+what is on there is listed (a chat with `/top` or achievements off doesn't list them), with the chat's values (its
+default sprint length, its prompt categories), the chat admins' commands only for chat admins and the bot's admin
+commands only for super-admins in the private chat. In a group it is a private answer. (A bot without the redesign, as in the environment without `PREVIEW_FEATURES`, keeps
+one flat page without buttons, still generated.) The **command menus** follow
+the same rules: one for private chats, one for group members, one for chat admins (`all_chat_administrators`), one for
 super-admins, and per chat where its settings change them (refreshed when a setting changes).
 
 Private answers in groups are ephemeral messages (Bot API 10.2) where Telegram allows: after a button
@@ -79,10 +84,14 @@ messages whose buttons only that person can press, deleted after a few minutes. 
 
 ### Achievements
 
-Chat admins make achievements from stickers of their own pack and award them by hand. Apart from creating
-one, the raw sticker is never posted; the bot draws game-style pictures (Pillow, with the bundled DejaVu
-Sans font) with the sticker as the icon (an animated sticker's thumbnail; a drawn medal if the sticker is
-gone):
+Chat admins make achievements from a picture (a sticker, a photo or an image file) and award them by hand. To make
+one, reply to the picture with `/newachievement Назва — опис`, or send `/newachievement` to the bot in private: it asks
+for the picture, the name (unless the command had it) and, for an admin of several chats, the chat. A sticker or a photo
+sent to the bot on its own starts nothing. Apart from creating one, the raw picture is never posted; the bot draws
+game-style pictures (Pillow, with the bundled DejaVu Sans font) with the picture as the icon (an animated sticker's
+thumbnail; a drawn medal if a pack's sticker is gone or the file cannot be read). A sticker of a pack is checked in its
+pack before each award (the admin is asked for a new picture if it was removed); a photo or an image file is kept by its
+`file_id`:
 
 - **Awarding** posts one picture, "Досягнення отримано" with the name, description, who, when and how many
   have it, captioned "Alice отримує «Нічна сова»".
@@ -96,13 +105,15 @@ gone):
 
 Rolls use the [d20](https://pypi.org/project/d20/) library's notation (the one Avrae uses), with the v2
 forms still accepted. A command that starts with dice (`/d20`, `/2d6+3`) or `/r` / `/roll` and anything
-after it rolls; text after the expression is the caption.
+after it rolls; text after the expression is the caption. Every die also has a command of its own in the menu and
+in /help (`/d2` the coin, `/d4`, `/d6`, `/d8`, `/d10`, `/d12`, `/d20`, `/d100`), and the Ukrainian way works with the
+exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 
 | | v2 (until v4.1) | now |
 |---|---|---|
 | Dice, bonus, caption | `/2d6+3 Атака` | the same; spaces allowed: `/r 2d6 + 3 Атака` |
 | Cyrillic `к` for `d` | `/4к6` | the same |
-| Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same; also `/r 2d20kh1`, `/r 2d20kl1` |
+| Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same; `/2d20kh1` and `/2d20kl1` (with an optional `+N`) mean exactly that, dice stickers included. The die that counts is shown first |
 | Bonus as a letter | `/2d6b2`, `/2d6m1` | the same (read as `+2`, `-1`) |
 | Minimum per die | `/d6mi2`: each die rolled **between** 2 and 6 | `mi2`: each die **raised to** at least 2 (the d20 meaning); negative minimums aren't accepted |
 | Keep / drop | — (the suffix became the caption) | `/4d6kh3`, `kl`, `ph`, `pl`, by comparison `/4d6k>3`, `p<3`, both ends `8d6kh1kl1`; Roll20's `dl`/`dh` read as `pl`/`ph` |
@@ -129,19 +140,37 @@ dust. Which sticker a die gets (`core/dicestickers.py`):
 - **Advantage.** `/d20adv`: both d20s land; the larger one has the advantage look (a quiet green halo), the smaller one is
   plain; with `dis` the smaller one has the disadvantage look (magenta) and the larger one is plain. A tie, and a 1 or
   20 (they are the plain d20's crits), are plain. A d12 works the same way, in blue for advantage and red for disadvantage.
-- **The d12** on its own is red from 1 to 6 and blue from 7 up; a 1 is the red disadvantage 1 and a 12 the blue
-  advantage 12, which carry the crit effects.
+- **The d12** is blue, except for its red 1. On its own, a 1 is the red disadvantage 1 and a 12 the blue advantage 12,
+  which carry the crit effects. Every die type has a colour of its own: d4 purple, d6 red, d8 grey, d10 green, d12 blue
+  (red for a 1 and for the second duality die), d20 orange, d100 pink tens die and a green d10, the coin silver.
 - **Daggerheart's duality dice** (`/2d12`): the first d12 is blue, the second red. If the blue one is larger it is from the
   blue advantage set, if the red one is larger from the red disadvantage set, and on a tie both are; a die showing 1 or 12
   is the crit-less version (crits work differently there). A d6 for advantage (`/2d12+d6 -s`) is crit-less too.
 
-The bot uploads the packs once at start, `dice1_v3_by_<bot username>` and `dice2_v3_by_<bot username>`, owned by the
-super-admin with the lowest id (Telegram wants a person as a pack's owner), and sends the stickers by file id. It finds
-a sticker by its place in the pack and checks the packs against the manifest at every start (a pack put out of order is
-made again; one that is short, from an interrupted upload, is finished). Each sticker has emoji and search keywords for people (see
-`scripts/dice_render/tags.py`): the die's marker first (🧊 d20, 🕛 d12, 💯 d100 ...), then 🌟 crit, 💀 fumble, 🟢
-advantage, 🟣 disadvantage, 🔴 / 🔵 for the d12's colour, ⬆️ / ⬇️ for the highest and lowest roll and the value's digits;
-the search finds `d20 17`.
+**The packs are shared, and the bot never uploads them.** Telegram wants a bot-made pack's name to end in
+`_by_<username of the bot that made it>`, so make the packs with a bot of their own, once, with the helper script (the
+owner is a person who has started that bot):
+
+```
+TELEGRAM_TOKEN=<token of the dice bot> uv run python scripts/upload_dice_packs.py --owner <user id>
+```
+
+It makes `dice1_by_<bot>` and `dice2_by_<bot>` (no version in the names; a complete pack is left alone, a broken one is made
+again with `--replace`) and prints the line for the bots' configs. Every bot with stickers names the same two packs:
+`dice = { stickers = true, packs = ["dice1_by_dicebot", "dice2_by_dicebot"] }` (names or `t.me/addstickers/…` links), or
+`DICE_PACKS=dice1_by_dicebot,dice2_by_dicebot` in the environment. At start a bot reads the packs, checks them against the
+manifest (a pack with the wrong number of stickers, or put out of order, is not used, with a warning in the log) and then
+sends the stickers by file id, finding a sticker by its place in the pack. Without `packs`, rolls come as text only. Each
+sticker has emoji and search keywords for people (see `scripts/dice_render/tags.py`): the die's marker first (🧊 d20, 🕛 d12,
+💯 d100 ...), then 🌟 crit, 💀 fumble, 🟢 advantage, 🟣 disadvantage, 🔴 / 🔵 for the d12's colour, ⬆️ / ⬇️ for the highest and
+lowest roll and the value's digits; the search finds `d20 17`.
+
+**True randomness** (`dice = { randomness = "random.org", random_org_key = "env:RANDOM_ORG_KEY" }`; in the environment
+`DICE_RANDOMNESS=random.org` and `RANDOM_ORG_KEY`). The dice then come from [random.org](https://www.random.org/)'s
+atmospheric noise instead of Python's generator. The bot keeps a pool of 1 KiB fetched with the JSON-RPC API
+(`generateBlobs`; a free key is 1000 requests and 250 000 bits a day, so about 30 refills) and tops it up in the
+background; a roll never waits for the network. If the pool is empty (random.org is down or the quota is spent) the roll
+uses the operating system's cryptographic generator and the log says so once. The default is `"pseudo"`.
 
 ### Chat settings and communities (v4.0)
 
@@ -184,8 +213,7 @@ down) everything works in chat and the buttons are hidden.
 
 Setup (ops): public HTTPS to the web app's port, the bot's Main Mini App set to the URL in @BotFather
 (Mini App methods only work on that domain since Bot API 10.2), and the domain set with `/setdomain` for
-Telegram Login (the widget's redirect flow: Telegram sends the browser back to the web app's own `/` with the user in the query string,
-which the page posts to `/api/session` and removes from the address bar; the page's CSP has no `unsafe-eval` or `unsafe-inline` for scripts). Discord sign-in needs `web.discord_client_id` and `web.discord_client_secret` (or
+Telegram Login. Discord sign-in needs `web.discord_client_id` and `web.discord_client_secret` (or
 `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`) and the redirect `https://<web url>/auth/discord/callback`.
 
 ### Admin: chats and broadcasts (super-admins, private chat)
@@ -247,6 +275,8 @@ its own container from the same image if you like.
 | `BOT_SUPERADMINS` | empty | Comma-separated user ids with admin rights everywhere |
 | `ALLOWED_CHATS` | empty = all chats | Comma-separated group/channel ids the bot answers in |
 | `EXTRAS` | off | Adds the `dice`, `smash`, `greeter` (from the sheet) and `replies` (legacy) modules |
+| `DICE_PACKS` | empty | The two dice sticker packs (names or links, comma-separated), for the dice stickers (`PREVIEW_FEATURES`) |
+| `DICE_RANDOMNESS`, `RANDOM_ORG_KEY` | `pseudo` | `random.org` and a key: true random dice |
 | `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set |
 | `PREVIEW_FEATURES` | off | The redesigned sprints (reports, works, %), the admin tools, the web app, and the Discord bot |
 | `WEB_APP_URL`, `WEB_APP_SECRET`, `WEB_APP_LISTEN` | off | The web app, with `PREVIEW_FEATURES` |

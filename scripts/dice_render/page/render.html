@@ -135,6 +135,15 @@ function tintMarble(img, mesh, rgb) {
   return c;
 }
 
+// a die of a theme colour that clashes with another die's: turn the marble's hue (the numerals are white, they stay)
+function hueMarble(img, deg) {
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const c = canvasOf(w, h), g = c.getContext("2d");
+  g.filter = `hue-rotate(${deg}deg)`;
+  g.drawImage(img, 0, 0);
+  return c;
+}
+
 // The texture is two layers (prep_atlas.py): the marble, and the numerals as crisp white ink. Every numeral is faded
 // except those of the rolled face; the colours stay.
 const FADE = 0.3;
@@ -158,6 +167,9 @@ function composeAtlas(marble, ink, mesh, tris, gold) {
   g.drawImage(keep, 0, 0);
   return base.toDataURL("image/png");
 }
+
+// a d4 is turned a little off the camera axis, so one of the faces around its top vertex shows more than the others
+function tilt4() { return B.Quaternion.RotationYawPitchRoll(0.5, 0.3, 0); }
 
 function target(f) {
   // rotation taking the face normal to the camera (-z) and the number's up to +y
@@ -246,12 +258,12 @@ window.setup = async (spec) => {
     const f = face(d.sides, d.value, src, d.roll || 0);
     const dm = mat.clone(`m${k}`);
     if (d.dim !== false) {
-      dm.diffuseTexture = new B.Texture(composeAtlas(d.tint ? tintMarble(atlas, src, d.tint) : atlas, inkImg, src, rolledTris(f, src, [centre.x, centre.y, centre.z], bb.radius), d.gold), scene, false, true);
+      dm.diffuseTexture = new B.Texture(composeAtlas(d.tint ? tintMarble(atlas, src, d.tint) : d.hue ? hueMarble(atlas, d.hue) : atlas, inkImg, src, rolledTris(f, src, [centre.x, centre.y, centre.z], bb.radius), d.gold), scene, false, true);
       dm.diffuseTexture.anisotropicFilteringLevel = 16;
     }
     mesh.material = dm;
     const r = rng(d.seed || 1);
-    items.push({ mesh, d, f, q: target(f), axis: unit([r() - 0.5, r() - 0.5, r() - 0.5]), turns: 1.0 + r() * 0.5, norm: (d.scale || 1) / radius, centre });
+    items.push({ mesh, d, f, q: d.sides === 4 ? tilt4().multiply(target(f)) : target(f), axis: unit([r() - 0.5, r() - 0.5, r() - 0.5]), turns: 1.0 + r() * 0.5, norm: (d.scale || 1) / radius, centre });
   });
   await scene.whenReadyAsync();
   scene.render();

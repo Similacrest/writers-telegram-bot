@@ -474,7 +474,7 @@ help = "Допомога"
 prompt = "Випадковий текстовий промпт"
 image = "Випадковий промпт-зображення"
 count = "Порахувати слова в тексті чи за посиланням"
-sprint = "Почати спринт: /sprint 30 2"
+sprint = "Почати спринт"
 progress = "Записати прогрес або показати свій"
 works = "Над чим пишу: твори й пауза"
 profile = "Мій профіль: твори, цілі, дні поспіль"
@@ -483,27 +483,32 @@ export = "Мої дані у файлі"
 forgetme = "Видалити мої дані"
 smash = "Keyboard smash"
 promptstats = "Кількість промптів"
-reload = "Перезавантажити промпти (адміни)"
+reload = "Перезавантажити промпти з таблиці"
 settings = "Налаштування цього чату"
-suggest = "Запропонувати промпт: /suggest жахи Текст"
+suggest = "Запропонувати промпт"
 review = "Адмін: пропозиції до спільних промптів"
 achievements = "Досягнення: дошка і ваші"
 award = "Нагородити (у відповідь на повідомлення)"
 myachievements = "Мої досягнення"
-newachievement = "Нове досягнення зі стікера"
+newachievement = "Нове досягнення зі стікера чи картинки"
 addprompt = "Додати промпт до набору чату"
 suggestions = "Запропоновані промпти"
+addimage = "Додати картинку до набору чату"
+unaward = "Забрати досягнення"
+# Every die has its own command (/d20): the menu text
+die = "Кинути d{sides}"
 replies = "Відповіді бота в цьому чаті"
 chats = "Адмін: усі чати з ботом"
-broadcast = "Адмін: розсилка (groups / private / all)"
+broadcast = "Адмін: розсилка"
 bcexclude = "Адмін: прибрати чати з розсилок"
 bcinclude = "Адмін: повернути чати до розсилок"
 community = "Адмін: спільноти чатів"
 
 # ------------------------------------------------------------------------------------------------
 [aliases]
-# Ukrainian names of the commands. Telegram doesn't treat Cyrillic as commands, so they only work where
-# the bot sees all messages (privacy mode off, or the bot is an admin). Without the slash.
+# Ukrainian names of the commands, written !команда (/команда works too). Telegram doesn't treat Cyrillic as
+# commands, so they only work where the bot sees all messages (privacy mode off, or the bot is an admin).
+# Without the ! or the slash. /help shows them next to the commands.
 prompt = "промпт"
 image = "картинка"
 count = "підрахуй"
@@ -518,59 +523,61 @@ forgetme = "забудьмене"
 suggest = "запропонуй"
 # The plan gives the admin command /award a Ukrainian name too
 award = "нагорода"
+# The dice: ка for d, as in !к12 (any other dice: !2к6+3, see [dice])
+d2 = "к2"
+d4 = "к4"
+d6 = "к6"
+d8 = "к8"
+d10 = "к10"
+d12 = "к12"
+d20 = "к20"
+d100 = "к100"
 
 # ------------------------------------------------------------------------------------------------
 [help]
 # First line of /help and /start (unless the config sheet has a help_message)
 title = "Бот для письменників"
-# /help is built for the person and the chat: only what is on there, in these sections, with the chat's
-# own values. Section headings:
-section_prompts = "Промпти"
-section_sprints = "Спринти"
-section_progress = "Прогрес і твори"
-section_achievements = "Досягнення"
-section_tools = "Інше"
-section_you = "Ваші дані"
-section_chat_admin = "Для адмінів чату"
-section_bot_admin = "Для адмінів бота"
 # Last line of /help in a group (it is a private answer there)
 more_in_private = "Ваші дані, експорт і налаштування — в особистих з ботом, там /help покаже більше."
-# One line per command; {categories} is the list of this chat's prompt categories
-prompt = "/prompt — випадковий текстовий промпт"
-prompt_categories = "/prompt — випадковий текстовий промпт; /prompt <категорія> — з однієї: {categories}"
-image = "/image — випадковий промпт-зображення"
-image_categories = "/image — випадковий промпт-зображення; /image <категорія>: {categories}"
+# Under the title of /help: the buttons below open a group with every command in it
+intro = "Українські команди пишіть з «!»: !промпт, !спринт 30 (з «/» теж працює). Кнопки нижче — про кожну команду докладно."
+# After a command in /help: its Ukrainian name, "!промпт"
+alias = "(!{alias})"
+# After a command in /help when only some people can use it
+for_chat_admins = "адміни чату"
+for_bot_admins = "адміни бота"
+# The groups of /help, one button each: the bot's modules, then the commands for everyone's data, for the chat and for the bot's admins
+group_prompts = "Промпти"
+group_wordcount = "Підрахунок слів"
+group_sprints = "Спринти і прогрес"
+group_greeter = "Привітання"
+group_dice = "Кубики"
+group_smash = "Різне"
+group_replies = "Відповіді бота"
+group_achievements = "Досягнення"
+group_you = "Ваші дані"
+group_chat = "Налаштування чату"
+group_admin = "Для адмінів бота"
+# What follows a command's name in /help (square brackets: optional); {categories} is the list of this chat's prompt categories
+usage_category = "[категорія: {categories}]"
+usage_addprompt = "категорія текст"
+# {here}: " (тут за замовчуванням 25 хв)" in a chat with its own settings, else nothing (not in the menu: it would give every chat a menu of its own)
+usage_sprint = "[хвилин] [затримка]{here}"
+# {percent}: ", 40%" where % works are on
+usage_progress = "[+400, =5000, посилання{percent}]"
+usage_top = "[днів]"
+usage_count = "[текст чи посилання]"
+usage_award = "[назва]"
+usage_newachievement = "Назва — опис"
+usage_achievements = "[ім'я чи @username]"
+usage_broadcast = "groups|private|all"
 # {categories} when the chat has none yet
 no_categories = "поки немає"
-promptstats = "/promptstats — скільки промптів у наборі"
-reload = "/reload — перечитати промпти з таблиці"
-suggestions = "/suggestions — запропоновані учасниками промпти: прийняти чи відхилити"
-review = "/review — пропозиції чатів до спільних промптів"
-count = "/count — порахувати слова (у відповідь на повідомлення, текст після команди або посилання)"
-# {here}: the chat's own default length (sprint_here) where it has chat settings, else nothing
-sprint = "/sprint [хвилин] [затримка] — спринт{here}, напр. /sprint 30 2"
+# {here}: the chat's own default length where it has chat settings, else nothing
 sprint_here = " (тут за замовчуванням {length} хв)"
-# {percent}: progress_percent where % works are on
-progress = "/progress — записати прогрес (+400, =5000, посилання{percent}) або показати свій"
-progress_percent = ", 40% — виправити свій спринт"
-profile = "/profile — твори, цілі, дні поспіль і налаштування"
-works = "/works — над чим пишете зараз (твори на паузі не беруться в спринти); додати твір — в особистих"
-top = "/top [днів] — хвилини у спринтах за період"
-export = "/export — ваші дані у файлі, /forgetme — видалити їх"
-addprompt = "/addprompt <категорія> <текст> — додати промпт до набору чату (адміни), /addimage — картинку"
-suggest = "/suggest <категорія> <текст> — запропонувати промпт"
-achievements = "/achievements — дошка досягнень; /achievements ім'я чи @username — чиїсь"
-myachievements = "/myachievements — ваші досягнення"
-award = "/award у відповідь на повідомлення — нагородити (/unaward — забрати)"
-newachievement = "/newachievement Назва — опис у відповідь на стікер вашого набору — нове досягнення (або надішліть стікер мені в особисті)"
-settings = "/settings — налаштування цього чату"
-replies = "/replies — свої відповіді бота в цьому чаті"
-chats = "/chats — усі чати з ботом"
-broadcast = "/broadcast groups|private|all — розсилка"
-bcexclude = "/bcexclude, /bcinclude — прибрати чати з розсилок чи повернути"
-community = "/community — спільноти чатів"
-dice = "/d20, /2d6+3 Атака, /r 4d6kh3, /d20adv, /d100 — кинути кубики"
-smash = "/smash — keyboard smash"
+progress_percent = ", 40%"
+# The notation line in the dice group of /help
+dice = "Інші кидки: /2d6+3 Атака, /r 4d6kh3, /d20adv, !2к6+3, !2к20kh1. Кубики з «-s» — до чотирьох стікерів, з «-q» — без."
 
 # ------------------------------------------------------------------------------------------------
 [debug]
@@ -967,7 +974,7 @@ chat_prompts = "Промпти чату"
 chat_prompts_none = "Своїх промптів ще немає."
 submit_shared = "Запропонувати до спільних"
 # The Achievements tab (chat admins)
-achievements_none = "Досягнень ще немає. Створіть: надішліть боту стікер зі свого набору в особисті."
+achievements_none = "Досягнень ще немає. Створіть: /newachievement в особистих з ботом, потім надішліть картинку чи стікер."
 holders = "Мають: {list}"
 description = "Опис"
 image = "картинка"
@@ -1042,22 +1049,23 @@ replies_defaults_help = "Спільні відповіді на фрази й к
 prompts_use_shared = "Спільні промпти"
 prompts_use_shared_help = "Брати промпти й зі спільного набору, не лише з набору чату."
 achievements_enabled = "Досягнення"
-achievements_enabled_help = "Нагороди-стікери від адмінів."
+achievements_enabled_help = "Нагороди-картинки від адмінів."
 
 # ------------------------------------------------------------------------------------------------
 [achievements]
-# Achievements: made and awarded by chat admins; each is a sticker from the admins' own pack
+# Achievements: made and awarded by chat admins; each has a picture: a sticker, a photo or an image file
 # A line in the caption of the /achievements board: "«Нічна сова» — пише після півночі (3)"
 line = "«{name}»{description} ({count})"
-none_yet = "Досягнень ще немає. Адміни створюють їх зі стікера свого набору: /newachievement Назва — опис у відповідь на стікер."
+none_yet = "Досягнень ще немає. Адміни створюють їх із картинки чи стікера: /newachievement Назва — опис у відповідь на стікер, фото чи файл-зображення."
 # /achievements in a private chat, before the first one
 yours_none = "У вас ще немає досягнень."
 # In /profile
 profile = "Досягнення: {list}"
 # Creating
-new_usage = "Відповідайте на стікер зі свого набору: /newachievement Назва — опис (опис не обов'язковий)."
-dm_how = "Надішліть мені стікер зі свого набору, і я спитаю назву досягнення."
-not_from_a_pack = "Цей стікер не з набору. Створіть набір у @Stickers і візьміть стікер звідти."
+new_usage = "Відповідайте на стікер, фото чи файл-зображення: /newachievement Назва — опис (опис не обов'язковий)."
+# In private after /newachievement: the picture comes first, then the name (unless the command had it)
+dm_how = "Надішліть мені картинку для досягнення: стікер, фото чи файл-зображення."
+image_placeholder = "картинка"
 no_chats = "Ви не адмін жодного чату з цим ботом."
 ask_name = "Як назвати досягнення? Можна з описом: Нічна сова — пише після півночі."
 name_placeholder = "Нічна сова"
@@ -1077,11 +1085,11 @@ awarded = "{who} отримує «{achievement}»"
 unawarded = "«{achievement}» забрано в {name}."
 off = "Досягнення в цьому чаті вимкнено (/settings)."
 # The sticker is gone from the admins' pack: a reply question to the awarding admin
-sticker_gone = "{who}, стікера для «{achievement}» більше немає в наборі. Надішліть новий стікер у відповідь на це повідомлення."
-sticker_replaced = "Стікер оновлено."
+sticker_gone = "{who}, стікера для «{achievement}» більше немає в наборі. Надішліть нову картинку чи стікер у відповідь на це повідомлення."
+sticker_replaced = "Картинку оновлено."
 # The same question in the private chat with the admin (preferred: it doesn't clutter the group)
-sticker_gone_dm = "Стікера для «{achievement}» більше немає у вашому наборі, тож на картці досягнення була медаль. Надішліть мені новий стікер з набору."
-sticker_placeholder = "стікер"
+sticker_gone_dm = "Стікера для «{achievement}» більше немає у вашому наборі, тож на картці досягнення була медаль. Надішліть мені нову картинку чи стікер."
+sticker_placeholder = "картинка"
 # --- the pictures (an "achievement unlocked" card, a person's collection, the community's board) ---
 # Small capitals at the top of the award card
 card_label = "Досягнення отримано"
@@ -1109,5 +1117,5 @@ who = "Не знайшов, хто це: «{name}». Спробуйте @usernam
 mine_words = ["мої", "мое", "моє", "me", "mine", "my"]
 # Button in /profile (private chat) that sends your collection
 button = "Мої досягнення"
-# A text instead of the sticker the bot asked for
-send_a_sticker = "Надішліть стікер з набору (не текст)."
+# A text instead of the picture the bot asked for
+send_an_image = "Надішліть картинку: стікер, фото чи файл-зображення (не текст)."

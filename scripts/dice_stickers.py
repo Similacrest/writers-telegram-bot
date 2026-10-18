@@ -7,8 +7,8 @@ its number upright, then holds still for 2 s: Telegram loops stickers and allows
 is the result. The highest result gets golden rays and sparkles, the lowest a heavy landing with a shake, a
 red glow and a puff of dust. A d100 is the two percentile dice landing together:
 a tens d10 (00-90) and a ones d10 (0-9), 00 and 0 being 100; its two d10s are plain except on 01 and 00
-(the d100's lowest and highest), while a d10 on its own has the effects on 1 and 10. The bot uploads them once as its own sticker packs
-(``modules/dice``) and then answers a roll with the sticker of its result.
+(the d100's lowest and highest), while a d10 on its own has the effects on 1 and 10. The bot used them until v4.2.3, when the packs of
+``scripts/dice_render`` replaced them.
 
 Telegram's rules for video stickers: WEBM with VP9, 512 px, at most 3 s and 30 fps, at most 256 KB, no
 sound. Needs ffmpeg with libvpx-vp9 (the ``art`` dependency group brings one):

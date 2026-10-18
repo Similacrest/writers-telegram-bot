@@ -129,6 +129,11 @@ def _check_modules(name: str, modules: dict[str, dict]) -> None:
         bad = set(options) - set(spec.defaults)
         if bad:
             raise ConfigError(f"bot {name}: unknown {module} options {', '.join(sorted(bad))}")
+    dice = modules.get("dice", {})
+    if dice.get("randomness", "pseudo") not in ("pseudo", "random.org"):
+        raise ConfigError(f'bot {name}: dice randomness must be "pseudo" or "random.org"')
+    if dice.get("randomness") == "random.org" and not dice.get("random_org_key"):
+        raise ConfigError(f'bot {name}: dice randomness = "random.org" needs random_org_key (a random.org API key)')
 
 
 def _validate(config: ProcessConfig) -> ProcessConfig:
@@ -149,6 +154,18 @@ def _validate(config: ProcessConfig) -> ProcessConfig:
 # --- from the environment (no config file) ----------------------------------------------------------
 
 
+def _dice_packs() -> list[str]:
+    """DICE_PACKS: the two dice sticker packs (names or t.me/addstickers links), comma-separated."""
+    return [p.strip() for p in os.environ.get("DICE_PACKS", "").split(",") if p.strip()]
+
+
+def _dice_randomness() -> dict:
+    """DICE_RANDOMNESS=random.org with RANDOM_ORG_KEY: true random dice (see the dice module's options)."""
+    if os.environ.get("DICE_RANDOMNESS", "").strip() == "random.org":
+        return {"randomness": "random.org", "random_org_key": os.environ.get("RANDOM_ORG_KEY", "").strip()}
+    return {}
+
+
 def env_modules(extras: bool, preview: bool) -> dict[str, dict]:
     modules: dict[str, dict] = {
         "prompts": {"categories": preview},
@@ -157,7 +174,7 @@ def env_modules(extras: bool, preview: bool) -> dict[str, dict]:
     }
     if extras:
         modules |= {
-            "dice": {"stickers": preview},
+            "dice": {"stickers": preview, "commands": preview, "packs": _dice_packs()} | _dice_randomness(),
             "smash": {},
             "greeter": {"from_sheet": True},
             "replies": {"legacy": True},

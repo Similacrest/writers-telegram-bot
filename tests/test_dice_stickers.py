@@ -86,9 +86,9 @@ def test_a_tie_is_plain():
 
 
 def test_d12_with_advantage_or_disadvantage_works_the_same():
-    assert stickers((12, 5), (12, 9), mode="adv") == ["d12r_5", "d12ba_9"]  # the other die is a plain d12
+    assert stickers((12, 5), (12, 9), mode="adv") == ["d12b_5", "d12ba_9"]  # the other die is a plain d12
     assert stickers((12, 5), (12, 9), mode="dis") == ["d12rd_5", "d12b_9"]
-    assert stickers((12, 12), (12, 3), mode="adv") == ["d12ba_12", "d12r_3"]
+    assert stickers((12, 12), (12, 3), mode="adv") == ["d12ba_12", "d12b_3"]
     assert stickers((12, 1), (12, 8), mode="dis") == ["d12rd_1", "d12b_8"]
     assert stickers((12, 7), (12, 7), mode="adv") == ["d12b_7", "d12b_7"]
 
@@ -98,14 +98,14 @@ def test_a_mode_on_other_dice_is_nothing_special():
     assert stickers((20, 7), (20, 12), (4, 3), mode="adv") == ["d20_7", "d20_12", "d4_3"]  # not a plain pair
 
 
-def test_a_lone_d12_is_red_below_and_blue_above_with_the_crits_from_the_halo_sets():
+def test_a_lone_d12_is_blue_but_for_its_red_1_with_the_crits_from_the_halo_sets():
     assert [stickers((12, v))[0] for v in (1, 2, 6, 7, 11, 12)] == [
-        "d12rd_1", "d12r_2", "d12r_6", "d12b_7", "d12b_11", "d12ba_12",
+        "d12rd_1", "d12b_2", "d12b_6", "d12b_7", "d12b_11", "d12ba_12",
     ]  # fmt: skip
 
 
 def test_more_d12_than_two_or_with_other_dice_have_no_crit_effects():
-    assert stickers((12, 1), (12, 5), (12, 12)) == ["d12r_1", "d12r_5", "d12b_12"]
+    assert stickers((12, 1), (12, 5), (12, 12)) == ["d12r_1", "d12b_5", "d12b_12"]
     assert stickers((20, 8), (12, 12)) == ["d20_8", "d12b_12"]
     assert stickers((12, 1), (4, 2)) == ["d12r_1", "d4_2"]
 
