@@ -232,7 +232,8 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
     board), private ✓ reports on/off, % unit on/off;
   - in the chat: work names on the sprint message, `/top` on/off, deleting report messages;
   - achievements on/off (phase 5).
-  `EXTRAS` features (welcome text, slogans) have no per-chat settings. There is no broadcast opt-out:
+  Module settings such as the greeter's welcome text and the `replies` entries are set by chat admins
+  too. There is no broadcast opt-out:
   `/broadcast` reaches every chat, except that a community gets it only in its largest chat. The sheet
   stays as a one-time import source.
 - **Communities** (Telegram first): `communities` and `community_chats` tables. A chat that belongs to a
@@ -286,7 +287,8 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
     a community; its channels are its chats.
   - **Web app**: the website with Discord OAuth; no Discord Activity.
   - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
-  - `EXTRAS` slogans and welcome messages are not on Discord (they need privileged intents).
+  - Phrase triggers of `replies` and the `greeter` are not on Discord (they need privileged intents);
+    command triggers of `replies` work as slash commands.
 - E1 per-server settings come with phase 4.
 - E2: a Discord server joins a community from phase 4. Linking is done in the web app by someone who is an
   admin on both sides. People link their accounts in the web app too: signing in with both Telegram and
@@ -302,8 +304,8 @@ chat stays quiet. It replaces the preview reporting flow. Before the redesign, t
 ### Architecture: modules
 The bot is built from modules that can be served as one bot or as several, set in a config file.
 - **Modules**: `prompts`, `wordcount`, `sprints` (works are a feature flag of this module), `greeter`
-  (welcome messages), `dice`, `achievements`, `extras` (`/smash`, `/imafan`, slogans, the `/start`
-  greeting). Each one brings
+  (welcome messages, the text a chat setting), `dice`, `smash`, `achievements`, `replies` (below). Each
+  one brings
   its handlers, commands (menu, `/help`, Ukrainian aliases), settings, migrations and web app pages, and
   adds sections to the shared screens (`/me`, `/help`, the board summary line, web app tabs), so a bot
   shows only what its modules do.
@@ -311,6 +313,12 @@ The bot is built from modules that can be served as one bot or as several, set i
   accounts, communities, ephemeral replies, the web app server, admin (chat list, broadcasts) and your
   data (export, deletion).
 - Modules don't call each other; they share only the core and the database.
+- **`replies`** replaces `/imafan` and the slogan replies: chat admins set up triggers and answers in
+  the web app. A trigger is a command (`/imafan` answers with a random text from its list) or a phrase
+  ("Слава Україні" → "Героям слава"). Phrase triggers only work where the bot sees all messages. The
+  `imafan_message` texts and the two slogans are imported as entries for the chats that had them.
+- `EXTRAS` goes away: its features are modules now, and the hard-coded "Я переродився" `/start` greeting
+  is dropped.
 - **Config file** (TOML): each bot names its modules and its targets, Telegram and/or Discord, each with
   its own token:
   ```toml
