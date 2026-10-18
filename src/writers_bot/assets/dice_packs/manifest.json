@@ -1,0 +1,1926 @@
+{
+ "pack1": [
+  {
+   "file": "pack1/d20_1.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_2.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_3.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_4.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_5.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_6.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_7.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_8.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 8,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_9.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 9,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_10.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 10,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_11.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 11,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_12.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 12,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_13.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 13,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_14.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 14,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_15.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 15,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_16.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 16,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_17.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 17,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_18.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 18,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_19.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 19,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20_20.webm",
+   "die": "d20",
+   "variant": "",
+   "value": 20,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_2.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 2,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_3.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 3,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_4.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 4,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_5.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 5,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_6.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 6,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_7.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 7,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_8.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 8,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_9.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 9,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_10.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 10,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_11.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 11,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_12.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 12,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_13.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 13,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_14.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 14,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_15.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 15,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_16.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 16,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_17.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 17,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_18.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 18,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20a_19.webm",
+   "die": "d20",
+   "variant": "a",
+   "value": 19,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_2.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 2,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_3.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 3,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_4.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 4,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_5.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 5,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_6.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 6,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_7.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 7,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_8.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 8,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_9.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 9,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_10.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 10,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_11.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 11,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_12.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 12,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_13.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 13,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_14.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 14,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_15.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 15,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_16.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 16,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_17.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 17,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_18.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 18,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d20d_19.webm",
+   "die": "d20",
+   "variant": "d",
+   "value": 19,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_1.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 1,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_2.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_3.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_4.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_5.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_6.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_7.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_8.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 8,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_9.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 9,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_10.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 10,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_11.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 11,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12r_12.webm",
+   "die": "d12",
+   "variant": "r",
+   "value": 12,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_1.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 1,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_2.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_3.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_4.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_5.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_6.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_7.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_8.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 8,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_9.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 9,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_10.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 10,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_11.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 11,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12b_12.webm",
+   "die": "d12",
+   "variant": "b",
+   "value": 12,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_1.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_2.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 2,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_3.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 3,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_4.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 4,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_5.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 5,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_6.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 6,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_7.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 7,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_8.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 8,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_9.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 9,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_10.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 10,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_11.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 11,
+   "effect": "dis",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12rd_12.webm",
+   "die": "d12",
+   "variant": "rd",
+   "value": 12,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_1.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_2.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 2,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_3.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 3,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_4.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 4,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_5.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 5,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_6.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 6,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_7.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 7,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_8.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 8,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_9.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 9,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_10.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 10,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_11.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 11,
+   "effect": "adv",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d12ba_12.webm",
+   "die": "d12",
+   "variant": "ba",
+   "value": 12,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_1.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_2.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_3.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_4.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_5.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_6.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_7.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_8.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 8,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_9.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 9,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10_10.webm",
+   "die": "d10",
+   "variant": "",
+   "value": 10,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10n_1.webm",
+   "die": "d10",
+   "variant": "n",
+   "value": 1,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d10n_10.webm",
+   "die": "d10",
+   "variant": "n",
+   "value": 10,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d4n_1.webm",
+   "die": "d4",
+   "variant": "n",
+   "value": 1,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d4n_4.webm",
+   "die": "d4",
+   "variant": "n",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d6n_1.webm",
+   "die": "d6",
+   "variant": "n",
+   "value": 1,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack1/d6n_6.webm",
+   "die": "d6",
+   "variant": "n",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  }
+ ],
+ "pack2": [
+  {
+   "file": "pack2/d100_1.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_2.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_3.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_4.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_5.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_6.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_7.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_8.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 8,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_9.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 9,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_10.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 10,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_11.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 11,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_12.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 12,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_13.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 13,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_14.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 14,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_15.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 15,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_16.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 16,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_17.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 17,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_18.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 18,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_19.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 19,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_20.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 20,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_21.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 21,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_22.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 22,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_23.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 23,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_24.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 24,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_25.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 25,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_26.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 26,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_27.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 27,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_28.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 28,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_29.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 29,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_30.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 30,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_31.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 31,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_32.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 32,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_33.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 33,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_34.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 34,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_35.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 35,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_36.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 36,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_37.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 37,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_38.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 38,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_39.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 39,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_40.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 40,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_41.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 41,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_42.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 42,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_43.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 43,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_44.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 44,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_45.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 45,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_46.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 46,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_47.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 47,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_48.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 48,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_49.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 49,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_50.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 50,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_51.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 51,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_52.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 52,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_53.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 53,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_54.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 54,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_55.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 55,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_56.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 56,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_57.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 57,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_58.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 58,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_59.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 59,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_60.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 60,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_61.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 61,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_62.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 62,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_63.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 63,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_64.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 64,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_65.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 65,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_66.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 66,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_67.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 67,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_68.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 68,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_69.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 69,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_70.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 70,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_71.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 71,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_72.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 72,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_73.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 73,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_74.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 74,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_75.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 75,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_76.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 76,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_77.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 77,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_78.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 78,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_79.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 79,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_80.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 80,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_81.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 81,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_82.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 82,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_83.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 83,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_84.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 84,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_85.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 85,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_86.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 86,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_87.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 87,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_88.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 88,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_89.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 89,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_90.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 90,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_91.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 91,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_92.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 92,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_93.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 93,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_94.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 94,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_95.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 95,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_96.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 96,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_97.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 97,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_98.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 98,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_99.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 99,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d100_100.webm",
+   "die": "d100",
+   "variant": "",
+   "value": 100,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d4_1.webm",
+   "die": "d4",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d4_2.webm",
+   "die": "d4",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d4_3.webm",
+   "die": "d4",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d4_4.webm",
+   "die": "d4",
+   "variant": "",
+   "value": 4,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_1.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_2.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_3.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_4.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_5.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d6_6.webm",
+   "die": "d6",
+   "variant": "",
+   "value": 6,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_1.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 1,
+   "effect": "fumble",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_2.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_3.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 3,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_4.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 4,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_5.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 5,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_6.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 6,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_7.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 7,
+   "effect": null,
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d8_8.webm",
+   "die": "d8",
+   "variant": "",
+   "value": 8,
+   "effect": "crit",
+   "emoji": "🎲"
+  },
+  {
+   "file": "pack2/d2_1.webm",
+   "die": "d2",
+   "variant": "",
+   "value": 1,
+   "effect": null,
+   "emoji": "🪙"
+  },
+  {
+   "file": "pack2/d2_2.webm",
+   "die": "d2",
+   "variant": "",
+   "value": 2,
+   "effect": null,
+   "emoji": "🪙"
+  }
+ ]
+}

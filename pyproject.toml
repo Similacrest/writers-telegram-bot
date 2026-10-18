@@ -1,6 +1,6 @@
 [project]
 name = "writers-bot"
-version = "4.2.1"
+version = "4.2.2"
 description = "Telegram (and Discord) bot for writers: prompts, writing sprints with word reports, word counter."
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -29,6 +29,12 @@ writers-bot-discord = "writers_bot.main:main_discord"
 [dependency-groups]
 art = [
     "imageio-ffmpeg>=0.6.0",
+]
+render = [  # scripts/dice_render: the sticker packs, drawn with Babylon.js in headless Chromium
+    "imageio-ffmpeg>=0.6.0",
+    "numpy>=2",
+    "playwright>=1.50",
+    "scipy>=1.14",
 ]
 dev = [
     "pytest>=9.1.1",

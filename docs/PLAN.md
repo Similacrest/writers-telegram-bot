@@ -180,6 +180,22 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
 - A sticker per die for rolls of up to `max_stickers` (4) dice; the dice stickers roll for 0.6 s, then show
   the result still for 2 s.
 
+## Done in v4.2.2: the new dice sticker packs (assets and tools; the bot does not use them yet)
+- `scripts/dice_render/` draws the dice with Babylon.js in headless Chromium (the "Dice of Rolling" theme, posed
+  so the wanted face looks at the camera: nothing is recorded, so every result is exact) and encodes the WEBMs.
+  The third-party files are fetched by `fetch_assets.py` against pinned checksums; see its README.
+- Two packs of 120 video stickers each, in `src/writers_bot/assets/dice_packs` with a `manifest.json` (file, die,
+  variant, value, effect, emoji). **Pack 1:** d20 (with crits), the higher and the lower of two d20s (quiet green
+  / magenta halo, 2 to 19: a tied 1 or 20 is just the plain d20), the d12 in red and blue without crit effects
+  (for Xd12; crits work differently in Daggerheart) and in red-for-lower / blue-for-higher with them (for a
+  lone d12), the d10, and the lowest and highest of the d4, d6 and d10 without crit effects. **Pack 2:** the d100 (a
+  tens die and a d10 landing a moment apart), the d4, d6 and d8 (with crits) and a coin (d2: a 5 kopiyok).
+- Differences from v4.2.1's stickers: white numerals and the die's own colours, with the numerals of the faces
+  that were not rolled faded; crit effects that run through the whole loop and close it; a slower, shorter roll.
+- **Still to do:** the bot still uploads and uses the v4.2.1 packs (`assets/dice`). Using the new ones means
+  two packs instead of one per die, mapping a sticker to a roll through the manifest (including the d12
+  rules above and the d20 advantage / disadvantage), and then dropping `assets/dice` (19 MB).
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own

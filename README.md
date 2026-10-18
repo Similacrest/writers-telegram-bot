@@ -127,6 +127,12 @@ which the `art` dependency group brings) and kept in `src/writers_bot/assets/dic
 its packs (`d20_v2_by_<bot username>` and so on; the number changes with the animations) and uploads the missing ones once, owned by the super-admin
 with the lowest id, as Telegram requires a person as a pack's owner; after that it sends them by file id.
 
+**New dice sticker packs (v4.2.2, not used by the bot yet).** `src/writers_bot/assets/dice_packs` holds two packs of
+120 stickers (pack 1: d20 and the higher / lower of two d20s, the d12 in four colour variants, the d10 and
+non-crit d4 / d6 / d10 extremes; pack 2: d100, d4, d6, d8 and a 5 kopiyok coin as a d2) with a `manifest.json`. They
+are made by `scripts/dice_render` (`uv run --group render python scripts/dice_render/render.py --pack 1 --pack 2`;
+needs headless Chromium, see its README) and check against Telegram's limits with `packs.py`.
+
 ### Chat settings and communities (v4.0)
 
 Chat admins change their chat's settings with **`/settings`**: a short private card with four sections
