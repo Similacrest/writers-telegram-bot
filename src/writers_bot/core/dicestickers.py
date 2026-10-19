@@ -1,4 +1,4 @@
-"""Which stickers a roll gets. The stickers are named as in ``assets/dice_packs/manifest.json`` (``d20_17``, ``3d6_1_4_4``,
+"""Which stickers a roll gets. The stickers are named as in ``assets/dice_clips/manifest.json`` (``d20_17``, ``3d6_1_4_4``,
 ``2d20a_5_17``; ``scripts/dice_render/clips.py`` has the grammar and makes them).
 
 One sticker per die, except that dice of the same kind share stickers:

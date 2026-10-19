@@ -2,11 +2,11 @@
 
 Nothing is recorded: each die is posed so the wanted face looks at the camera, so every result comes out exactly as
 asked. The page is ``page/render.html``; this script drives it, adds the effects around the dice, and encodes WEBM.
-What the clips are (names, dice, looks, packs) is in ``clips.py``.
+What the clips are (names, dice, looks) is in ``clips.py``.
 
-    uv run --group render python scripts/dice_render/render.py --pack 1 --pack 3     # whole packs
+    uv run --group render python scripts/dice_render/render.py --all                 # all 866 clips
     uv run --group render python scripts/dice_render/render.py d20_17 3d6_1_4_4      # just these
-    uv run --group render python scripts/dice_render/render.py --pack 4 --shard 1/3  # a third of pack 4; run 2/3, 3/3 beside it
+    uv run --group render python scripts/dice_render/render.py --all --shard 1/3     # a third of them; run 2/3, 3/3 beside it
 
 Set it up first with ``fetch_assets.py`` (see README.md). Clips that already exist are skipped (``--force`` redoes them).
 Each shard takes about 1.4 GB and one core: three fit this machine.
@@ -65,9 +65,7 @@ SPREAD = {  # where the dice of a clip stand, as (x, y, scale), by how many ther
     3: [(-0.5, -0.28, 0.56), (0.5, -0.28, 0.56), (0.0, 0.34, 0.56)],
 }
 
-# --- what goes into the packs ----------------------------------------------------------------------------------------
-
-PACKS = clips.PACKS
+# --- what is rendered ------------------------------------------------------------------------------------------------
 
 
 def die(sides: int, value: int, seed: int, **kw) -> dict:
@@ -270,17 +268,15 @@ def encode(frames: list[Image.Image], out: Path) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("names", nargs="*", help="clips to render, e.g. d20_17")
-    parser.add_argument(
-        "--pack", action="append", choices=[k.removeprefix("pack") for k in PACKS], help="a whole pack"
-    )
+    parser.add_argument("--all", action="store_true", help="every clip of the catalogue (clips.py)")
     parser.add_argument("--shard", default="1/1", help="I/N: only every Nth clip, starting at the Ith")
     parser.add_argument("--force", action="store_true", help="render clips that already exist too")
     args = parser.parse_args()
-    names = list(args.names) + [n for p in args.pack or [] for n in PACKS[f"pack{p}"]]
+    names = list(args.names) + (clips.ALL if args.all else [])
     index, count = (int(x) for x in args.shard.split("/"))
     names = names[index - 1 :: count]
     if not names:
-        parser.error("no clips given (names, or --pack N)")
+        parser.error("no clips given (names, or --all)")
     if not (WEB / "babylon.js").exists():
         sys.exit("run scripts/dice_render/fetch_assets.py first")
     OUT.mkdir(parents=True, exist_ok=True)

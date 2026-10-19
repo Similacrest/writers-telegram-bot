@@ -14,8 +14,7 @@ def stickers(*dice, mode=None):
 
 
 def manifest_names():
-    data = json.loads(files("writers_bot.assets.dice_packs").joinpath("manifest.json").read_text())
-    return {row["file"].split("/")[1].removesuffix(".webm") for rows in data.values() for row in rows}
+    return set(json.loads(files("writers_bot.assets.dice_clips").joinpath("manifest.json").read_text()))
 
 
 def test_odd_dice_take_the_next_even_one_but_the_d3_has_its_own():

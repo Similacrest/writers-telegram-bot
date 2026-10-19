@@ -1,0 +1,7335 @@
+{
+ "d2_1": {
+  "die": "d2",
+  "variant": "",
+  "value": 1,
+  "effect": null
+ },
+ "d2_2": {
+  "die": "d2",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d3_1": {
+  "die": "d3",
+  "variant": "",
+  "value": 1,
+  "effect": null
+ },
+ "d3_2": {
+  "die": "d3",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d3_3": {
+  "die": "d3",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d4_1": {
+  "die": "d4",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d4n_1": {
+  "die": "d4",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d4_2": {
+  "die": "d4",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d4_3": {
+  "die": "d4",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d4n_4": {
+  "die": "d4",
+  "variant": "n",
+  "value": 4,
+  "effect": null
+ },
+ "d4_4": {
+  "die": "d4",
+  "variant": "",
+  "value": 4,
+  "effect": "crit"
+ },
+ "d6_1": {
+  "die": "d6",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d6n_1": {
+  "die": "d6",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d6_2": {
+  "die": "d6",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d6_3": {
+  "die": "d6",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d6_4": {
+  "die": "d6",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d6_5": {
+  "die": "d6",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d6n_6": {
+  "die": "d6",
+  "variant": "n",
+  "value": 6,
+  "effect": null
+ },
+ "d6_6": {
+  "die": "d6",
+  "variant": "",
+  "value": 6,
+  "effect": "crit"
+ },
+ "d8_1": {
+  "die": "d8",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d8n_1": {
+  "die": "d8",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d8_2": {
+  "die": "d8",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d8_3": {
+  "die": "d8",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d8_4": {
+  "die": "d8",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d8_5": {
+  "die": "d8",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d8_6": {
+  "die": "d8",
+  "variant": "",
+  "value": 6,
+  "effect": null
+ },
+ "d8_7": {
+  "die": "d8",
+  "variant": "",
+  "value": 7,
+  "effect": null
+ },
+ "d8n_8": {
+  "die": "d8",
+  "variant": "n",
+  "value": 8,
+  "effect": null
+ },
+ "d8_8": {
+  "die": "d8",
+  "variant": "",
+  "value": 8,
+  "effect": "crit"
+ },
+ "d10_1": {
+  "die": "d10",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d10n_1": {
+  "die": "d10",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d10_2": {
+  "die": "d10",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d10_3": {
+  "die": "d10",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d10_4": {
+  "die": "d10",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d10_5": {
+  "die": "d10",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d10_6": {
+  "die": "d10",
+  "variant": "",
+  "value": 6,
+  "effect": null
+ },
+ "d10_7": {
+  "die": "d10",
+  "variant": "",
+  "value": 7,
+  "effect": null
+ },
+ "d10_8": {
+  "die": "d10",
+  "variant": "",
+  "value": 8,
+  "effect": null
+ },
+ "d10_9": {
+  "die": "d10",
+  "variant": "",
+  "value": 9,
+  "effect": null
+ },
+ "d10n_10": {
+  "die": "d10",
+  "variant": "n",
+  "value": 10,
+  "effect": null
+ },
+ "d10_10": {
+  "die": "d10",
+  "variant": "",
+  "value": 10,
+  "effect": "crit"
+ },
+ "d12_1": {
+  "die": "d12",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d12n_1": {
+  "die": "d12",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d12_2": {
+  "die": "d12",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d12_3": {
+  "die": "d12",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d12_4": {
+  "die": "d12",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d12_5": {
+  "die": "d12",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d12_6": {
+  "die": "d12",
+  "variant": "",
+  "value": 6,
+  "effect": null
+ },
+ "d12_7": {
+  "die": "d12",
+  "variant": "",
+  "value": 7,
+  "effect": null
+ },
+ "d12_8": {
+  "die": "d12",
+  "variant": "",
+  "value": 8,
+  "effect": null
+ },
+ "d12_9": {
+  "die": "d12",
+  "variant": "",
+  "value": 9,
+  "effect": null
+ },
+ "d12_10": {
+  "die": "d12",
+  "variant": "",
+  "value": 10,
+  "effect": null
+ },
+ "d12_11": {
+  "die": "d12",
+  "variant": "",
+  "value": 11,
+  "effect": null
+ },
+ "d12n_12": {
+  "die": "d12",
+  "variant": "n",
+  "value": 12,
+  "effect": null
+ },
+ "d12_12": {
+  "die": "d12",
+  "variant": "",
+  "value": 12,
+  "effect": "crit"
+ },
+ "d20_1": {
+  "die": "d20",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d20n_1": {
+  "die": "d20",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d20_2": {
+  "die": "d20",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d20_3": {
+  "die": "d20",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d20_4": {
+  "die": "d20",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d20_5": {
+  "die": "d20",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d20_6": {
+  "die": "d20",
+  "variant": "",
+  "value": 6,
+  "effect": null
+ },
+ "d20_7": {
+  "die": "d20",
+  "variant": "",
+  "value": 7,
+  "effect": null
+ },
+ "d20_8": {
+  "die": "d20",
+  "variant": "",
+  "value": 8,
+  "effect": null
+ },
+ "d20_9": {
+  "die": "d20",
+  "variant": "",
+  "value": 9,
+  "effect": null
+ },
+ "d20_10": {
+  "die": "d20",
+  "variant": "",
+  "value": 10,
+  "effect": null
+ },
+ "d20_11": {
+  "die": "d20",
+  "variant": "",
+  "value": 11,
+  "effect": null
+ },
+ "d20_12": {
+  "die": "d20",
+  "variant": "",
+  "value": 12,
+  "effect": null
+ },
+ "d20_13": {
+  "die": "d20",
+  "variant": "",
+  "value": 13,
+  "effect": null
+ },
+ "d20_14": {
+  "die": "d20",
+  "variant": "",
+  "value": 14,
+  "effect": null
+ },
+ "d20_15": {
+  "die": "d20",
+  "variant": "",
+  "value": 15,
+  "effect": null
+ },
+ "d20_16": {
+  "die": "d20",
+  "variant": "",
+  "value": 16,
+  "effect": null
+ },
+ "d20_17": {
+  "die": "d20",
+  "variant": "",
+  "value": 17,
+  "effect": null
+ },
+ "d20_18": {
+  "die": "d20",
+  "variant": "",
+  "value": 18,
+  "effect": null
+ },
+ "d20_19": {
+  "die": "d20",
+  "variant": "",
+  "value": 19,
+  "effect": null
+ },
+ "d20n_20": {
+  "die": "d20",
+  "variant": "n",
+  "value": 20,
+  "effect": null
+ },
+ "d20_20": {
+  "die": "d20",
+  "variant": "",
+  "value": 20,
+  "effect": "crit"
+ },
+ "d100_1": {
+  "die": "d100",
+  "variant": "",
+  "value": 1,
+  "effect": "fumble"
+ },
+ "d100n_1": {
+  "die": "d100",
+  "variant": "n",
+  "value": 1,
+  "effect": null
+ },
+ "d100_2": {
+  "die": "d100",
+  "variant": "",
+  "value": 2,
+  "effect": null
+ },
+ "d100_3": {
+  "die": "d100",
+  "variant": "",
+  "value": 3,
+  "effect": null
+ },
+ "d100_4": {
+  "die": "d100",
+  "variant": "",
+  "value": 4,
+  "effect": null
+ },
+ "d100_5": {
+  "die": "d100",
+  "variant": "",
+  "value": 5,
+  "effect": null
+ },
+ "d100_6": {
+  "die": "d100",
+  "variant": "",
+  "value": 6,
+  "effect": null
+ },
+ "d100_7": {
+  "die": "d100",
+  "variant": "",
+  "value": 7,
+  "effect": null
+ },
+ "d100_8": {
+  "die": "d100",
+  "variant": "",
+  "value": 8,
+  "effect": null
+ },
+ "d100_9": {
+  "die": "d100",
+  "variant": "",
+  "value": 9,
+  "effect": null
+ },
+ "d100_10": {
+  "die": "d100",
+  "variant": "",
+  "value": 10,
+  "effect": null
+ },
+ "d100_11": {
+  "die": "d100",
+  "variant": "",
+  "value": 11,
+  "effect": null
+ },
+ "d100_12": {
+  "die": "d100",
+  "variant": "",
+  "value": 12,
+  "effect": null
+ },
+ "d100_13": {
+  "die": "d100",
+  "variant": "",
+  "value": 13,
+  "effect": null
+ },
+ "d100_14": {
+  "die": "d100",
+  "variant": "",
+  "value": 14,
+  "effect": null
+ },
+ "d100_15": {
+  "die": "d100",
+  "variant": "",
+  "value": 15,
+  "effect": null
+ },
+ "d100_16": {
+  "die": "d100",
+  "variant": "",
+  "value": 16,
+  "effect": null
+ },
+ "d100_17": {
+  "die": "d100",
+  "variant": "",
+  "value": 17,
+  "effect": null
+ },
+ "d100_18": {
+  "die": "d100",
+  "variant": "",
+  "value": 18,
+  "effect": null
+ },
+ "d100_19": {
+  "die": "d100",
+  "variant": "",
+  "value": 19,
+  "effect": null
+ },
+ "d100_20": {
+  "die": "d100",
+  "variant": "",
+  "value": 20,
+  "effect": null
+ },
+ "d100_21": {
+  "die": "d100",
+  "variant": "",
+  "value": 21,
+  "effect": null
+ },
+ "d100_22": {
+  "die": "d100",
+  "variant": "",
+  "value": 22,
+  "effect": null
+ },
+ "d100_23": {
+  "die": "d100",
+  "variant": "",
+  "value": 23,
+  "effect": null
+ },
+ "d100_24": {
+  "die": "d100",
+  "variant": "",
+  "value": 24,
+  "effect": null
+ },
+ "d100_25": {
+  "die": "d100",
+  "variant": "",
+  "value": 25,
+  "effect": null
+ },
+ "d100_26": {
+  "die": "d100",
+  "variant": "",
+  "value": 26,
+  "effect": null
+ },
+ "d100_27": {
+  "die": "d100",
+  "variant": "",
+  "value": 27,
+  "effect": null
+ },
+ "d100_28": {
+  "die": "d100",
+  "variant": "",
+  "value": 28,
+  "effect": null
+ },
+ "d100_29": {
+  "die": "d100",
+  "variant": "",
+  "value": 29,
+  "effect": null
+ },
+ "d100_30": {
+  "die": "d100",
+  "variant": "",
+  "value": 30,
+  "effect": null
+ },
+ "d100_31": {
+  "die": "d100",
+  "variant": "",
+  "value": 31,
+  "effect": null
+ },
+ "d100_32": {
+  "die": "d100",
+  "variant": "",
+  "value": 32,
+  "effect": null
+ },
+ "d100_33": {
+  "die": "d100",
+  "variant": "",
+  "value": 33,
+  "effect": null
+ },
+ "d100_34": {
+  "die": "d100",
+  "variant": "",
+  "value": 34,
+  "effect": null
+ },
+ "d100_35": {
+  "die": "d100",
+  "variant": "",
+  "value": 35,
+  "effect": null
+ },
+ "d100_36": {
+  "die": "d100",
+  "variant": "",
+  "value": 36,
+  "effect": null
+ },
+ "d100_37": {
+  "die": "d100",
+  "variant": "",
+  "value": 37,
+  "effect": null
+ },
+ "d100_38": {
+  "die": "d100",
+  "variant": "",
+  "value": 38,
+  "effect": null
+ },
+ "d100_39": {
+  "die": "d100",
+  "variant": "",
+  "value": 39,
+  "effect": null
+ },
+ "d100_40": {
+  "die": "d100",
+  "variant": "",
+  "value": 40,
+  "effect": null
+ },
+ "d100_41": {
+  "die": "d100",
+  "variant": "",
+  "value": 41,
+  "effect": null
+ },
+ "d100_42": {
+  "die": "d100",
+  "variant": "",
+  "value": 42,
+  "effect": null
+ },
+ "d100_43": {
+  "die": "d100",
+  "variant": "",
+  "value": 43,
+  "effect": null
+ },
+ "d100_44": {
+  "die": "d100",
+  "variant": "",
+  "value": 44,
+  "effect": null
+ },
+ "d100_45": {
+  "die": "d100",
+  "variant": "",
+  "value": 45,
+  "effect": null
+ },
+ "d100_46": {
+  "die": "d100",
+  "variant": "",
+  "value": 46,
+  "effect": null
+ },
+ "d100_47": {
+  "die": "d100",
+  "variant": "",
+  "value": 47,
+  "effect": null
+ },
+ "d100_48": {
+  "die": "d100",
+  "variant": "",
+  "value": 48,
+  "effect": null
+ },
+ "d100_49": {
+  "die": "d100",
+  "variant": "",
+  "value": 49,
+  "effect": null
+ },
+ "d100_50": {
+  "die": "d100",
+  "variant": "",
+  "value": 50,
+  "effect": null
+ },
+ "d100_51": {
+  "die": "d100",
+  "variant": "",
+  "value": 51,
+  "effect": null
+ },
+ "d100_52": {
+  "die": "d100",
+  "variant": "",
+  "value": 52,
+  "effect": null
+ },
+ "d100_53": {
+  "die": "d100",
+  "variant": "",
+  "value": 53,
+  "effect": null
+ },
+ "d100_54": {
+  "die": "d100",
+  "variant": "",
+  "value": 54,
+  "effect": null
+ },
+ "d100_55": {
+  "die": "d100",
+  "variant": "",
+  "value": 55,
+  "effect": null
+ },
+ "d100_56": {
+  "die": "d100",
+  "variant": "",
+  "value": 56,
+  "effect": null
+ },
+ "d100_57": {
+  "die": "d100",
+  "variant": "",
+  "value": 57,
+  "effect": null
+ },
+ "d100_58": {
+  "die": "d100",
+  "variant": "",
+  "value": 58,
+  "effect": null
+ },
+ "d100_59": {
+  "die": "d100",
+  "variant": "",
+  "value": 59,
+  "effect": null
+ },
+ "d100_60": {
+  "die": "d100",
+  "variant": "",
+  "value": 60,
+  "effect": null
+ },
+ "d100_61": {
+  "die": "d100",
+  "variant": "",
+  "value": 61,
+  "effect": null
+ },
+ "d100_62": {
+  "die": "d100",
+  "variant": "",
+  "value": 62,
+  "effect": null
+ },
+ "d100_63": {
+  "die": "d100",
+  "variant": "",
+  "value": 63,
+  "effect": null
+ },
+ "d100_64": {
+  "die": "d100",
+  "variant": "",
+  "value": 64,
+  "effect": null
+ },
+ "d100_65": {
+  "die": "d100",
+  "variant": "",
+  "value": 65,
+  "effect": null
+ },
+ "d100_66": {
+  "die": "d100",
+  "variant": "",
+  "value": 66,
+  "effect": null
+ },
+ "d100_67": {
+  "die": "d100",
+  "variant": "",
+  "value": 67,
+  "effect": null
+ },
+ "d100_68": {
+  "die": "d100",
+  "variant": "",
+  "value": 68,
+  "effect": null
+ },
+ "d100_69": {
+  "die": "d100",
+  "variant": "",
+  "value": 69,
+  "effect": null
+ },
+ "d100_70": {
+  "die": "d100",
+  "variant": "",
+  "value": 70,
+  "effect": null
+ },
+ "d100_71": {
+  "die": "d100",
+  "variant": "",
+  "value": 71,
+  "effect": null
+ },
+ "d100_72": {
+  "die": "d100",
+  "variant": "",
+  "value": 72,
+  "effect": null
+ },
+ "d100_73": {
+  "die": "d100",
+  "variant": "",
+  "value": 73,
+  "effect": null
+ },
+ "d100_74": {
+  "die": "d100",
+  "variant": "",
+  "value": 74,
+  "effect": null
+ },
+ "d100_75": {
+  "die": "d100",
+  "variant": "",
+  "value": 75,
+  "effect": null
+ },
+ "d100_76": {
+  "die": "d100",
+  "variant": "",
+  "value": 76,
+  "effect": null
+ },
+ "d100_77": {
+  "die": "d100",
+  "variant": "",
+  "value": 77,
+  "effect": null
+ },
+ "d100_78": {
+  "die": "d100",
+  "variant": "",
+  "value": 78,
+  "effect": null
+ },
+ "d100_79": {
+  "die": "d100",
+  "variant": "",
+  "value": 79,
+  "effect": null
+ },
+ "d100_80": {
+  "die": "d100",
+  "variant": "",
+  "value": 80,
+  "effect": null
+ },
+ "d100_81": {
+  "die": "d100",
+  "variant": "",
+  "value": 81,
+  "effect": null
+ },
+ "d100_82": {
+  "die": "d100",
+  "variant": "",
+  "value": 82,
+  "effect": null
+ },
+ "d100_83": {
+  "die": "d100",
+  "variant": "",
+  "value": 83,
+  "effect": null
+ },
+ "d100_84": {
+  "die": "d100",
+  "variant": "",
+  "value": 84,
+  "effect": null
+ },
+ "d100_85": {
+  "die": "d100",
+  "variant": "",
+  "value": 85,
+  "effect": null
+ },
+ "d100_86": {
+  "die": "d100",
+  "variant": "",
+  "value": 86,
+  "effect": null
+ },
+ "d100_87": {
+  "die": "d100",
+  "variant": "",
+  "value": 87,
+  "effect": null
+ },
+ "d100_88": {
+  "die": "d100",
+  "variant": "",
+  "value": 88,
+  "effect": null
+ },
+ "d100_89": {
+  "die": "d100",
+  "variant": "",
+  "value": 89,
+  "effect": null
+ },
+ "d100_90": {
+  "die": "d100",
+  "variant": "",
+  "value": 90,
+  "effect": null
+ },
+ "d100_91": {
+  "die": "d100",
+  "variant": "",
+  "value": 91,
+  "effect": null
+ },
+ "d100_92": {
+  "die": "d100",
+  "variant": "",
+  "value": 92,
+  "effect": null
+ },
+ "d100_93": {
+  "die": "d100",
+  "variant": "",
+  "value": 93,
+  "effect": null
+ },
+ "d100_94": {
+  "die": "d100",
+  "variant": "",
+  "value": 94,
+  "effect": null
+ },
+ "d100_95": {
+  "die": "d100",
+  "variant": "",
+  "value": 95,
+  "effect": null
+ },
+ "d100_96": {
+  "die": "d100",
+  "variant": "",
+  "value": 96,
+  "effect": null
+ },
+ "d100_97": {
+  "die": "d100",
+  "variant": "",
+  "value": 97,
+  "effect": null
+ },
+ "d100_98": {
+  "die": "d100",
+  "variant": "",
+  "value": 98,
+  "effect": null
+ },
+ "d100_99": {
+  "die": "d100",
+  "variant": "",
+  "value": 99,
+  "effect": null
+ },
+ "d100n_100": {
+  "die": "d100",
+  "variant": "n",
+  "value": 100,
+  "effect": null
+ },
+ "d100_100": {
+  "die": "d100",
+  "variant": "",
+  "value": 100,
+  "effect": "crit"
+ },
+ "2d4_1_1": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "2d4_1_2": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "2d4_1_3": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "2d4_1_4": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   1,
+   4
+  ],
+  "effect": "crit"
+ },
+ "2d4_2_2": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "2d4_2_3": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d4_2_4": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   2,
+   4
+  ],
+  "effect": "crit"
+ },
+ "2d4_3_3": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "2d4_3_4": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   3,
+   4
+  ],
+  "effect": "crit"
+ },
+ "2d4_4_4": {
+  "die": "2d4",
+  "variant": "",
+  "value": [
+   4,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_1_1_1": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_1_2": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_1_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_1_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_1_2_2": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_2_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_2_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_1_3_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d4_1_3_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_1_4_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   1,
+   4,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_2_2_2": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "3d4_2_2_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "3d4_2_2_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_2_3_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "3d4_2_3_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_2_4_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   2,
+   4,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_3_3_3": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "3d4_3_3_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_3_4_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   3,
+   4,
+   4
+  ],
+  "effect": "crit"
+ },
+ "3d4_4_4_4": {
+  "die": "3d4",
+  "variant": "",
+  "value": [
+   4,
+   4,
+   4
+  ],
+  "effect": "crit"
+ },
+ "2d6_1_1": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "2d6_1_2": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "2d6_1_3": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "2d6_1_4": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "2d6_1_5": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "2d6_1_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   1,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d6_2_2": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "2d6_2_3": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d6_2_4": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "2d6_2_5": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "2d6_2_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   2,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d6_3_3": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "2d6_3_4": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "2d6_3_5": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "2d6_3_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   3,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d6_4_4": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "2d6_4_5": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "2d6_4_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   4,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d6_5_5": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "2d6_5_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d6_6_6": {
+  "die": "2d6",
+  "variant": "",
+  "value": [
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_1_1": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_1_2": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_1_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_1_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_1_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_1_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   1,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_2_2": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_2_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_2_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_2_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_2_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   2,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_3_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_3_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_3_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_3_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   3,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_4_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   4,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_4_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   4,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_4_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   4,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_5_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   5,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "3d6_1_5_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_1_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   1,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_2_2_2": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "3d6_2_2_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "3d6_2_2_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_2_2_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_2_2_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   2,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_2_3_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "3d6_2_3_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_2_3_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_2_3_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   3,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_2_4_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_2_4_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_2_4_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   4,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_2_5_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_2_5_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_2_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   2,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_3_3_3": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "3d6_3_3_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_3_3_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_3_3_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   3,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_3_4_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_3_4_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_3_4_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   4,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_3_5_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_3_5_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_3_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   3,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_4_4_4": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "3d6_4_4_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_4_4_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   4,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_4_5_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_4_5_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_4_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   4,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_5_5_5": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   5,
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "3d6_5_5_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   5,
+   5,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_5_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   5,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "3d6_6_6_6": {
+  "die": "3d6",
+  "variant": "",
+  "value": [
+   6,
+   6,
+   6
+  ],
+  "effect": "crit"
+ },
+ "2d8_1_1": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_2": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_3": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_4": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_5": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   6
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   7
+  ],
+  "effect": "fumble"
+ },
+ "2d8_1_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   1,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_2_2": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "2d8_2_3": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d8_2_4": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "2d8_2_5": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "2d8_2_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   6
+  ],
+  "effect": null
+ },
+ "2d8_2_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_2_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   2,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_3_3": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "2d8_3_4": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "2d8_3_5": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "2d8_3_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   6
+  ],
+  "effect": null
+ },
+ "2d8_3_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_3_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   3,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_4_4": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "2d8_4_5": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "2d8_4_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   4,
+   6
+  ],
+  "effect": null
+ },
+ "2d8_4_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   4,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_4_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   4,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_5_5": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "2d8_5_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   5,
+   6
+  ],
+  "effect": null
+ },
+ "2d8_5_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   5,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_5_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   5,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_6_6": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   6,
+   6
+  ],
+  "effect": null
+ },
+ "2d8_6_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   6,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_6_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   6,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_7_7": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   7,
+   7
+  ],
+  "effect": null
+ },
+ "2d8_7_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   7,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d8_8_8": {
+  "die": "2d8",
+  "variant": "",
+  "value": [
+   8,
+   8
+  ],
+  "effect": "crit"
+ },
+ "2d12_1_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_1_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_1_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_1_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_1_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_1_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_1_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_1_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_1_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_1_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_1_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_1_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   1,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_2_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_2_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_2_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_2_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_2_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_2_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_2_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_2_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_2_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_2_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_2_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_2_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   2,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_3_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_3_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_3_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_3_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_3_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_3_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_3_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_3_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_3_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_3_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_3_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_3_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   3,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_4_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_4_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_4_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_4_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_4_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_4_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_4_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_4_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_4_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_4_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_4_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_4_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   4,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_5_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_5_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_5_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_5_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_5_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_5_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_5_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_5_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_5_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_5_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_5_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_5_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   5,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_6_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_6_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_6_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_6_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_6_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_6_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_6_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_6_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_6_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_6_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_6_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_6_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   6,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_7_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_7_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_7_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_7_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_7_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_7_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_7_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_7_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_7_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_7_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_7_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_7_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   7,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_8_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_8_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_8_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_8_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_8_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_8_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_8_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_8_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_8_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_8_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_8_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_8_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   8,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_9_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_9_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_9_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_9_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_9_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_9_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_9_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_9_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_9_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_9_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_9_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_9_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   9,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_10_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_10_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_10_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_10_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_10_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_10_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_10_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_10_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_10_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_10_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_10_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_10_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   10,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_11_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_11_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_11_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_11_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_11_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_11_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_11_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_11_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_11_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_11_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_11_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_11_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   11,
+   12
+  ],
+  "effect": null
+ },
+ "2d12_12_1": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   1
+  ],
+  "effect": null
+ },
+ "2d12_12_2": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   2
+  ],
+  "effect": null
+ },
+ "2d12_12_3": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   3
+  ],
+  "effect": null
+ },
+ "2d12_12_4": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   4
+  ],
+  "effect": null
+ },
+ "2d12_12_5": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   5
+  ],
+  "effect": null
+ },
+ "2d12_12_6": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   6
+  ],
+  "effect": null
+ },
+ "2d12_12_7": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   7
+  ],
+  "effect": null
+ },
+ "2d12_12_8": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   8
+  ],
+  "effect": null
+ },
+ "2d12_12_9": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   9
+  ],
+  "effect": null
+ },
+ "2d12_12_10": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   10
+  ],
+  "effect": null
+ },
+ "2d12_12_11": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   11
+  ],
+  "effect": null
+ },
+ "2d12_12_12": {
+  "die": "2d12",
+  "variant": "dh",
+  "value": [
+   12,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_1_2": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   2
+  ],
+  "effect": null
+ },
+ "2d20a_1_3": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   3
+  ],
+  "effect": null
+ },
+ "2d20a_1_4": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   4
+  ],
+  "effect": null
+ },
+ "2d20a_1_5": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   5
+  ],
+  "effect": null
+ },
+ "2d20a_1_6": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   6
+  ],
+  "effect": null
+ },
+ "2d20a_1_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_1_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_1_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_1_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_1_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_1_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_1_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_1_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_1_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_1_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_1_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_1_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_1_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_1_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   1,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_2_3": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d20a_2_4": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "2d20a_2_5": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "2d20a_2_6": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   6
+  ],
+  "effect": null
+ },
+ "2d20a_2_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_2_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_2_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_2_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_2_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_2_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_2_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_2_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_2_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_2_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_2_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_2_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_2_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_2_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   2,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_3_4": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "2d20a_3_5": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "2d20a_3_6": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   6
+  ],
+  "effect": null
+ },
+ "2d20a_3_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_3_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_3_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_3_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_3_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_3_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_3_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_3_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_3_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_3_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_3_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_3_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_3_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_3_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   3,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_4_5": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "2d20a_4_6": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   6
+  ],
+  "effect": null
+ },
+ "2d20a_4_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_4_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_4_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_4_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_4_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_4_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_4_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_4_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_4_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_4_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_4_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_4_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_4_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_4_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   4,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_5_6": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   6
+  ],
+  "effect": null
+ },
+ "2d20a_5_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_5_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_5_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_5_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_5_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_5_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_5_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_5_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_5_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_5_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_5_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_5_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_5_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_5_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   5,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_6_7": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   7
+  ],
+  "effect": null
+ },
+ "2d20a_6_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_6_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_6_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_6_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_6_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_6_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_6_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_6_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_6_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_6_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_6_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_6_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_6_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   6,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_7_8": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   8
+  ],
+  "effect": null
+ },
+ "2d20a_7_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_7_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_7_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_7_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_7_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_7_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_7_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_7_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_7_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_7_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_7_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_7_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   7,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_8_9": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   9
+  ],
+  "effect": null
+ },
+ "2d20a_8_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_8_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_8_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_8_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_8_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_8_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_8_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_8_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_8_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_8_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_8_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   8,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_9_10": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   10
+  ],
+  "effect": null
+ },
+ "2d20a_9_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_9_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_9_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_9_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_9_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_9_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_9_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_9_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_9_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_9_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   9,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_10_11": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   11
+  ],
+  "effect": null
+ },
+ "2d20a_10_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_10_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_10_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_10_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_10_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_10_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_10_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_10_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_10_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   10,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_11_12": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   12
+  ],
+  "effect": null
+ },
+ "2d20a_11_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_11_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_11_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_11_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_11_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_11_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_11_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_11_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   11,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_12_13": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   13
+  ],
+  "effect": null
+ },
+ "2d20a_12_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_12_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_12_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_12_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_12_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_12_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_12_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   12,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_13_14": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   14
+  ],
+  "effect": null
+ },
+ "2d20a_13_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_13_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_13_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_13_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_13_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_13_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   13,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_14_15": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   15
+  ],
+  "effect": null
+ },
+ "2d20a_14_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_14_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_14_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_14_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_14_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   14,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_15_16": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   15,
+   16
+  ],
+  "effect": null
+ },
+ "2d20a_15_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   15,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_15_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   15,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_15_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   15,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_15_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   15,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_16_17": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   16,
+   17
+  ],
+  "effect": null
+ },
+ "2d20a_16_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   16,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_16_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   16,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_16_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   16,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_17_18": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   17,
+   18
+  ],
+  "effect": null
+ },
+ "2d20a_17_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   17,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_17_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   17,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_18_19": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   18,
+   19
+  ],
+  "effect": null
+ },
+ "2d20a_18_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   18,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20a_19_20": {
+  "die": "2d20",
+  "variant": "a",
+  "value": [
+   19,
+   20
+  ],
+  "effect": "crit"
+ },
+ "2d20d_1_2": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   2
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_3": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   3
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_4": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   4
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_5": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   5
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_6": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   6
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   7
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   8
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   9
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   10
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   11
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   12
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   13
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   14
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   15
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   16
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   17
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   18
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   19
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_1_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   1,
+   20
+  ],
+  "effect": "fumble"
+ },
+ "2d20d_2_3": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   3
+  ],
+  "effect": null
+ },
+ "2d20d_2_4": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   4
+  ],
+  "effect": null
+ },
+ "2d20d_2_5": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   5
+  ],
+  "effect": null
+ },
+ "2d20d_2_6": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   6
+  ],
+  "effect": null
+ },
+ "2d20d_2_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   7
+  ],
+  "effect": null
+ },
+ "2d20d_2_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_2_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_2_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_2_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_2_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_2_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_2_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_2_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_2_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_2_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_2_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_2_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_2_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   2,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_3_4": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   4
+  ],
+  "effect": null
+ },
+ "2d20d_3_5": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   5
+  ],
+  "effect": null
+ },
+ "2d20d_3_6": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   6
+  ],
+  "effect": null
+ },
+ "2d20d_3_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   7
+  ],
+  "effect": null
+ },
+ "2d20d_3_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_3_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_3_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_3_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_3_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_3_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_3_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_3_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_3_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_3_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_3_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_3_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_3_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   3,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_4_5": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   5
+  ],
+  "effect": null
+ },
+ "2d20d_4_6": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   6
+  ],
+  "effect": null
+ },
+ "2d20d_4_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   7
+  ],
+  "effect": null
+ },
+ "2d20d_4_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_4_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_4_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_4_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_4_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_4_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_4_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_4_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_4_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_4_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_4_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_4_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_4_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   4,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_5_6": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   6
+  ],
+  "effect": null
+ },
+ "2d20d_5_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   7
+  ],
+  "effect": null
+ },
+ "2d20d_5_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_5_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_5_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_5_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_5_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_5_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_5_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_5_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_5_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_5_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_5_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_5_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_5_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   5,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_6_7": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   7
+  ],
+  "effect": null
+ },
+ "2d20d_6_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_6_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_6_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_6_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_6_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_6_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_6_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_6_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_6_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_6_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_6_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_6_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_6_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   6,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_7_8": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   8
+  ],
+  "effect": null
+ },
+ "2d20d_7_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_7_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_7_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_7_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_7_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_7_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_7_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_7_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_7_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_7_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_7_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_7_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   7,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_8_9": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   9
+  ],
+  "effect": null
+ },
+ "2d20d_8_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_8_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_8_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_8_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_8_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_8_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_8_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_8_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_8_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_8_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_8_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   8,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_9_10": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   10
+  ],
+  "effect": null
+ },
+ "2d20d_9_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_9_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_9_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_9_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_9_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_9_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_9_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_9_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_9_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_9_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   9,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_10_11": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   11
+  ],
+  "effect": null
+ },
+ "2d20d_10_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_10_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_10_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_10_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_10_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_10_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_10_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_10_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_10_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   10,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_11_12": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   12
+  ],
+  "effect": null
+ },
+ "2d20d_11_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_11_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_11_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_11_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_11_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_11_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_11_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_11_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   11,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_12_13": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   13
+  ],
+  "effect": null
+ },
+ "2d20d_12_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_12_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_12_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_12_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_12_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_12_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_12_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   12,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_13_14": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   14
+  ],
+  "effect": null
+ },
+ "2d20d_13_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_13_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_13_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_13_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_13_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_13_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   13,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_14_15": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   15
+  ],
+  "effect": null
+ },
+ "2d20d_14_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_14_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_14_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_14_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_14_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   14,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_15_16": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   15,
+   16
+  ],
+  "effect": null
+ },
+ "2d20d_15_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   15,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_15_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   15,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_15_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   15,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_15_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   15,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_16_17": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   16,
+   17
+  ],
+  "effect": null
+ },
+ "2d20d_16_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   16,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_16_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   16,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_16_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   16,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_17_18": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   17,
+   18
+  ],
+  "effect": null
+ },
+ "2d20d_17_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   17,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_17_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   17,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_18_19": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   18,
+   19
+  ],
+  "effect": null
+ },
+ "2d20d_18_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   18,
+   20
+  ],
+  "effect": null
+ },
+ "2d20d_19_20": {
+  "die": "2d20",
+  "variant": "d",
+  "value": [
+   19,
+   20
+  ],
+  "effect": null
+ },
+ "2d20t_1": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   1,
+   1
+  ],
+  "effect": "fumble"
+ },
+ "2d20t_2": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   2,
+   2
+  ],
+  "effect": null
+ },
+ "2d20t_3": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   3,
+   3
+  ],
+  "effect": null
+ },
+ "2d20t_4": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   4,
+   4
+  ],
+  "effect": null
+ },
+ "2d20t_5": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   5,
+   5
+  ],
+  "effect": null
+ },
+ "2d20t_6": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   6,
+   6
+  ],
+  "effect": null
+ },
+ "2d20t_7": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   7,
+   7
+  ],
+  "effect": null
+ },
+ "2d20t_8": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   8,
+   8
+  ],
+  "effect": null
+ },
+ "2d20t_9": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   9,
+   9
+  ],
+  "effect": null
+ },
+ "2d20t_10": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   10,
+   10
+  ],
+  "effect": null
+ },
+ "2d20t_11": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   11,
+   11
+  ],
+  "effect": null
+ },
+ "2d20t_12": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   12,
+   12
+  ],
+  "effect": null
+ },
+ "2d20t_13": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   13,
+   13
+  ],
+  "effect": null
+ },
+ "2d20t_14": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   14,
+   14
+  ],
+  "effect": null
+ },
+ "2d20t_15": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   15,
+   15
+  ],
+  "effect": null
+ },
+ "2d20t_16": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   16,
+   16
+  ],
+  "effect": null
+ },
+ "2d20t_17": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   17,
+   17
+  ],
+  "effect": null
+ },
+ "2d20t_18": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   18,
+   18
+  ],
+  "effect": null
+ },
+ "2d20t_19": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   19,
+   19
+  ],
+  "effect": null
+ },
+ "2d20t_20": {
+  "die": "2d20",
+  "variant": "t",
+  "value": [
+   20,
+   20
+  ],
+  "effect": "crit"
+ }
+}

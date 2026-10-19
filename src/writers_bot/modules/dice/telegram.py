@@ -1,7 +1,7 @@
 """Dice rolls: /d20, /2d6+1, /r 4d6kh3 Ініціатива, /d20adv, !к12 (the d20 library's notation, see ``core.extras``).
 
 With ``stickers = true`` a roll is answered with animated stickers of the dice landing on their results
-(``scripts/dice_render`` makes the clips, kept in ``assets/dice_packs``; ``core.dicestickers`` says which sticker each roll
+(``scripts/dice_render`` makes the clips, kept in ``assets/dice_clips``; ``core.dicestickers`` says which sticker each roll
 gets). One or two stickers come on their own; three or four only when the roll has ``-s`` (``/3d6 -s``); ``-q`` silences
 them (``/d20 -q``); more than ``max_stickers`` (4) stickers, or a die without stickers (d13), and the roll is only the line.
 Dice of a kind share stickers (8d6 is three), so the limits count stickers, not dice.
@@ -37,13 +37,9 @@ UPLOAD_TIMEOUTS = {"read_timeout": 60, "write_timeout": 60}  # Telegram answers 
 CACHE_FILE = "dice_stickers.json"  # next to the database
 
 
-def manifest() -> dict[str, list[dict]]:
-    """The packs: for each, its stickers in the order they sit in the pack."""
-    return json.loads(files("writers_bot.assets.dice_packs").joinpath("manifest.json").read_text())
-
-
-def clip_name(row: dict) -> str:
-    return PurePosixPath(row["file"]).stem  # "pack1/d20_17.webm" -> "d20_17"
+def manifest() -> dict[str, dict]:
+    """The clips: for each name (``d20_17``), its die, variant, value and effect; its file is ``<name>.webm``."""
+    return json.loads(files("writers_bot.assets.dice_clips").joinpath("manifest.json").read_text())
 
 
 class Module(TelegramModule):
@@ -58,7 +54,7 @@ class Module(TelegramModule):
         if options.get("randomness") == "random.org":
             key = str(options.get("random_org_key") or "")
             self.rng = randomness.TrueRandom(lambda n: randomness.random_org(key, n))
-        self.files = {clip_name(row): row["file"] for rows in manifest().values() for row in rows}  # clip -> its file
+        self.files = {name: f"{name}.webm" for name in manifest()}  # clip -> its file
         self.cache = StickerCache(self._cache_path(options))
 
     def commands(self) -> list[Command]:
@@ -133,7 +129,7 @@ class Module(TelegramModule):
         try:
             path = self.files[name]
             upload = InputFile(
-                files("writers_bot.assets.dice_packs").joinpath(path).read_bytes(), filename=PurePosixPath(path).name
+                files("writers_bot.assets.dice_clips").joinpath(path).read_bytes(), filename=PurePosixPath(path).name
             )
             sent = await bot.send_sticker(message.chat_id, upload, **where, **UPLOAD_TIMEOUTS)
         except TelegramError as e:

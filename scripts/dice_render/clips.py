@@ -1,4 +1,4 @@
-"""What is in the dice sticker packs: every clip's name, the dice in it, their looks, its effect, and the packs' layout.
+"""What is in the dice clips: every clip's name, the dice in it, their looks and its effect.
 
 The names are a small grammar, shared with the bot's own picking (``core/dicestickers.py``):
 
@@ -129,11 +129,11 @@ def _group(name: str, head: str, v: list[int]) -> Clip:
     raise ValueError(name)
 
 
-# --- the packs --------------------------------------------------------------------------------------------------------
+# --- the catalogue ----------------------------------------------------------------------------------------------------
 
 
 def ladder(sides: int) -> list[str]:
-    """A die's single stickers, values ascending: the crit 1, the crit-less 1, 2 ... n-1, the crit-less n, the crit n."""
+    """A die's single clips: ``d20_1`` ... with the crit-less ``d20n_1`` and ``d20n_20`` for the ends (the d2 and d3 have no effects)."""
     if sides in (2, 3):
         return [f"d{sides}_{v}" for v in range(1, sides + 1)]
     d = f"d{sides}"
@@ -152,21 +152,9 @@ def advantage(kind: str) -> list[str]:
     return [f"2d20{kind}_{lo}_{hi}" for lo in range(1, 20) for hi in range(lo + 1, 21)]
 
 
-DUALITY = [f"2d12_{blue}_{red}" for blue in range(1, 13) for red in range(1, 13)]
-TIES = [f"2d20t_{v}" for v in range(1, 21)]
-
-PACK1 = [n for s in (2, 3, 4, 6, 8, 10, 12, 20) for n in ladder(s)] + pools(2, 4) + pools(3, 4)
-PACK2 = pools(2, 6) + pools(3, 6) + pools(2, 8)
-PACK3 = ladder(100)
-ADV, DIS = advantage("a"), advantage("d")
-PACKS = {
-    "pack1": PACK1,
-    "pack2": PACK2,
-    "pack3": PACK3,
-    "pack4": DUALITY[:120],  # the blue die 1-10
-    "pack5": DUALITY[120:] + TIES + ADV[:70],
-    "pack6": ADV[70:],
-    "pack7": DIS[:120],
-    "pack8": DIS[120:],
-}
-PACK_SIZE = 120
+ALL: list[str] = (
+    [n for s in (2, 3, 4, 6, 8, 10, 12, 20, 100) for n in ladder(s)]
+    + pools(2, 4) + pools(3, 4) + pools(2, 6) + pools(3, 6) + pools(2, 8)
+    + [f"2d12_{blue}_{red}" for blue in range(1, 13) for red in range(1, 13)]  # Daggerheart's duality dice, ordered
+    + advantage("a") + advantage("d") + [f"2d20t_{v}" for v in range(1, 21)]
+)  # fmt: skip

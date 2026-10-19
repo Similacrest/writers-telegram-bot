@@ -1,6 +1,6 @@
 # Dice sticker renderer
 
-Makes the dice sticker clips (`src/writers_bot/assets/dice_packs`, eight folders of up to 120; the bot sends them one by one, no sticker packs are made): the "Dice of Rolling" theme
+Makes the dice sticker clips (`src/writers_bot/assets/dice_clips`; the bot sends them one by one, no sticker packs are made): the "Dice of Rolling" theme
 drawn frame by frame with [Babylon.js](https://www.babylonjs.com/) in headless Chromium, then encoded as WEBM
 (VP9, 512 px, 2.9 s, at most 256 KB: Telegram's limits for video stickers).
 
@@ -16,8 +16,7 @@ stop with a small hop, 0.8 s, then the die lies still; the effects around it run
 | `prep_atlas.py` | splits the theme's texture into the marble and crisp white numerals (the original's 25 px numerals turn chalky) |
 | `clips.py` | what the clips are: the name grammar, each clip's dice, looks and effect, and the layout of the packs |
 | `render.py` | draws and encodes the clips into `build/dice_render/out` (the dice's positions and colours are here) |
-| `tags.py` | the emoji and search keywords of every sticker (the vocabulary lives here: edit it, run `packs.py`) |
-| `packs.py` | checks every clip against the limits, then writes the folders and `manifest.json` into the bot's assets |
+| `assets.py` | checks every clip against the limits for a video sticker, then writes them and `manifest.json` into the bot's assets |
 | `calibrate.py` | finds the turn that puts each face's numeral upright (`roll_offsets.json`); only needed for other dice or a new texture |
 | `page/render.html` | the Babylon.js page: the scene, the poses, the tumble, the texture layers |
 
@@ -35,39 +34,27 @@ libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libasound2t64 libatspi2.0-0t64 libdr
 on one core. Heavy on a small machine: keep `TMPDIR` on disk, and cap the memory (`systemd-run --user --scope -p
 MemoryMax=1800M ...` for each shard: a shard peaks at about 1.4 GB with its Chromium, so three fit in 6 GB).
 
-## Making the packs
+## Making the clips
 
 ```
-uv run --group render python scripts/dice_render/render.py --pack 1 --pack 2 ... --pack 8   # all 866 clips, about an hour with 3 shards
-uv run --group render python scripts/dice_render/render.py --pack 4 --shard 1/3             # a third of pack 4; 2/3 and 3/3 beside it
-uv run --group render python scripts/dice_render/render.py d20_17 3d6_1_4_4 2d20a_5_17      # a few
-uv run --group render python scripts/dice_render/packs.py                                    # check, then write the assets
+uv run --group render python scripts/dice_render/render.py --all                         # all 866 clips, about an hour with 3 shards
+uv run --group render python scripts/dice_render/render.py --all --shard 1/3             # a third of them; 2/3 and 3/3 beside it
+uv run --group render python scripts/dice_render/render.py d20_17 3d6_1_4_4 2d20a_5_17   # a few
+uv run --group render python scripts/dice_render/assets.py                               # check, then write the assets
 ```
 
-Existing clips are skipped (`--force` redoes them), so delete the clips of a die whose look changed. `packs.py` writes nothing
+Existing clips are skipped (`--force` redoes them), so delete the clips of a die whose look changed. `assets.py` writes nothing
 unless every clip passes. The same frames always come out (the files differ by a few bytes of muxer metadata), so a changed
 look shows in a diff of the decoded frames, not the files.
 
-## What is in the packs
+## What is in the clips
 
 Clip names (the grammar is at the top of `clips.py`): `d20_17` a d20 with the crit effects on its ends, `d20n_20` without them
 (a die rolled with others; also `d4n`, `d6n`, `d8n`, `d10n`, `d12n`, `d100n`); `d3_2` the d3; `d12_5` a blue d12 (its 1 is red);
-`d100_73` a tens die and a d10 (landing a moment apart); `d2_1` / `d2_2` the coin; `3d6_1_4_4` two or three dice of a kind side
-by side, unordered (`2d4`, `3d4`, `2d6`, `3d6`, `2d8`); `2d12_9_4` Daggerheart's duality dice, the blue 9 and the red 4;
-`2d20a_5_17` / `2d20d_5_17` two d20s with advantage / disadvantage, `2d20t_9` two alike.
-
-The order in a pack is the order of the stickers in it: by die size, singles before groups, values ascending, the crit 1
-before the crit-less 1 and the crit-less highest before the crit highest.
-
-| Pack | Stickers |
-|---|---|
-| 1 (107) | d2, d3, d4, d6, d8, d10, d12, d20 singles; 2d4, 3d4 |
-| 2 (113) | 2d6, 3d6, 2d8 |
-| 3 (102) | d100 with its crit-less 1 and 100 (also the pictures of `2d10`) |
-| 4 (120) | 2d12, the blue die 1-10 |
-| 5 (114) | 2d12, the blue die 11-12; the 20 ties of two d20; 2d20 with advantage, lower die 1-4 |
-| 6 (120) | 2d20 with advantage, lower die 5-19 |
-| 7 (120), 8 (70) | 2d20 with disadvantage |
+`d100_73` a tens die and a d10 (landing a moment apart; also the pictures of `2d10`); `d2_1` / `d2_2` the coin; `3d6_1_4_4` two
+or three dice of a kind side by side, unordered (`2d4`, `3d4`, `2d6`, `3d6`, `2d8`); `2d12_9_4` Daggerheart's duality dice, the
+blue 9 and the red 4; `2d20a_5_17` / `2d20d_5_17` two d20s with advantage / disadvantage, `2d20t_9` two alike. 866 in all: 179
+singles, 143 for the pools, 144 duality pairs and 400 for two d20s.
 
 - Effects (`manifest.json`, `effect`): `crit` is golden rays, sparkles and a gold halo, `fumble` a red halo, a dull die, a
   shudder and a puff of dust. A group of dice has `crit` when any die shows its highest and else `fumble` when any shows a 1;

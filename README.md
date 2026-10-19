@@ -125,7 +125,7 @@ exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
 **Dice stickers** (`dice = { stickers = true }`): the dice of a roll also land as animated
-stickers on their results. They are 866 video clips (`src/writers_bot/assets/dice_packs`, in eight folders, made by
+stickers on their results. They are 866 video clips (`src/writers_bot/assets/dice_clips`, made by
 `scripts/dice_render`, see its README): the highest roll of a die has golden rays, the lowest a red halo, a dull die and
 dust. Dice of a kind share stickers, so a big roll is a few stickers. Which stickers a roll gets (`core/dicestickers.py`):
 
@@ -152,7 +152,7 @@ dust. Dice of a kind share stickers, so a big roll is a few stickers. Which stic
 - **Colours.** Every die type has a colour of its own: d3 grey, d4 purple, d6 yellow, d8 black, d10 green, d12 blue (red for a
   1 and for the second duality die), d20 orange, d100 a pink tens die and a green d10, the coin silver.
 
-**No sticker packs.** The clips (866, in `src/writers_bot/assets/dice_packs`) are not in any pack: a bot uploads a clip with
+**No sticker packs.** The clips (866, in `src/writers_bot/assets/dice_clips`) are not in any pack: a bot uploads a clip with
 `sendSticker` the first time a roll needs it, Telegram answers with a `file_id`, and the bot keeps it in a cache file, so from then
 on it sends by id. The cache is `dice_stickers.json` next to the database (or `cache_file`; a bot without storage keeps it in
 memory only). It is a small JSON file you can copy, with the same bot, to another host or after a lost disk; a `file_id` belongs to

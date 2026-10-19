@@ -572,3 +572,9 @@ The bot is built from modules that can be served as one bot or as several, set i
   `dice = { stickers = true }`, the bot's `admin` and `chat_settings` flags, the `[web]` table). The Discord bot and the web app
   no longer need a switch (a token and `WEB_APP_URL` are the choice), `EPHEMERAL_REPLIES` is off in the environment (on by default
   in a file), and /help always has its module submenus. Dice options (`stickers`, `variables`) default off, `commands` on.
+
+## Done in v4.3.1: the pack machinery is gone
+- The clips live flat in `assets/dice_clips` (was `dice_packs/pack1..8`); `manifest.json` is a map from a clip's name to its die, variant,
+  value and effect (no more emoji and search keywords, no pack order, no 120-per-pack layout); `packs.py` is now `assets.py`, `tags.py` is
+  deleted, and `render.py --all` replaces `--pack N`. Kept on purpose: the sorted pool clips, the odd dice taking the next even die's
+  clips, the pre-rendered pairs (2d12 duality, 2d20 advantage / disadvantage) and `max_stickers`.
