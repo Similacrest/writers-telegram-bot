@@ -169,7 +169,7 @@ messages (privacy mode off, or the bot is an admin). `protect_content` is not us
 Telegram allows (else a reply that goes away), and deletes the roll request where the bot may. A private roll has no stickers.
 In the private chat with the bot `-p` changes nothing.
 
-**Roll variables** (`dice = { variables = true }`, on with `PREVIEW_FEATURES`; needs the bot with storage). A variable is a name for a
+**Roll variables** (`dice = { variables = true }`; needs the bot with storage). A variable is a name for a
 series of up to 8 rolls, kept per person per chat (the private chat with the bot is a chat too), rolled as a whole:
 
 | | |
