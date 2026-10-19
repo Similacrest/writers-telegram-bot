@@ -1,6 +1,6 @@
 """Stitch dice sticker clips into one sticker with ffmpeg: any set of dice in a single picture.
 
-The clips (``assets/dice_packs``) are transparent VP9 videos of one die, a pair or a triple, each 512 px, 2.9 s. A roll that needs
+The clips (``assets/dice_clips``) are transparent VP9 videos of one die, a pair or a triple, each 512 px, 2.9 s. A roll that needs
 several stickers (``d20+d4``, 8d6, six mixed dice) gets one instead, six dice at most, more dice more stickers: its clips are scaled down, put on a grid in the order thrown and
 overlaid with alpha, each landing a few frames after the one before (dice never land together). The result is encoded to Telegram's
 limits for a video sticker (512 px, at most 3 s, at most 256 KB), and takes a few seconds of one core.
