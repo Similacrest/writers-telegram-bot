@@ -906,6 +906,8 @@ confirm_words = "так yes"
 # The web app (Telegram Mini App or website). Errors come back from the server and show in a pop-up.
 title = "Письменницькі спринти"
 login_intro = "Увійдіть через Telegram, щоб бачити свої твори, прогрес і спринти."
+# The button on the website that sends the browser to Telegram to log in
+login_telegram = "Увійти через Telegram"
 login_discord = "Увійти через Discord"
 error_server = "Щось пішло не так. Спробуйте ще раз."
 error_login = "Потрібно увійти ще раз."

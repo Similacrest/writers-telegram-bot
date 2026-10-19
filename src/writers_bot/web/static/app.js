@@ -71,18 +71,21 @@ function time(iso) {
 
 // --- start ------------------------------------------------------------------------------------------
 
-// Telegram Login's redirect flow (the widget's data-auth-url): the browser comes back here with the user in the query
-// string. The widget's callback attribute would need eval, which the page's CSP does not allow.
-const LOGIN_KEYS = ["id", "first_name", "last_name", "username", "photo_url", "auth_date", "hash"];
-
-function loginFromQuery(params) {
-  if (!params.get("hash") || !params.get("id")) return null;
-  const login = {};
-  LOGIN_KEYS.forEach((key) => { if (params.has(key)) login[key] = params.get(key); });
-  LOGIN_KEYS.forEach((key) => params.delete(key));
-  const rest = params.toString();
-  history.replaceState(null, "", location.pathname + (rest ? "?" + rest : ""));  // not in the address bar or the history
-  return login;
+// Telegram Login by top-level redirect: the browser goes to oauth.telegram.org and comes back with the user in the
+// URL fragment (#tgAuthResult=<base64url JSON>), which never reaches the server's logs. The widget's iframe is not
+// used: Firefox and Safari partition its cookies, so it never sees the login made in its popup.
+function loginFromFragment(fragment) {
+  const raw = fragment.get("tgAuthResult");
+  if (!raw) return null;
+  history.replaceState(null, "", location.pathname + location.search);  // not in the address bar or the history
+  try {
+    let b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const data = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    return data && data.hash && data.id ? data : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function start() {
@@ -101,8 +104,8 @@ async function start() {
     state.token = session.token;
     state.launch = state.launch || session.start || (tg.initDataUnsafe && tg.initDataUnsafe.start_param) || null;
   } else {
-    const login = loginFromQuery(params);
     const fragment = new URLSearchParams(location.hash.slice(1));
+    const login = loginFromFragment(fragment);
     if (login) {
       const session = await guarded(() => api("POST", "/api/session", { login }));
       if (session) sessionStorage.setItem("token", session.token);
@@ -120,16 +123,10 @@ function showLogin() {
   const view = document.getElementById("view");
   view.replaceChildren(el("p", {}, T("login_intro")));
   const bot = (state.config.bots || [])[0];
-  if (bot && bot.username) {
-    const script = el("script", {
-      src: "https://telegram.org/js/telegram-widget.js?22",
-      "data-telegram-login": bot.username,
-      "data-size": "large",
-      "data-auth-url": location.origin + location.pathname,
-      "data-request-access": "write",
-      async: true,
-    });
-    view.append(script);
+  if (bot && bot.id) {
+    const query = "bot_id=" + bot.id + "&origin=" + encodeURIComponent(location.origin) + "&request_access=write"
+      + "&return_to=" + encodeURIComponent(location.origin + location.pathname);
+    view.append(el("p", {}, el("a", { class: "button", href: "https://oauth.telegram.org/auth?" + query }, T("login_telegram"))));
   }
   if (state.config.discord) view.append(el("p", {}, el("a", { href: "/auth/discord" }, T("login_discord"))));
 }

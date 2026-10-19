@@ -29,7 +29,8 @@ main { padding: 8px 16px 40px; max-width: 640px; margin: 0 auto; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .grow { flex: 1 1 140px; min-width: 0; }
 button.primary, button.plain, button.danger { font: inherit; border-radius: 10px; padding: 9px 14px; border: 0; cursor: pointer; }
-button.primary { background: var(--accent); color: var(--accent-fg); }
+button.primary, a.button { background: var(--accent); color: var(--accent-fg); }
+a.button { display: inline-block; text-decoration: none; font: inherit; border-radius: 10px; padding: 9px 14px; }
 button.plain { background: transparent; color: var(--accent); border: 1px solid var(--line); }
 button.danger { background: transparent; color: var(--danger); border: 1px solid var(--line); }
 button:disabled { opacity: 0.5; }

@@ -34,8 +34,8 @@ ADMIN_TABS = {"chat", "prompts", "achievements"}
 SUPER_TABS = {"communities"}  # super-admins only
 STATIC = {"app.js": "application/javascript", "app.css": "text/css", "index.html": "text/html"}
 CSP = (
-    "default-src 'self'; script-src 'self' https://telegram.org; style-src 'self' 'unsafe-inline'; "
-    "img-src 'self' data: https:; frame-src https://oauth.telegram.org; connect-src 'self'; frame-ancestors https://web.telegram.org https://*.telegram.org"
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; connect-src 'self'; frame-ancestors https://web.telegram.org https://*.telegram.org"
 )
 
 
@@ -154,7 +154,7 @@ class WebApp:
         return web.json_response(data)
 
     async def _config(self, _request: web.Request) -> web.Response:
-        bots = [{"name": n, "username": b.me.username if b.me else None} for n, b in self.tbots.items()]
+        bots = [{"name": n, "username": b.me.username if b.me else None, "id": b.me.id if b.me else None} for n, b in self.tbots.items()]
         return web.json_response({"bots": bots, "discord": bool(self.config.discord_client_id)})
 
     async def _session(self, request: web.Request) -> web.Response:

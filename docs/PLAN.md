@@ -213,6 +213,9 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
 - v4.2.7: Telegram Login on the website uses the widget's redirect flow (`data-auth-url`), because the `data-onauth` callback is
   compiled with eval and the page's CSP forbids it; the page posts the fields from the query string to `/api/session` and
   removes them from the URL.
+- v4.5.2: Telegram Login on the website is a plain link to `oauth.telegram.org/auth` (top-level redirect); the page reads the user
+  from `#tgAuthResult` and posts it to `/api/session`. The widget's iframe never got the popup's login in Firefox (cookies
+  partitioned per site). `/api/config` gives each bot's numeric `id`; the CSP lost `telegram.org` scripts and `frame-src`.
 
 ## Done in v4.3.0
 - **Dice stickers, rebuilt**: 866 stickers in 8 packs (`scripts/dice_render/clips.py` has the names and the layout). Dice of a

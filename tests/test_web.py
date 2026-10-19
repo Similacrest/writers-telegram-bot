@@ -95,11 +95,12 @@ async def test_static_and_texts(client):
 
 
 async def test_the_csp_allows_no_eval_and_no_inline_script(client):
-    """The Telegram Login widget's redirect flow needs neither: script-src stays 'self' and telegram.org."""
+    """Telegram Login by redirect needs neither, nor any other origin: script-src is 'self' and nothing is framed."""
     csp = (await client.get("/")).headers["Content-Security-Policy"]
     script_src = next(d for d in csp.split(";") if d.strip().startswith("script-src"))
     assert "'unsafe-eval'" not in script_src and "'unsafe-inline'" not in script_src
     assert "'unsafe-eval'" not in csp
+    assert "telegram.org" not in script_src and "frame-src" not in csp
     assert "data-onauth" not in await (await client.get("/static/app.js")).text()
 
 

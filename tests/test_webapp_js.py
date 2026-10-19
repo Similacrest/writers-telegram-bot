@@ -1,6 +1,7 @@
 """Runs the web app's JavaScript in QuickJS with a tiny DOM, fed real answers from the server, and checks
 that every tab renders without errors and shows texts from the locale (not raw keys)."""
 
+import base64
 import json
 from pathlib import Path
 
@@ -43,7 +44,7 @@ var document = {
   documentElement: makeNode("html"), body: makeNode("body"), activeElement: null, title: "",
 };
 var window = {};
-var location = { search: "", hash: "", pathname: "/" };
+var location = { search: "", hash: "", pathname: "/", origin: "https://w.example" };
 var HISTORY = [];
 var history = { replaceState: function (a, b, url) { HISTORY.push(url); } };
 var sessionStorage = { _: {}, getItem: function (k) { return k in this._ ? this._[k] : null; },
@@ -116,48 +117,81 @@ class Page:
         return " ".join(walk_text(data, []))
 
 
-LOGIN_QUERY = "?s=launch&id=7&first_name=Alice&auth_date=1700000000&hash=abc&junk=1"
+LOGIN_USER = {"id": 7, "first_name": "Alice", "auth_date": 1700000000, "hash": "abc"}
 
 
-def test_telegram_login_comes_back_by_redirect_not_by_eval():
-    """The widget's data-onauth is compiled with new Function (eval), which the page's CSP forbids: the login
-    button uses data-auth-url, and start() takes the user from the query string, then removes it from the URL."""
-    source = APP_JS.read_text(encoding="utf-8")
-    assert "data-onauth" not in source and "onTelegramAuth" not in source and "eval(" not in source
-    assert '"data-auth-url": location.origin + location.pathname' in source
+def tg_auth_result(user: dict, padded: bool = False) -> str:
+    raw = base64.urlsafe_b64encode(json.dumps(user, ensure_ascii=False).encode()).decode()
+    return raw if padded else raw.rstrip("=")
+
+
+ATOB = r"""
+var atob = function (s) {
+  var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", out = "", bits = 0, n = 0;
+  s.replace(/=+$/, "").split("").forEach(function (c) {
+    bits = (bits << 6) | chars.indexOf(c); n += 6;
+    if (n >= 8) { n -= 8; out += String.fromCharCode((bits >> n) & 255); }
+  });
+  return out;
+};
+"""
+
+
+def login_page(me_status: int = 200) -> Page:
     page = Page(
         {
-            "GET /api/texts": {"status": 200, "body": {"title": "t", "login_intro": "Увійдіть"}},
+            "GET /api/texts": {"status": 200, "body": {"title": "t", "login_intro": "Увійдіть", "login_telegram": "TG"}},
             "GET /api/config": {
                 "status": 200,
-                "body": {"bots": [{"name": "main", "username": "b"}], "discord": False},
+                "body": {"bots": [{"name": "main", "username": "b", "id": 123}], "discord": False},
             },
             "POST /api/session": {"status": 200, "body": {"token": "T0KEN", "name": "Alice"}},
-            "GET /api/me": {"status": 401, "body": {"error": "login"}},
+            "GET /api/me": {"status": me_status, "body": {"name": "Alice", "tabs": []}},
         }
     )
-    page.run(f"location.search = {json.dumps(LOGIN_QUERY)}; await start();")
-    assert page.ctx.eval("CALLS.indexOf('POST /api/session')") >= 0
-    assert page.ctx.eval("HISTORY[0]") == "/?s=launch&junk=1"  # the login fields are gone, the other parameters stay
-    assert page.ctx.eval("sessionStorage.getItem('token')") in ("T0KEN", None)  # /api/me said 401 above: token dropped
-
-
-async def test_the_redirect_login_sends_only_the_widgets_fields():
-    page = Page(
-        {
-            "GET /api/texts": {"status": 200, "body": {"title": "t"}},
-            "GET /api/config": {"status": 200, "body": {"bots": [], "discord": False}},
-            "POST /api/session": {"status": 200, "body": {"token": "T0KEN", "name": "Alice"}},
-            "GET /api/me": {"status": 200, "body": {"name": "Alice", "tabs": []}},
-        }
-    )
+    page.ctx.eval(ATOB)
     page.ctx.eval(
         "var SENT = null; var _fetch = fetch; fetch = function (p, o) { if (o && o.body) SENT = JSON.parse(o.body); return _fetch(p, o); };"
     )
-    page.run(f"location.search = {json.dumps(LOGIN_QUERY)}; await start();")
-    sent = json.loads(page.ctx.eval("JSON.stringify(SENT)"))
-    assert sent == {"login": {"id": "7", "first_name": "Alice", "auth_date": "1700000000", "hash": "abc"}}
+    return page
+
+
+def test_telegram_login_is_a_top_level_redirect_not_the_widget():
+    """The widget's iframe loses the popup's login where cookies are partitioned (Firefox), so the page links to
+    oauth.telegram.org and takes the user from the #tgAuthResult fragment it comes back with."""
+    source = APP_JS.read_text(encoding="utf-8")
+    assert "telegram-widget" not in source and "eval(" not in source
+    page = login_page()
+    page.run("await start();")
+    link = json.loads(page.ctx.eval("JSON.stringify(document.getElementById('view'))"))
+    hrefs = []
+
+    def find(node):
+        if isinstance(node, dict):
+            if node.get("attrs", {}).get("href"):
+                hrefs.append(node["attrs"]["href"])
+            for child in node.get("children", []):
+                find(child)
+
+    find(link)
+    assert len(hrefs) == 1 and hrefs[0].startswith("https://oauth.telegram.org/auth?bot_id=123&")
+    assert "return_to=" in hrefs[0] and "origin=" in hrefs[0]
+
+
+@pytest.mark.parametrize("padded", [False, True])
+def test_the_fragment_is_the_login(padded):
+    page = login_page()
+    page.run(f"location.hash = {json.dumps('#tgAuthResult=' + tg_auth_result(LOGIN_USER, padded))}; await start();")
+    assert json.loads(page.ctx.eval("JSON.stringify(SENT)")) == {"login": LOGIN_USER}
+    assert page.ctx.eval("HISTORY[0]") == "/"  # the fragment is gone from the address bar
     assert page.ctx.eval("sessionStorage.getItem('token')") == "T0KEN"
+
+
+def test_a_broken_fragment_shows_the_login_again():
+    page = login_page(me_status=401)
+    page.run("location.hash = '#tgAuthResult=!!not-base64!!'; await start();")
+    assert page.ctx.eval("SENT") is None and page.errors() == []
+    assert page.ctx.eval("HISTORY[0]") == "/"
 
 
 @pytest.fixture
