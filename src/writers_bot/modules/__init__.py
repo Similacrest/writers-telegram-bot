@@ -83,7 +83,7 @@ MODULES: dict[str, ModuleSpec] = {
             defaults={
                 "stickers": False,
                 "max_stickers": 4,
-                "packs": [],
+                "cache_file": "",
                 "commands": True,
                 "randomness": "pseudo",
                 "random_org_key": "",

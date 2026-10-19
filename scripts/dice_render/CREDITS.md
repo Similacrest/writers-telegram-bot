@@ -6,3 +6,5 @@ The stickers are renders (scripts/dice_render) of:
   repository calls the models and themes CC0), drawn with Babylon.js 5.57.1 (Apache-2.0);
 - for the coin, a scan of a 1992 Ukrainian 5 kopiyok coin, Wikimedia Commons `5-kopiyok-Ukraine.jpg`
   (`PD-UA-exempt`: coins are not subject to copyright in Ukraine).
+- the three-sided die (d3) is modelled in the renderer (`page/render.html`): a ball cut by three flats, with the shape of an
+  ordinary three-sided die (a product photograph was only a reference); no third-party model or texture is in it.

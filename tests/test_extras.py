@@ -59,18 +59,16 @@ def test_smash():
         assert 9 <= len(s) <= 21 and all(c in "qwertyuiop[]asdfghjkl;'zxcvbnm,./" for c in s)
 
 
-def test_keep_one_of_two_is_advantage_and_disadvantage():
-    """2d20kh1 is d20adv, 2d20kl1 is d20dis (also with a flat bonus and the Cyrillic ka); other keeps are left alone."""
+def test_adv_is_a_mode_and_kh1_is_the_librarys_own_keep():
+    """adv / dis roll the whole expression twice; 2d20kh1 is the d20 library's keep, so it is no mode (the dice as rolled)."""
     for text, expression, mode in (
-        ("/2d20kh1", "d20", "adv"), ("/2d20kl1+3", "d20+3", "dis"), ("!2к20KH1-2 Атака", "d20-2", "adv"),
-        ("/r 2d12kh1", "d12", "adv"), ("/d20adv", "d20", "adv"), ("/d20dis", "d20", "dis"),
+        ("/d20adv", "d20", "adv"), ("/d20dis", "d20", "dis"), ("/d20+3adv", "d20+3", "adv"),
+        ("/2d20kh1", "2d20kh1", None), ("/2d20kl1+3", "2d20kl1+3", None), ("!2к20kh1-2 Атака", "2d20kh1-2", None),
+        ("/4d6kh3", "4d6kh3", None),
     ):  # fmt: skip
         r = parse_roll(text)
         assert (r.expression, r.mode) == (expression, mode), text
-    assert parse_roll("!2к20KH1-2 Атака").caption == "Атака"
-    assert parse_roll("/4d6kh3").mode is None and parse_roll("/4d6kh3").expression == "4d6kh3"
-    assert parse_roll("/3d20kh1").mode is None  # three dice: the library's own keep
-    assert parse_roll("/2d20kh1+1d4").mode is None  # more than a bonus: the library's own keep
+    assert parse_roll("!2к20kh1-2 Атака").caption == "Атака"
 
 
 def test_a_bang_starts_a_dice_command_as_a_slash_does():
@@ -78,13 +76,29 @@ def test_a_bang_starts_a_dice_command_as_a_slash_does():
     assert parse_roll("!r 4d6kh3").expression == "4d6kh3" and parse_roll("!промпт") is None
 
 
-def test_advantage_and_disadvantage_put_the_die_that_counts_first():
+def test_adv_shows_the_two_rolls_sorted_with_the_dropped_one_struck_out_and_kh1_the_dice_as_rolled():
     import random
+    import re
 
     from writers_bot.core.extras import throw
 
     for seed in range(40):
-        adv = throw(F, parse_roll("/2d20kh1"), random.Random(seed)).dice
-        dis = throw(F, parse_roll("/2d20kl1"), random.Random(seed)).dice
-        assert adv[0][1] >= adv[1][1] and dis[0][1] <= dis[1][1], seed
-        assert adv == throw(F, parse_roll("/d20adv"), random.Random(seed)).dice  # one behaviour, two spellings
+        adv = throw(F, parse_roll("/d20adv"), random.Random(seed))
+        dis = throw(F, parse_roll("/d20dis"), random.Random(seed))
+        totals = lambda html: [int(re.findall(r"= <b>(\d+)</b>", line)[0]) for line in html.split("\n")[2:]]  # noqa: E731
+        low, high = totals(adv.html), totals(dis.html)
+        assert low == sorted(low) and high == sorted(high), seed  # the lower roll first, whichever counts
+        assert adv.html.split("\n")[1] == f"<b>{max(low)}</b>" and dis.html.split("\n")[1] == f"<b>{min(high)}</b>"
+        assert adv.html.count("<s>") == 1 and dis.html.count("<s>") == 1
+        if low[0] != low[1]:
+            assert (
+                "<s>" in adv.html.split("\n")[2] and "<s>" in dis.html.split("\n")[3]
+            )  # advantage drops the lower roll
+        assert (
+            adv.dice[0][1] >= adv.dice[1][1] and dis.dice[0][1] <= dis.dice[1][1]
+        )  # stickers: the die that counts first
+    keep = throw(F, parse_roll("/2d20kh1"), random.Random(3))
+    assert [v for _, v in keep.dice] == [
+        8,
+        19,
+    ] and "(<s>8</s>, 19)" in keep.html  # as rolled, the dropped one struck out

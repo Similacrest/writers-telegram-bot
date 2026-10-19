@@ -154,11 +154,6 @@ def _validate(config: ProcessConfig) -> ProcessConfig:
 # --- from the environment (no config file) ----------------------------------------------------------
 
 
-def _dice_packs() -> list[str]:
-    """DICE_PACKS: the two dice sticker packs (names or t.me/addstickers links), comma-separated."""
-    return [p.strip() for p in os.environ.get("DICE_PACKS", "").split(",") if p.strip()]
-
-
 def _dice_randomness() -> dict:
     """DICE_RANDOMNESS=random.org with RANDOM_ORG_KEY: true random dice (see the dice module's options)."""
     if os.environ.get("DICE_RANDOMNESS", "").strip() == "random.org":
@@ -174,7 +169,7 @@ def env_modules(extras: bool, preview: bool) -> dict[str, dict]:
     }
     if extras:
         modules |= {
-            "dice": {"stickers": preview, "commands": preview, "packs": _dice_packs()} | _dice_randomness(),
+            "dice": {"stickers": preview, "commands": preview} | _dice_randomness(),
             "smash": {},
             "greeter": {"from_sheet": True},
             "replies": {"legacy": True},

@@ -1,4 +1,4 @@
-"""Which sticker a die gets (core/dicestickers.py): the rules for odd dice, crits, advantage and Daggerheart's duality dice."""
+"""Which stickers a roll gets (core/dicestickers.py): singles, pools of d4 / d6 / d8, d10 pairs as d100, duality dice and advantage."""
 
 import itertools
 import json
@@ -6,7 +6,7 @@ from importlib.resources import files
 
 import pytest
 
-from writers_bot.core.dicestickers import NEXT_EVEN, SUPPORTED, choose
+from writers_bot.core.dicestickers import NEXT_EVEN, POOL_SIZE, SUPPORTED, choose, split
 
 
 def stickers(*dice, mode=None):
@@ -18,14 +18,14 @@ def manifest_names():
     return {row["file"].split("/")[1].removesuffix(".webm") for rows in data.values() for row in rows}
 
 
-def test_odd_dice_take_the_next_even_one():
-    assert stickers((3, 2)) == ["d4_2"]
-    assert stickers((5, 5)) == ["d6_5"]
+def test_odd_dice_take_the_next_even_one_but_the_d3_has_its_own():
+    assert stickers((3, 2)) == ["d3_2"]
+    assert stickers((5, 5)) == ["d6_5"]  # not a 6: no crit
     assert stickers((7, 7)) == ["d8_7"]
     assert stickers((9, 9)) == ["d10_9"]
-    assert stickers((11, 11)) == ["d12b_11"]  # alone, so a d12 as in a lone d12 roll
+    assert stickers((11, 11)) == ["d12_11"]
     assert stickers((2, 1)) == ["d2_1"]  # the coin
-    assert stickers((3, 1)) == ["d4_1"]
+    assert stickers((3, 1)) == ["d3_1"] and stickers((3, 3)) == ["d3_3"]  # never a crit
 
 
 def test_dice_without_stickers_give_none():
@@ -38,118 +38,116 @@ def test_dice_without_stickers_give_none():
 
 @pytest.mark.parametrize(
     ("die", "name"),
-    [((4, 1), "d4_1"), ((4, 4), "d4_4"), ((6, 1), "d6_1"), ((6, 6), "d6_6"), ((10, 1), "d10_1"), ((10, 10), "d10_10")],
-)
-def test_d4_d6_d10_alone_have_crits(die, name):
+    [
+        ((4, 1), "d4_1"), ((4, 4), "d4_4"), ((6, 1), "d6_1"), ((6, 6), "d6_6"), ((8, 8), "d8_8"), ((10, 10), "d10_10"),
+        ((12, 1), "d12_1"), ((12, 12), "d12_12"), ((20, 1), "d20_1"), ((20, 20), "d20_20"), ((100, 100), "d100_100"),
+    ],
+)  # fmt: skip
+def test_a_die_alone_has_its_crits(die, name):
     assert stickers(die) == [name]
 
 
-def test_the_same_kind_of_dice_keep_their_crits():
-    assert stickers((6, 1), (6, 6)) == ["d6_1", "d6_6"]
-
-
-def test_as_an_addition_to_other_dice_there_are_no_crits():
+def test_with_other_dice_a_single_is_crit_less_at_its_ends():
     assert stickers((20, 7), (4, 1)) == ["d20_7", "d4n_1"]
     assert stickers((20, 7), (4, 4)) == ["d20_7", "d4n_4"]
     assert stickers((20, 7), (6, 6)) == ["d20_7", "d6n_6"]
     assert stickers((20, 7), (10, 10)) == ["d20_7", "d10n_10"]
     assert stickers((20, 7), (10, 1)) == ["d20_7", "d10n_1"]
     assert stickers((20, 7), (4, 3)) == ["d20_7", "d4_3"]  # only the lowest and highest differ
-    assert stickers((3, 1), (20, 4)) == ["d4n_1", "d20_4"]  # a d3 is a d4 here too
+    assert stickers((20, 20), (4, 4)) == ["d20n_20", "d4n_4"]
+    assert stickers((20, 5), (8, 8)) == ["d20_5", "d8n_8"]
+    assert stickers((100, 100), (6, 2)) == ["d100n_100", "d6_2"]
+    assert stickers((12, 1), (4, 2), (20, 20)) == ["d12n_1", "d4_2", "d20n_20"]  # a d12 here is not a duality pair
+    assert stickers((3, 1), (20, 4)) == ["d3_1", "d20_4"]  # a d3 never has them
 
 
-def test_the_d8_d20_and_d100_always_have_their_crits():
-    assert stickers((20, 5), (8, 8)) == ["d20_5", "d8_8"]
-    assert stickers((8, 1), (4, 2)) == ["d8_1", "d4_2"]
-    assert stickers((20, 20)) == ["d20_20"] and stickers((20, 1)) == ["d20_1"]
-    assert stickers((100, 100)) == ["d100_100"]
-    assert stickers((20, 20), (4, 4)) == ["d20_20", "d4n_4"]
+def test_two_or_three_dice_of_a_kind_share_a_sticker_values_ascending():
+    assert stickers((6, 5), (6, 2)) == ["2d6_2_5"]
+    assert stickers((6, 5), (6, 2), (6, 6)) == ["3d6_2_5_6"]
+    assert stickers((4, 4), (4, 1), (4, 1)) == ["3d4_1_1_4"]
+    assert stickers((4, 3), (4, 2)) == ["2d4_2_3"]
+    assert stickers((8, 8), (8, 1)) == ["2d8_1_8"]
+    assert stickers((5, 5), (5, 1)) == ["2d6_1_5"]  # d5s on d6 stickers
 
 
-def test_d20_with_advantage_the_larger_has_the_advantage_look():
-    assert stickers((20, 7), (20, 12), mode="adv") == ["d20_7", "d20a_12"]
-    assert stickers((20, 12), (20, 7), mode="adv") == ["d20a_12", "d20_7"]  # in the order thrown
-    assert stickers((20, 20), (20, 3), mode="adv") == ["d20_20", "d20_3"]  # a 20 is the plain crit
-    assert stickers((20, 1), (20, 5), mode="adv") == ["d20_1", "d20a_5"]
+def test_bigger_pools_are_split_into_the_fewest_even_groups():
+    assert split(8, 3) == [3, 3, 2] and split(7, 3) == [3, 2, 2] and split(4, 3) == [2, 2] and split(3, 2) == [2, 1]
+    assert stickers(*[(6, v) for v in (3, 1, 6, 2, 2, 5, 4, 4)]) == ["3d6_1_3_6", "3d6_2_2_5", "2d6_4_4"]  # 8d6
+    assert stickers(*[(6, 1)] * 7) == ["3d6_1_1_1", "2d6_1_1", "2d6_1_1"]
+    assert len(stickers(*[(4, 2)] * 9)) == 3 and len(stickers(*[(4, 2)] * 10)) == 4
+    assert stickers((8, 3), (8, 1), (8, 8)) == ["2d8_1_3", "d8n_8"]  # an odd d8 is left on its own, crit-less
+    assert stickers((8, 5), (8, 8), (8, 2), (8, 7)) == ["2d8_5_8", "2d8_2_7"]
 
 
-def test_d20_with_disadvantage_the_smaller_has_the_disadvantage_look():
-    assert stickers((20, 7), (20, 12), mode="dis") == ["d20d_7", "d20_12"]
-    assert stickers((20, 1), (20, 5), mode="dis") == ["d20_1", "d20_5"]  # a 1 is the plain crit
-    assert stickers((20, 20), (20, 3), mode="dis") == ["d20_20", "d20d_3"]
+def test_d10s_go_in_twos_on_the_d100_stickers():
+    assert stickers((10, 7), (10, 3)) == ["d100_73"]  # a tens die 70 and a ones die 3
+    assert stickers((10, 10), (10, 5)) == ["d100_5"]  # 10 is 00 on the tens die
+    assert stickers((10, 4), (10, 10)) == ["d100_40"]  # and 0 on the ones die
+    assert stickers((10, 10), (10, 10)) == ["d100n_100"] and stickers((10, 10), (10, 1)) == ["d100n_1"]  # no d100 crit
+    assert stickers((10, 7), (10, 3), (10, 10), (10, 10), (10, 1)) == ["d100_73", "d100n_100", "d10n_1"]
+    # every pair has its own picture: 100 pairs, 100 stickers
+    assert len({stickers((10, a), (10, b))[0] for a in range(1, 11) for b in range(1, 11)}) == 100
 
 
-def test_a_tie_is_plain():
-    assert stickers((20, 9), (20, 9), mode="adv") == ["d20_9", "d20_9"]
-    assert stickers((20, 9), (20, 9), mode="dis") == ["d20_9", "d20_9"]
-    assert stickers((20, 20), (20, 20), mode="adv") == ["d20_20", "d20_20"]
+def test_two_d12_are_the_duality_dice_blue_then_red():
+    assert stickers((12, 9), (12, 4)) == ["2d12_9_4"]
+    assert stickers((12, 4), (12, 9)) == ["2d12_4_9"]  # ordered: not the same sticker
+    assert stickers((12, 4), (12, 9), (6, 6)) == ["2d12_4_9", "d6n_6"]  # an advantage d6, crit-less
+    assert stickers((6, 3), (12, 4), (12, 9)) == ["d6_3", "2d12_4_9"]
+    assert stickers((12, 1), (12, 5), (12, 12)) == ["d12n_1", "d12_5", "d12n_12"]  # three: not duality
 
 
-def test_d12_with_advantage_or_disadvantage_works_the_same():
-    assert stickers((12, 5), (12, 9), mode="adv") == ["d12b_5", "d12ba_9"]  # the other die is a plain d12
-    assert stickers((12, 5), (12, 9), mode="dis") == ["d12rd_5", "d12b_9"]
-    assert stickers((12, 12), (12, 3), mode="adv") == ["d12ba_12", "d12b_3"]
-    assert stickers((12, 1), (12, 8), mode="dis") == ["d12rd_1", "d12b_8"]
-    assert stickers((12, 7), (12, 7), mode="adv") == ["d12b_7", "d12b_7"]
+def test_d12_with_advantage_or_disadvantage_uses_the_duality_pair_kept_die_first():
+    assert stickers((12, 9), (12, 5), mode="adv") == ["2d12_9_5"]
+    assert stickers((12, 5), (12, 9), mode="dis") == ["2d12_5_9"]
+
+
+def test_two_d20_with_advantage_or_disadvantage():
+    assert stickers((20, 17), (20, 5), mode="adv") == ["2d20a_5_17"]  # the dice ascending, the higher one counts
+    assert stickers((20, 5), (20, 17), mode="adv") == ["2d20a_5_17"]
+    assert stickers((20, 17), (20, 5), mode="dis") == ["2d20d_5_17"]
+    assert stickers((20, 9), (20, 9), mode="adv") == ["2d20t_9"] and stickers((20, 9), (20, 9), mode="dis") == [
+        "2d20t_9"
+    ]
+    assert stickers((20, 1), (20, 20), mode="adv") == ["2d20a_1_20"]
+
+
+def test_two_d20_without_a_mode_are_two_crit_less_singles():
+    assert stickers((20, 20), (20, 3)) == ["d20n_20", "d20_3"]
+    assert stickers((20, 1), (20, 1)) == ["d20n_1", "d20n_1"]
 
 
 def test_a_mode_on_other_dice_is_nothing_special():
-    assert stickers((6, 2), (6, 5), mode="adv") == ["d6_2", "d6_5"]
+    assert stickers((6, 2), (6, 5), mode="adv") == ["2d6_2_5"]
     assert stickers((20, 7), (20, 12), (4, 3), mode="adv") == ["d20_7", "d20_12", "d4_3"]  # not a plain pair
+    assert stickers((20, 5), (20, 7), (20, 12), mode="adv") == ["d20_5", "d20_7", "d20_12"]
 
 
-def test_a_lone_d12_is_blue_but_for_its_red_1_with_the_crits_from_the_halo_sets():
-    assert [stickers((12, v))[0] for v in (1, 2, 6, 7, 11, 12)] == [
-        "d12rd_1", "d12b_2", "d12b_6", "d12b_7", "d12b_11", "d12ba_12",
-    ]  # fmt: skip
-
-
-def test_more_d12_than_two_or_with_other_dice_have_no_crit_effects():
-    assert stickers((12, 1), (12, 5), (12, 12)) == ["d12r_1", "d12b_5", "d12b_12"]
-    assert stickers((20, 8), (12, 12)) == ["d20_8", "d12b_12"]
-    assert stickers((12, 1), (4, 2)) == ["d12r_1", "d4_2"]
-
-
-def test_duality_dice_blue_larger():
-    assert stickers((12, 7), (12, 3)) == ["d12ba_7", "d12r_3"]
-
-
-def test_duality_dice_red_larger():
-    assert stickers((12, 3), (12, 9)) == ["d12b_3", "d12rd_9"]
-
-
-def test_duality_dice_tie_both_have_the_look_of_their_set():
-    assert stickers((12, 5), (12, 5)) == ["d12ba_5", "d12rd_5"]
-
-
-def test_duality_dice_showing_1_or_12_are_crit_less():
-    assert stickers((12, 12), (12, 4)) == ["d12b_12", "d12r_4"]  # the larger one is a 12: crit-less
-    assert stickers((12, 6), (12, 1)) == ["d12ba_6", "d12r_1"]
-    assert stickers((12, 1), (12, 1)) == ["d12b_1", "d12r_1"]
-    assert stickers((12, 12), (12, 12)) == ["d12b_12", "d12r_12"]
-    assert stickers((12, 1), (12, 12)) == ["d12b_1", "d12r_12"]
-
-
-def test_duality_dice_with_another_die_for_the_rest():
-    assert stickers((12, 4), (12, 9), (6, 6)) == ["d12b_4", "d12rd_9", "d6n_6"]  # an advantage d6 has no crit effect
-    assert stickers((12, 4), (12, 9), (6, 3)) == ["d12b_4", "d12rd_9", "d6_3"]
-
-
-def test_every_sticker_it_can_choose_is_in_the_packs():
+def test_every_sticker_it_can_choose_is_in_the_packs_and_every_sticker_in_the_packs_can_be_chosen():
     names = manifest_names()
     chosen = set()
     for sides in SUPPORTED:
         for value in range(1, sides + 1):
-            chosen.update(choose([(sides, value)]) or [])
+            chosen.update(choose([(sides, value)]))
             for other in (4, 6, 10, 12, 20):
-                chosen.update(choose([(sides, value), (other, 1)]) or [])
-                chosen.update(choose([(sides, value), (other, other)]) or [])
+                chosen.update(choose([(sides, value), (other, 1)]))
+                chosen.update(choose([(sides, value), (other, other)]))
+    for sides in (3, 12, 20, 100):  # the dice that are not pooled: singles, crit-less together
+        for a, b in itertools.product(range(1, min(sides, 20) + 1), repeat=2):
+            chosen.update(choose([(sides, a), (sides, b)]))
     for sides in (12, 20):
         for a, b in itertools.product(range(1, sides + 1), repeat=2):
             for mode in ("adv", "dis", None):
                 chosen.update(choose([(sides, a), (sides, b)], mode))
-    for a, b, c in itertools.product(range(1, 13), repeat=3):
-        chosen.update(choose([(12, a), (12, b), (12, c)]))
-        chosen.update(choose([(12, a), (12, b), (6, c % 6 + 1)]))
+    for sides, most in POOL_SIZE.items():
+        for count in range(2, most * 4 + 1):
+            for roll in itertools.combinations_with_replacement(range(1, sides + 1), min(count, 4)):
+                chosen.update(choose([(sides, v) for v in roll] + [(sides, 1)] * (count - len(roll))))
+    for a, b in itertools.product(range(1, 11), repeat=2):
+        chosen.update(choose([(10, a), (10, b)]))
+    for sides in POOL_SIZE:
+        for roll in itertools.combinations_with_replacement(range(1, sides + 1), 3):
+            chosen.update(choose([(sides, v) for v in roll]))
     assert chosen <= names, sorted(chosen - names)
+    assert names - chosen == set(), sorted(names - chosen)  # no sticker in the packs that no roll gets
     assert all(NEXT_EVEN[n] % 2 == 0 for n in NEXT_EVEN)

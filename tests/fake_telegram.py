@@ -103,6 +103,10 @@ class FakeTelegram(BaseRequest):
         self.incoming_ephemeral: dict[tuple[int, int], float] = {}  # (chat, ephemeral id) -> time
         self.documents: list[dict] = []
         self.sticker_sets: dict[str, list[dict]] = {}
+        # Stickers sent without a pack: an upload gets a file id ("up101-d20_17") whose unique id is "u-d20_17"
+        self.sticker_ids: dict[str, tuple[str, str]] = {}  # file id -> (clip name, unique id)
+        self.uploads: list[str] = []  # the file names uploaded as stickers
+        self.bad_file_ids: set[str] = set()  # file ids Telegram no longer accepts
         # Slow calls, as live Telegram's sticker uploads: method -> how many of its next calls time out on the bot's side
         # after Telegram took them ("after") or before ("before"); the timeouts the bot asked for, per call
         self.time_out_after: dict[str, int] = {}
@@ -480,13 +484,26 @@ class FakeTelegram(BaseRequest):
             else None,
             thread_id=p.get("message_thread_id"),
         )
-        m.extra["sticker"] = p.get("sticker")
+        sticker = p.get("sticker")
+        if isinstance(sticker, str) and sticker.startswith("attach://"):  # an upload: Telegram makes the ids
+            filename = next(iter(self._request.multipart_data.values()))[0]
+            stem = filename.rsplit(".", 1)[0]
+            file_id = f"up{next(self._ids)}-{stem}"
+            self.sticker_ids[file_id] = (stem, f"u-{stem}")
+            self.uploads.append(filename)
+        else:
+            file_id = str(sticker)
+            if file_id in self.bad_file_ids:
+                raise ApiError("Bad Request: wrong file identifier/HTTP URL specified")
+        stem, unique = self.sticker_ids.get(file_id, ("", "x"))
+        m.extra["sticker"] = file_id
+        m.extra["clip"] = stem
         self.messages.append(m)
-        self.note(f"  bot → {chat_id} #{m.message_id}: [sticker {p.get('sticker')}]")
+        self.note(f"  bot → {chat_id} #{m.message_id}: [sticker {file_id}]")
         d = self._message_dict(m)
         d["sticker"] = {
-            "file_id": str(p.get("sticker")),
-            "file_unique_id": "x",
+            "file_id": file_id,
+            "file_unique_id": unique,
             "type": "regular",
             "width": 512,
             "height": 512,

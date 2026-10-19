@@ -20,7 +20,7 @@ a comment saying where it appears; edit them there.
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | `stickers`, `packs`, `max_stickers` (animated dice stickers, see below), `commands` (a command per die in the menu, default on; off in the environment without `PREVIEW_FEATURES`); `randomness`, `random_org_key` (true random dice) | the two sticker packs, made once with `scripts/upload_dice_packs.py`, for `stickers`; a random.org API key for `randomness` | a command for each die (`/d2`, `/d4`, `/d6`, `/d8`, `/d10`, `/d12`, `/d20`, `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
+| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on; off in the environment without `PREVIEW_FEATURES`); `randomness`, `random_org_key` (true random dice) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
 | `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
@@ -113,7 +113,7 @@ exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 |---|---|---|
 | Dice, bonus, caption | `/2d6+3 Атака` | the same; spaces allowed: `/r 2d6 + 3 Атака` |
 | Cyrillic `к` for `d` | `/4к6` | the same |
-| Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same; `/2d20kh1` and `/2d20kl1` (with an optional `+N`) mean exactly that, dice stickers included. The die that counts is shown first |
+| Advantage / disadvantage | `/d20adv`, `/d20dis` (the whole roll twice, better / worse kept) | the same, but the two rolls are shown sorted (the lower first, the one dropped struck out). `/2d20kh1` and `/2d20kl1` are the d20 library's own keep: the dice as rolled, the dropped one struck out, two single d20 stickers |
 | Bonus as a letter | `/2d6b2`, `/2d6m1` | the same (read as `+2`, `-1`) |
 | Minimum per die | `/d6mi2`: each die rolled **between** 2 and 6 | `mi2`: each die **raised to** at least 2 (the d20 meaning); negative minimums aren't accepted |
 | Keep / drop | — (the suffix became the caption) | `/4d6kh3`, `kl`, `ph`, `pl`, by comparison `/4d6k>3`, `p<3`, both ends `8d6kh1kl1`; Roll20's `dl`/`dh` read as `pl`/`ph` |
@@ -126,44 +126,45 @@ exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
 **Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): the dice of a roll also land as animated
-stickers on their results. They are two packs of 120 video stickers (`src/writers_bot/assets/dice_packs`, made by
+stickers on their results. They are eight packs of video stickers (866 in all, `src/writers_bot/assets/dice_packs`, made by
 `scripts/dice_render`, see its README): the highest roll of a die has golden rays, the lowest a red halo, a dull die and
-dust. Which sticker a die gets (`core/dicestickers.py`):
+dust. Dice of a kind share stickers, so a big roll is a few stickers. Which stickers a roll gets (`core/dicestickers.py`):
 
-- **How many.** One or two dice get stickers on their own; three or four only with `-s` after the dice (`/3d6 -s Атака`);
-  more than `max_stickers` (4: `dice = { stickers = true, max_stickers = 4 }`), or a die without stickers (d13), and the
-  roll is only the line. `-q` silences them (`/d20 -q`). A bare `/d20` is just the sticker; a bonus or a caption adds the line.
-- **Which die.** A die with an odd number of sides has the sticker of the next even one (d3 is a d4, d11 a d12); a d2 is
-  the coin (a 5 kopiyok); a d100 is a tens die and a d10.
-- **Crits.** A d4, d6 or d10 on its own has the crit effects on its lowest and highest roll; rolled with dice of another
-  kind (`/d20+d4`) it has the crit-less version. The d8, d20 and d100 always have them.
-- **Advantage.** `/d20adv`: both d20s land; the larger one has the advantage look (a quiet green halo), the smaller one is
-  plain; with `dis` the smaller one has the disadvantage look (magenta) and the larger one is plain. A tie, and a 1 or
-  20 (they are the plain d20's crits), are plain. A d12 works the same way, in blue for advantage and red for disadvantage.
-- **The d12** is blue, except for its red 1. On its own, a 1 is the red disadvantage 1 and a 12 the blue advantage 12,
-  which carry the crit effects. Every die type has a colour of its own: d4 purple, d6 red, d8 grey, d10 green, d12 blue
-  (red for a 1 and for the second duality die), d20 orange, d100 pink tens die and a green d10, the coin silver.
-- **Daggerheart's duality dice** (`/2d12`): the first d12 is blue, the second red. If the blue one is larger it is from the
-  blue advantage set, if the red one is larger from the red disadvantage set, and on a tie both are; a die showing 1 or 12
-  is the crit-less version (crits work differently there). A d6 for advantage (`/2d12+d6 -s`) is crit-less too.
+- **How many.** One or two stickers come on their own; three or four only with `-s` after the dice (`/8d6 -s Атака`); more
+  than `max_stickers` (4: `dice = { stickers = true, max_stickers = 4 }`), or a die without stickers (d13), and the roll is
+  only the line. `-q` silences them (`/d20 -q`). A bare `/d20` is just the sticker; a bonus, a caption or a roll of several
+  dice adds the line.
+- **Pools.** Two or three d4 or d6, or two d8, are one sticker with the dice side by side, the values ascending (`3d6_1_4_4`).
+  Bigger rolls are split into the fewest even groups: 8d6 is 3 + 3 + 2, three stickers; 7d6 is 3 + 2 + 2; an odd d8 is left on its own.
+- **d10s** go in twos on the d100 stickers: `/2d10` rolling 7 and 3 is a tens die 70 and a ones die 3 (a 10 is 00 on the tens
+  die and 0 on the ones die), so every pair has its own picture; the d100's 1 and 100 crit effects are left off there.
+- **Which die.** A die with an odd number of sides has the sticker of the next even one (d5 is a d6, d11 a d12); the d3 is a ball
+  with three flats and a numeral on each, never with crit effects; a d2 is the coin (a 5 kopiyok); a d100 is a tens die and a d10.
+- **Crits.** A die on its own has the crit effects on its lowest and highest roll; with dice that are not grouped with it
+  (`/d20+d4`) it has the crit-less version (`d6n_6`). A group of dice has the effect of the clip: golden when any die shows its
+  highest, else red when any shows a 1.
+- **Advantage.** `/d20adv` is one sticker of two d20s, the dice ascending: the higher one has a quiet green
+  halo (and the crit effect if it is a 20); with `dis` the lower one has a magenta halo (and the fumble if it is a 1).
+  Two d20s showing the same are plain. Two d20 without `adv` or `dis` are two single stickers.
+- **Daggerheart's duality dice** (`/2d12`, also with other dice): one sticker, the first d12 blue and the second red, ordered
+  (`2d12_9_4` is a blue 9 and a red 4). The larger die has its halo (green on the blue one, magenta on the red one), both on a
+  tie; a die showing 1 or 12 has none. There are no crit effects (they work differently there). With `adv` / `dis` on
+  d12s the die that counts is the blue one.
+- **Colours.** Every die type has a colour of its own: d3 grey, d4 purple, d6 yellow, d8 black, d10 green, d12 blue (red for a
+  1 and for the second duality die), d20 orange, d100 a pink tens die and a green d10, the coin silver.
 
-**The packs are shared, and the bot never uploads them.** Telegram wants a bot-made pack's name to end in
-`_by_<username of the bot that made it>`, so make the packs with a bot of their own, once, with the helper script (the
-owner is a person who has started that bot):
+**No sticker packs.** The clips (866, in `src/writers_bot/assets/dice_packs`) are not in any pack: a bot uploads a clip with
+`sendSticker` the first time a roll needs it, Telegram answers with a `file_id`, and the bot keeps it in a cache file, so from then
+on it sends by id. The cache is `dice_stickers.json` next to the database (or `cache_file`; a bot without storage keeps it in
+memory only). It is a small JSON file you can copy, with the same bot, to another host or after a lost disk; a `file_id` belongs to
+one bot, so a file made for another bot only gives its `file_unique_id`s (the same for every bot). If Telegram refuses an id the clip
+is uploaded again. The first roll with a new clip takes a moment (the bot shows "choosing a sticker…").
 
-```
-TELEGRAM_TOKEN=<token of the dice bot> uv run python scripts/upload_dice_packs.py --owner <user id>
-```
-
-It makes `dice1_by_<bot>` and `dice2_by_<bot>` (no version in the names; a complete pack is left alone, a broken one is made
-again with `--replace`) and prints the line for the bots' configs. Every bot with stickers names the same two packs:
-`dice = { stickers = true, packs = ["dice1_by_dicebot", "dice2_by_dicebot"] }` (names or `t.me/addstickers/…` links), or
-`DICE_PACKS=dice1_by_dicebot,dice2_by_dicebot` in the environment. At start a bot reads the packs, checks them against the
-manifest (a pack with the wrong number of stickers, or put out of order, is not used, with a warning in the log) and then
-sends the stickers by file id, finding a sticker by its place in the pack. Without `packs`, rolls come as text only. Each
-sticker has emoji and search keywords for people (see `scripts/dice_render/tags.py`): the die's marker first (🧊 d20, 🕛 d12,
-💯 d100 ...), then 🌟 crit, 💀 fumble, 🟢 advantage, 🟣 disadvantage, 🔴 / 🔵 for the d12's colour, ⬆️ / ⬇️ for the highest and
-lowest roll and the value's digits; the search finds `d20 17`.
+Because the stickers are in no pack, people cannot send them from the keyboard: a message from a person that carries one of them
+is a forward or a copy of a roll (the bot knows its stickers' `file_unique_id`s from what it has sent). The chat setting `dice.forwards`
+(in `/settings` → Кубики) says what to do about it: `warn` (the default) replies "this is a roll sticker, don't forward them", `delete`
+removes it (when the bot may delete messages here, else it warns), `off` leaves it. It only sees stickers where the bot sees all
+messages (privacy mode off, or the bot is an admin). `protect_content` is not used.
 
 **True randomness** (`dice = { randomness = "random.org", random_org_key = "env:RANDOM_ORG_KEY" }`; in the environment
 `DICE_RANDOMNESS=random.org` and `RANDOM_ORG_KEY`). The dice then come from [random.org](https://www.random.org/)'s
@@ -275,7 +276,6 @@ its own container from the same image if you like.
 | `BOT_SUPERADMINS` | empty | Comma-separated user ids with admin rights everywhere |
 | `ALLOWED_CHATS` | empty = all chats | Comma-separated group/channel ids the bot answers in |
 | `EXTRAS` | off | Adds the `dice`, `smash`, `greeter` (from the sheet) and `replies` (legacy) modules |
-| `DICE_PACKS` | empty | The two dice sticker packs (names or links, comma-separated), for the dice stickers (`PREVIEW_FEATURES`) |
 | `DICE_RANDOMNESS`, `RANDOM_ORG_KEY` | `pseudo` | `random.org` and a key: true random dice |
 | `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set |
 | `PREVIEW_FEATURES` | off | The redesigned sprints (reports, works, %), the admin tools, the web app, and the Discord bot |

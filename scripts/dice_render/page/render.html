@@ -136,10 +136,10 @@ function tintMarble(img, mesh, rgb) {
 }
 
 // a die of a theme colour that clashes with another die's: turn the marble's hue (the numerals are white, they stay)
-function hueMarble(img, deg) {
+function hueMarble(img, deg, bright, sat) {
   const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
   const c = canvasOf(w, h), g = c.getContext("2d");
-  g.filter = `hue-rotate(${deg}deg)`;
+  g.filter = `hue-rotate(${deg}deg) brightness(${bright}) saturate(${sat})`;
   g.drawImage(img, 0, 0);
   return c;
 }
@@ -241,6 +241,46 @@ window.setup = async (spec) => {
       items.push({ mesh, d, f: {}, q, axis: unit([1, (r() - 0.5) * 0.3, (r() - 0.5) * 0.1]), turns: 2.5 + Math.floor(r() * 2), norm: (d.scale || 1) / mesh.getBoundingInfo().boundingSphere.radius, centre: B.Vector3.Zero() });
       return;
     }
+    if (d.sides === 3) { // a d3: a ball cut by three flats at 120 degrees, a numeral on each flat; it rests on one
+      const R = 1, off = 0.62;
+      const mesh = B.MeshBuilder.CreateSphere(`d3_${k}`, { diameter: 2 * R, segments: 64, updatable: true }, scene);
+      const flats = [0, 1, 2].map((j) => [Math.cos((j * 2 * Math.PI) / 3), Math.sin((j * 2 * Math.PI) / 3), 0]);
+      const pos = mesh.getVerticesData(B.VertexBuffer.PositionKind);
+      for (let i = 0; i < pos.length; i += 3) {
+        let p = [pos[i], pos[i + 1], pos[i + 2]];
+        for (const n of flats) { const over = dot(p, n) - off; if (over > 0) p = sub(p, mul(n, over)); }
+        pos[i] = p[0]; pos[i + 1] = p[1]; pos[i + 2] = p[2];
+      }
+      mesh.updateVerticesData(B.VertexBuffer.PositionKind, pos);
+      const normals = [];
+      B.VertexData.ComputeNormals(pos, mesh.getIndices(), normals);
+      mesh.updateVerticesData(B.VertexBuffer.NormalKind, normals);
+      const body = new B.StandardMaterial(`d3m${k}`, scene);
+      body.diffuseColor = new B.Color3(0.52, 0.55, 0.6); body.specularColor = new B.Color3(0.35, 0.35, 0.35); body.specularPower = 28;
+      mesh.material = body;
+      const axis3 = [0, 0, 1];
+      flats.forEach((n, j) => {
+        const tex = new B.DynamicTexture(`d3t${k}${j}`, 256, scene, true);
+        const g = tex.getContext(); g.clearRect(0, 0, 256, 256);
+        g.fillStyle = "#fff"; g.font = "bold 190px Georgia, serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(j + 1), 128, 138); tex.update(); tex.hasAlpha = true;
+        const label = B.MeshBuilder.CreatePlane(`d3n${k}${j}`, { size: 1.0 }, scene);
+        const lm = new B.StandardMaterial(`d3l${k}${j}`, scene);
+        lm.diffuseTexture = tex; lm.diffuseTexture.hasAlpha = true; lm.useAlphaFromDiffuseTexture = true;
+        lm.emissiveColor = new B.Color3(1, 1, 1); lm.disableLighting = true; lm.backFaceCulling = false;
+        label.material = lm; label.parent = mesh;
+        label.position = new B.Vector3(n[0] * (off + 0.012), n[1] * (off + 0.012), 0);
+        const zAxis = [-n[0], -n[1], 0], yAxis = axis3, xAxis = cross(yAxis, zAxis);
+        label.rotationQuaternion = B.Quaternion.RotationQuaternionFromAxis(
+          new B.Vector3(...xAxis), new B.Vector3(...yAxis), new B.Vector3(...zAxis));
+      });
+      mesh.rotationQuaternion = B.Quaternion.Identity();
+      const f3 = { n: unit(flats[d.value - 1]), up: axis3 };
+      const q3 = B.Quaternion.RotationYawPitchRoll(0.55, 0.3, 0).multiply(target(f3));
+      const r = rng(d.seed || 1);
+      items.push({ mesh, d, f: f3, q: q3, axis: unit([r() - 0.5, r() - 0.5, r() - 0.5]), turns: 1.0 + r() * 0.5, norm: (d.scale || 1) / R, centre: B.Vector3.Zero() });
+      return;
+    }
     const src = res.meshes.find((m) => m.name === `d${d.sides}`);
     const mesh = src.clone(`die${k}`);
     mesh.setEnabled(true);
@@ -258,7 +298,7 @@ window.setup = async (spec) => {
     const f = face(d.sides, d.value, src, d.roll || 0);
     const dm = mat.clone(`m${k}`);
     if (d.dim !== false) {
-      dm.diffuseTexture = new B.Texture(composeAtlas(d.tint ? tintMarble(atlas, src, d.tint) : d.hue ? hueMarble(atlas, d.hue) : atlas, inkImg, src, rolledTris(f, src, [centre.x, centre.y, centre.z], bb.radius), d.gold), scene, false, true);
+      dm.diffuseTexture = new B.Texture(composeAtlas(d.tint ? tintMarble(atlas, src, d.tint) : d.hue != null || d.bright ? hueMarble(atlas, d.hue || 0, d.bright || 1, d.sat || 1) : atlas, inkImg, src, rolledTris(f, src, [centre.x, centre.y, centre.z], bb.radius), d.gold), scene, false, true);
       dm.diffuseTexture.anisotropicFilteringLevel = 16;
     }
     mesh.material = dm;
@@ -290,7 +330,7 @@ window.frame = (i) => {
       sx = 0.093 * Math.sin(after * 2.4) * Math.exp(-after / 2.5);
       sy = -0.037 * Math.abs(Math.sin(after * 1.9)) * Math.exp(-after / 2);
     }
-    it.mesh.position = new B.Vector3((it.d.x || 0) + sx, hop + sy, 0);
+    it.mesh.position = new B.Vector3((it.d.x || 0) + sx, (it.d.y || 0) + hop + sy, 0);
     i = i0;
   }
   scene.render();

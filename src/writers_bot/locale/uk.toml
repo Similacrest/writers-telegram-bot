@@ -525,6 +525,7 @@ suggest = "запропонуй"
 award = "нагорода"
 # The dice: ка for d, as in !к12 (any other dice: !2к6+3, see [dice])
 d2 = "к2"
+d3 = "к3"
 d4 = "к4"
 d6 = "к6"
 d8 = "к8"
@@ -800,9 +801,10 @@ usage = "Надішліть /count у відповідь на повідомле
 result = "Результат"
 # A dice command the bot can't read
 error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
-# Titles of the bot's two dice sticker packs (people see them when they open a dice sticker)
-pack1_title = "Кубики 1: d20, d12, d10"
-pack2_title = "Кубики 2: d100, d4, d6, d8, монета"
+# A person sent a roll sticker of the bot (they are in no pack, so it is a forward or a copy): the answer in the group
+forward_warning = "{who}, це стікер із кидка бота: пересилати чи копіювати їх не можна. Киньте кубики самі."
+# The same when the bot deletes it (chat setting "delete", the bot may delete messages here)
+forward_deleted = "{who}, стікер кидка видалено: пересилати чи копіювати їх не можна. Киньте кубики самі."
 # Too many dice in one roll
 too_many = "Забагато кубиків: до {max} за раз."
 
@@ -1000,6 +1002,7 @@ section_sprints = "Спринти"
 section_privacy = "Звіти й приватність"
 section_prompts = "Промпти й відповіді"
 section_welcome = "Привітання й досягнення"
+section_dice = "Кубики"
 # Button text: "Твори: увімкнено"
 toggle = "{label}: {value}"
 # The default sprint length in the middle of the -/+ buttons
@@ -1050,6 +1053,11 @@ prompts_use_shared = "Спільні промпти"
 prompts_use_shared_help = "Брати промпти й зі спільного набору, не лише з набору чату."
 achievements_enabled = "Досягнення"
 achievements_enabled_help = "Нагороди-картинки від адмінів."
+dice_forwards = "Пересланий стікер кидка"
+dice_forwards_help = "Стікери кидків бот надсилає сам, їх немає в наборах, тож чужий стікер у чаті — пересилання. Бот може лише помітити його або видалити (потрібне право видаляти)."
+dice_forwards_off = "не чіпати"
+dice_forwards_warn = "попередити"
+dice_forwards_delete = "видалити"
 
 # ------------------------------------------------------------------------------------------------
 [achievements]

@@ -1,19 +1,15 @@
 """Render the dice sticker clips: the "Dice of Rolling" theme drawn frame by frame with Babylon.js in headless Chromium.
 
 Nothing is recorded: each die is posed so the wanted face looks at the camera, so every result comes out exactly as
-asked. The page is ``page/render.html``; this script drives it, adds the effects around the die, and encodes WEBM.
+asked. The page is ``page/render.html``; this script drives it, adds the effects around the dice, and encodes WEBM.
+What the clips are (names, dice, looks, packs) is in ``clips.py``.
 
-    uv run --group render python scripts/dice_render/render.py --pack 1 --pack 2     # both packs (240 clips)
-    uv run --group render python scripts/dice_render/render.py d20_17 d12rd_5        # just these
-    uv run --group render python scripts/dice_render/render.py --pack 2 --shard 1/2  # half of pack 2; run 2/2 beside it
+    uv run --group render python scripts/dice_render/render.py --pack 1 --pack 3     # whole packs
+    uv run --group render python scripts/dice_render/render.py d20_17 3d6_1_4_4      # just these
+    uv run --group render python scripts/dice_render/render.py --pack 4 --shard 1/3  # a third of pack 4; run 2/3, 3/3 beside it
 
 Set it up first with ``fetch_assets.py`` (see README.md). Clips that already exist are skipped (``--force`` redoes them).
-
-Clip names: ``d20_17`` a d20 showing 17; ``d20a_17`` / ``d20d_17`` the higher / lower of two d20s (a quiet green / magenta
-halo); ``d12r_9`` / ``d12b_9`` a red / blue d12; ``d12rd_9`` red, for the lower of two, ``d12ba_9`` blue, for the higher;
-``d4n_1`` (also ``d6n``, ``d10n``) the lowest and highest without the crit effects; ``d100_73`` a tens die and a d10;
-``d2_1`` / ``d2_2`` the coin, coat of arms / "5 копійок". The highest roll of a die gets golden rays and sparkles, the lowest
-a red halo, a dull die, a shudder and a puff of dust.
+Each shard takes about 1.4 GB and one core: three fit this machine.
 """
 
 import argparse
@@ -30,6 +26,7 @@ import tempfile
 import threading
 from pathlib import Path
 
+import clips
 import imageio_ffmpeg
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -50,43 +47,27 @@ _spec = importlib.util.spec_from_file_location("dice_stickers", HERE.parent / "d
 ds = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ds)
 GOLD, RED = ds.GOLD, ds.RED
-ADV, DIS = (96, 200, 140), (190, 96, 150)  # the quiet halos for the higher / lower of two d20s (and d12s)
+ADV, DIS = (96, 200, 140), (190, 96, 150)  # the quiet halos of the die that counts, for advantage / disadvantage
 PINK = (0.80, 0.26, 0.86)  # the d100's tens die (light marble, deepened so white numerals read): no other die is pink
-D20_HUE = 160  # degrees: the theme's navy d20 turned orange, as the d12 is blue and the d10 green
-TINTS = {"r": (0.86, 0.26, 0.26), "b": (0.28, 0.42, 0.9)}  # the d12's red and blue
-SLATE = (0.42, 0.46, 0.56)  # a d12 without a colour of its own
+TINTS = {"r": (0.86, 0.26, 0.26), "b": (0.28, 0.42, 0.9)}  # the d12: red (its 1, the duality's second die) and blue
+# A colour for each die, none shared (the d12's red 1 and the duality's red die are Daggerheart's own): the theme's own
+# marble for the purple d4 and the green d10, the others turned (hue in degrees, brightness) or tinted.
+HUES = {
+    6: {"hue": 70, "bright": 2.3, "sat": 1.2},
+    8: {"bright": 0.28},
+    20: {"hue": 165, "bright": 2.1, "sat": 2.0},
+}  # d6 yellow, d8 black, d20 orange
 OFFSETS = json.loads((HERE / "roll_offsets.json").read_text())  # per face: the turn that puts its numeral upright
+UNIT = 312  # pixels (of BIG) the page's world unit is wide, as measured
+SPREAD = {  # where the dice of a clip stand, as (x, y, scale), by how many there are
+    1: [(0.0, 0.0, 1.1)],
+    2: [(-0.43, 0.0, 0.7), (0.43, 0.0, 0.7)],
+    3: [(-0.5, -0.28, 0.56), (0.5, -0.28, 0.56), (0.0, 0.34, 0.56)],
+}
 
 # --- what goes into the packs ----------------------------------------------------------------------------------------
 
-
-def _d12(colour: str, halo: str) -> list[str]:
-    """One colour of the d12, by value: the plain and the halo version of each. At 1 the crit comes before the crit-less
-    one, at 12 after it."""
-    out = []
-    for v in range(1, 13):
-        pair = [f"d12{colour}_{v}", f"d12{colour}{halo}_{v}"]
-        out += pair[::-1] if v == 1 else pair
-    return out
-
-
-# Each die is a group, values ascending; crit 1 < crit-less 1 < ... < crit-less maximum < crit maximum.
-PACK1 = (
-    [f"d20_{v}" for v in range(1, 21)]  # a plain d20 with its crits ...
-    + [f"d20{c}_{v}" for c in ("a", "d") for v in range(2, 20)]  # ... and the higher / lower of two, without the ties
-    + _d12("b", "a")  # blue: plain (no crits: Xd12) and with the advantage halo, whose 12 is the lone d12's crit
-    + _d12("r", "d")  # red: plain and with the disadvantage halo, whose 1 is the lone d12's crit
-    + ["d10_1", "d10n_1", *[f"d10_{v}" for v in range(2, 10)], "d10n_10", "d10_10"]
-    + ["d4n_1", "d4n_4", "d6n_1", "d6n_6"]  # the lowest and highest without the crit effects
-)
-PACK2 = (
-    [f"d100_{v}" for v in range(1, 101)]
-    + [f"d4_{v}" for v in range(1, 5)]
-    + [f"d6_{v}" for v in range(1, 7)]
-    + [f"d8_{v}" for v in range(1, 9)]
-    + ["d2_1", "d2_2"]
-)
-PACKS = {"pack1": PACK1, "pack2": PACK2}
+PACKS = clips.PACKS
 
 
 def die(sides: int, value: int, seed: int, **kw) -> dict:
@@ -94,41 +75,33 @@ def die(sides: int, value: int, seed: int, **kw) -> dict:
     return {"sides": sides, "value": value, "seed": seed, "roll": OFFSETS.get(key, 0.0), **kw}
 
 
-def job(name: str) -> tuple[list[dict], int, int, str]:
-    """The dice of a clip, its sides and value (of the total, for a d100) and its variant letters."""
-    kind, number = name.split("_")
-    value = int(number)
-    sides = int("".join(c for c in kind[1:] if c.isdigit()))
-    variant = kind[1 + len(str(sides)) :]
-    if sides == 100:  # a tens die (00-90) and a d10 for the ones (0 counts as 10), landing a moment apart
+def look(piece: clips.Piece) -> dict:
+    """The colour of a die: a tint for the d12, a turned hue or brightness for the d6, d8 and d20."""
+    if piece.sides == 12:
+        return {"tint": list(TINTS[piece.colour])}
+    return dict(HUES.get(piece.sides, {}))
+
+
+def job(name: str) -> tuple[list[dict], clips.Clip]:
+    """The dice of a clip, as the page takes them, and what the clip is."""
+    clip = clips.parse(name)
+    seed = sum(clip.values) + 7 * clip.sides
+    if clip.kind == "single" and clip.sides == 100:  # a tens die (00-90) and a d10 for the ones (0 counts as 10)
+        value = clip.values[0]
         tens, ones = value // 10 % 10 * 10, value % 10 or 10
         dice = [
             die(100, tens, 100 + value, x=-0.43, scale=0.7, tint=list(PINK)),
             die(10, ones, 101 + value, x=0.43, scale=0.7, delay=4),
         ]
-        return dice, sides, value, ""
-    if sides == 2:  # a coin: 1 = the coat of arms, 2 = "5 копійок"; no fading, no crit effects
-        return [die(2, value, 20 + value, scale=1.5, dim=False)], sides, value, ""
-    extra = {}
-    if sides == 12:  # light marble with dark numerals: coloured, the numerals made white
-        extra = {"tint": list(TINTS.get(variant[:1], SLATE))}
-    if sides == 20:
-        extra = {"hue": D20_HUE}
-    return [die(sides, value, sides * 7 + value, scale=1.1, **extra)], sides, value, variant
-
-
-def effect_of(sides: int, value: int, variant: str) -> str | None:
-    if sides == 2:
-        return None
-    if variant == "n" or (sides == 12 and variant in ("r", "b")):  # no crits (Daggerheart's work differently)
-        return None
-    if value == sides:
-        return "crit"
-    if value == 1:
-        return "fumble"
-    if sides == 20 or len(variant) == 2:  # 'a' / 'd' on a d20; the d12's 'rd' (red, lower) and 'ba' (blue, higher)
-        return {"a": "adv", "d": "dis"}.get(variant[-1:])
-    return None
+    elif clip.kind == "single" and clip.sides == 2:  # a coin: 1 = the coat of arms, 2 = "5 копійок"; no fading
+        dice = [die(2, clip.values[0], 20 + clip.values[0], scale=1.5, dim=False)]
+    else:
+        spots = SPREAD[len(clip.pieces)]
+        dice = [
+            die(p.sides, p.value, seed + 13 * k, x=x, y=y, scale=scale, delay=4 * k, **look(p))
+            for k, (p, (x, y, scale)) in enumerate(zip(clip.pieces, spots, strict=True))
+        ]
+    return dice, clip
 
 
 # --- the effects: there from the first frame to the last, quieter at both ends so the loop closes ----------------------
@@ -193,16 +166,22 @@ def dull(die_img: Image.Image, k: float) -> Image.Image:
     return Image.fromarray(a.astype(np.uint8), "RGBA")
 
 
-def halo(out: Image.Image, tone: tuple, alpha: float, radius: float, pair: bool, blur: float) -> None:
+def halo(
+    out: Image.Image, tone: tuple, alpha: float, radius: float, pair: bool, blur: float, at: tuple | None = None
+) -> None:
     layer = Image.new("RGBA", (BIG, BIG), (0, 0, 0, 0))
-    c = BIG / 2
+    cx, cy = at or (BIG / 2, BIG / 2)
     r = radius * (1.1 if pair else 1.25)
     ry = r * 0.75 if pair else r
-    ImageDraw.Draw(layer).ellipse((c - r, c - ry, c + r, c + ry), fill=(*tone, int(alpha)))
+    ImageDraw.Draw(layer).ellipse((cx - r, cy - ry, cx + r, cy + ry), fill=(*tone, int(alpha)))
     out.alpha_composite(layer.filter(ImageFilter.GaussianBlur(blur)))
 
 
-def compose(die_img: Image.Image, effect: str | None, i: int, pair: bool, seed: int) -> Image.Image:
+def compose(
+    die_img: Image.Image, effect: str | None, i: int, pair: bool, seed: int, halos: list[tuple] = ()
+) -> Image.Image:
+    """One frame: the dice with the clip's effect around them and a quiet halo behind each die that has one
+    (``halos``: centre x, centre y, radius, tone)."""
     out = Image.new("RGBA", (BIG, BIG), (0, 0, 0, 0))
     radius = BIG * 0.36 * (1.3 if pair else 1.0)
     c = BIG / 2
@@ -214,8 +193,8 @@ def compose(die_img: Image.Image, effect: str | None, i: int, pair: bool, seed: 
         halo(out, RED, (130 if pair else 150) * a, radius, pair, BIG / 18)
         ds._effects(out, "fumble", i - LAND, c, c, radius, seed, front=False)  # the puff of dust where it landed
         die_img = dull(die_img, a)
-    elif effect in ("adv", "dis"):
-        halo(out, ADV if effect == "adv" else DIS, 62 * a, radius, pair, BIG / 14)
+    for x, y, r, tone in halos:
+        halo(out, tone, 62 * a, r, False, BIG / 14, (x, y))
     out.alpha_composite(die_img)
     if effect == "crit":
         front = Image.new("RGBA", (BIG, BIG), (0, 0, 0, 0))
@@ -245,11 +224,22 @@ def serve() -> http.server.ThreadingHTTPServer:
     return server
 
 
-def render_dice(page, spec: list[dict], effect: str | None) -> list[Image.Image]:
+def render_dice(page, spec: list[dict], clip: clips.Clip) -> list[Image.Image]:
     """All 87 frames of a clip: the dice as the page draws them, with the effects around them."""
-    for d in spec:  # the rolled face goes gold on a crit, the die shudders on a fumble
-        d["gold"] = effect == "crit"
+    effect = clip.effect
+    for k, d in enumerate(spec):  # the rolled face goes gold on a crit, the dice shudder on a fumble
+        d["gold"] = clip.pieces[k].gold if len(spec) == len(clip.pieces) else effect == "crit"
         d["fumble"] = effect == "fumble"
+    halos = [
+        (
+            BIG / 2 + d.get("x", 0) * UNIT,
+            BIG / 2 - d.get("y", 0) * UNIT,
+            UNIT * d["scale"] * 0.62 * 1.3,
+            ADV if p.halo == "adv" else DIS,
+        )
+        for d, p in zip(spec, clip.pieces, strict=False)
+        if p.halo and len(spec) == len(clip.pieces)
+    ]
     page.evaluate("spec => window.setup(spec)", spec)
     last_move = LAND + SETTLE + max(d.get("delay", 0) for d in spec)  # after this the dice lie still
     dice = []
@@ -257,7 +247,7 @@ def render_dice(page, spec: list[dict], effect: str | None) -> list[Image.Image]
         data = page.evaluate(f"window.frame({i})")
         dice.append(Image.open(io.BytesIO(base64.b64decode(data.split(",", 1)[1]))).convert("RGBA"))
     seed = sum(d["value"] for d in spec)
-    return [compose(dice[min(i, last_move)], effect, i, len(spec) > 1, seed) for i in range(FRAMES)]
+    return [compose(dice[min(i, last_move)], effect, i, len(spec) > 1, seed, halos) for i in range(FRAMES)]
 
 
 def encode(frames: list[Image.Image], out: Path) -> int:
@@ -280,7 +270,9 @@ def encode(frames: list[Image.Image], out: Path) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("names", nargs="*", help="clips to render, e.g. d20_17")
-    parser.add_argument("--pack", action="append", choices=("1", "2"), help="all the clips of pack 1 or 2")
+    parser.add_argument(
+        "--pack", action="append", choices=[k.removeprefix("pack") for k in PACKS], help="a whole pack"
+    )
     parser.add_argument("--shard", default="1/1", help="I/N: only every Nth clip, starting at the Ith")
     parser.add_argument("--force", action="store_true", help="render clips that already exist too")
     args = parser.parse_args()
@@ -288,7 +280,7 @@ def main() -> None:
     index, count = (int(x) for x in args.shard.split("/"))
     names = names[index - 1 :: count]
     if not names:
-        parser.error("no clips given (names, or --pack 1 / --pack 2)")
+        parser.error("no clips given (names, or --pack N)")
     if not (WEB / "babylon.js").exists():
         sys.exit("run scripts/dice_render/fetch_assets.py first")
     OUT.mkdir(parents=True, exist_ok=True)
@@ -301,17 +293,17 @@ def main() -> None:
         page.on("pageerror", lambda e: print("page error:", e, file=sys.stderr))
         page.goto(f"http://127.0.0.1:{server.server_address[1]}/render.html")
         for name in names:
-            clip = OUT / f"{name}.webm"
-            if clip.exists() and not args.force:
+            path = OUT / f"{name}.webm"
+            if path.exists() and not args.force:
                 print(name, "already rendered", flush=True)
                 continue
-            spec, sides, value, variant = job(name)
-            frames = render_dice(page, spec, effect_of(sides, value, variant))
+            spec, clip = job(name)
+            frames = render_dice(page, spec, clip)
             still = frames[LAND + SETTLE + max(d.get("delay", 0) for d in spec)]
             sheet = Image.new("RGBA", still.size, (236, 238, 244, 255))
             sheet.alpha_composite(still)
             sheet.convert("RGB").save(OUT / f"{name}.png")  # the resting frame, for the contact sheets
-            print(name, encode(frames, clip), "bytes", flush=True)
+            print(name, encode(frames, path), "bytes", flush=True)
         browser.close()
 
 

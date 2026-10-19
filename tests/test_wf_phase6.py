@@ -1,23 +1,19 @@
 """Round 4 of the user workflows (v4.2): pausing and switching works, the split tip, explicit % corrections,
 getting started, achievement pictures and the dice stickers."""
 
-import importlib.util
 import os
 from pathlib import Path
 
 import pytest
 from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
-from telegram.error import TimedOut
 
+from writers_bot.core import extras
 from writers_bot.core.extras import Outcome, Roll
-from writers_bot.modules.dice.telegram import clip_name, manifest
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
 ACH = {"achievements": {}, **FULL}
-DICE = {
-    "dice": {"stickers": True, "packs": ["dice1_by_writers_test_bot", "t.me/addstickers/dice2_by_writers_test_bot"]}
-}
+DICE = {"dice": {"stickers": True}}
 OWL = {"file_id": "OWL_FILE", "file_unique_id": "owl", "type": "regular", "width": 512, "height": 512,
        "is_animated": False, "is_video": False, "set_name": "writers_pack"}  # fmt: skip
 CAT = {**OWL, "file_id": "CAT_FILE", "file_unique_id": "cat"}
@@ -407,64 +403,56 @@ async def test_a07_private_list_when_there_are_none(make):
 # --- dice stickers --------------------------------------------------------------------------------------
 
 
-def clip(sticker_id):
-    """The sticker of a message ("dice1_v3_by_writers_test_bot#17") by its place in the pack: its name, "d20_16"."""
-    pack, number = sticker_id.rsplit("#", 1)
-    return clip_name(manifest()[f"pack{pack[4]}"][int(number) - 1])
-
-
 def clips(messages):
-    return [clip(m.extra["sticker"]) for m in messages if m.kind == "sticker"]
+    """The clips of the stickers the bot sent: their names ("d20_16")."""
+    return [m.extra["clip"] for m in messages if m.kind == "sticker"]
 
 
-def uploader():
-    """scripts/upload_dice_packs.py, which makes the packs (the bot only reads them)."""
-    path = Path(__file__).resolve().parent.parent / "scripts" / "upload_dice_packs.py"
-    spec = importlib.util.spec_from_file_location("upload_dice_packs", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def fixed(monkeypatch, *dice, bare=True):
+    """Every roll comes out as these dice (sides, value)."""
+    monkeypatch.setattr(extras, "throw", lambda f, roll, rng=None: Outcome("x", tuple(dice), bare))
 
 
-async def ready_packs(h):
-    """The packs uploaded as the script does (the bot's own start found none), then read by the bot."""
-    module = h.tbot.module("dice")
-    if module._packs is not None:
-        await module._packs
-    if "dice1_by_writers_test_bot" not in h.fake.sticker_sets:
-        await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
-    await module.load_packs()
-    return module
-
-
-async def test_d01_the_script_makes_the_packs_the_bot_only_reads_them_and_a_bare_roll_is_a_sticker(make):
+async def test_d01_a_clip_is_uploaded_the_first_time_and_then_sent_by_its_id(make, monkeypatch):
+    fixed(monkeypatch, (20, 17))
     h = await make(DICE)
-    assert not h.calls("createNewStickerSet")  # the bot never uploads
-    await ready_packs(h)
-    created = h.calls("createNewStickerSet")
-    assert len(created) == 2 and {int(c["user_id"]) for c in created} == {ADMIN.id}
-    assert [c["name"] for c in created] == ["dice1_by_writers_test_bot", "dice2_by_writers_test_bot"]  # no version
-    for name in ("dice1_by_writers_test_bot", "dice2_by_writers_test_bot"):
-        assert len(h.fake.sticker_sets[name]) == 120  # 50 at first, the rest added
     mark = h.mark()
     await h.say(ALICE, "/d20")
-    sent = h.public_since(mark)
-    assert [m.kind for m in sent] == ["sticker"]
-    assert clips(sent)[0].startswith("d20")
+    assert [m.kind for m in h.public_since(mark)] == ["sticker"]  # a bare roll is just the sticker
+    assert clips(h.public_since(mark)) == ["d20_17"] and h.fake.uploads == ["d20_17.webm"]
+    first = h.fake.messages[-1].extra["sticker"]
+    assert not h.calls("createNewStickerSet")  # no pack, ever
+    await h.say(ALICE, "/d20")
+    await h.say(BOB, "/d20")
+    assert h.fake.uploads == ["d20_17.webm"]  # not again: by the file id Telegram gave
+    assert h.fake.messages[-1].extra["sticker"] == first
+    assert all(read >= 60 for name, read, _ in h.fake.timeouts if name == "sendSticker" and read)  # uploads are slow
+    cache = h.tbot.module("dice").cache
+    assert cache.file_id("d20_17") == first and cache.is_roll_sticker("u-d20_17")
+
+
+async def test_d01b_a_refused_file_id_is_uploaded_again(make, monkeypatch):
+    fixed(monkeypatch, (20, 17))
+    h = await make(DICE)
+    await h.say(ALICE, "/d20")
+    h.fake.bad_file_ids.add(h.fake.messages[-1].extra["sticker"])  # Telegram no longer takes that id
+    mark = h.mark()
+    await h.say(ALICE, "/d20")
+    assert clips(h.public_since(mark)) == ["d20_17"] and len(h.fake.uploads) == 2
+    await h.say(ALICE, "/d20")
+    assert len(h.fake.uploads) == 2  # the new id is kept
 
 
 async def test_d02_bonus_or_caption_adds_the_line(make):
     h = await make(DICE)
-    await ready_packs(h)
     mark = h.mark()
     await h.say(ALICE, "/d20+5 Атака")
     assert [m.kind for m in h.public_since(mark)] == ["sticker", "text"]
     assert "Атака" in h.last_public().text
 
 
-async def test_d03_one_or_two_dice_get_stickers_more_only_when_asked(make):
+async def test_d03_one_or_two_stickers_come_on_their_own_more_only_when_asked(make):
     h = await make(DICE)
-    await ready_packs(h)
     kinds = {}
     for text in (
         "/2d6",
@@ -472,7 +460,11 @@ async def test_d03_one_or_two_dice_get_stickers_more_only_when_asked(make):
         "/3d6",
         "/3d6 -s",
         "/4d6 -s Атака",
-        "/5d6 -s",
+        "/8d6",
+        "/8d6 -s",
+        "/13d6 -s",
+        "/3d20",
+        "/3d20 -s",
         "/2d6 -q",
         "/d20 -q",
         "/r 1d20+1d13",
@@ -481,143 +473,105 @@ async def test_d03_one_or_two_dice_get_stickers_more_only_when_asked(make):
         await h.say(ALICE, text)
         kinds[text] = [m.kind for m in h.public_since(mark)]
     assert kinds == {
-        "/2d6": ["sticker", "sticker", "text"],
-        "/d20adv": ["sticker", "sticker", "text"],  # both throws, then the line with the kept one
-        "/3d6": ["text"],
-        "/3d6 -s": ["sticker"] * 3 + ["text"],
-        "/4d6 -s Атака": ["sticker"] * 4 + ["text"],
-        "/5d6 -s": ["text"],  # more than 4 dice: no flood
+        "/2d6": ["sticker", "text"],  # a pair is one sticker, then the line with the sum
+        "/d20adv": ["sticker", "text"],  # both d20s in one sticker, then the line with the kept one
+        "/3d6": ["sticker", "text"],
+        "/3d6 -s": ["sticker", "text"],
+        "/4d6 -s Атака": ["sticker"] * 2 + ["text"],  # 2 + 2
+        "/8d6": ["text"],  # three stickers: only when asked for
+        "/8d6 -s": ["sticker"] * 3 + ["text"],  # 3 + 3 + 2
+        "/13d6 -s": ["text"],  # five stickers: no flood
+        "/3d20": ["text"],  # three single stickers
+        "/3d20 -s": ["sticker"] * 3 + ["text"],
         "/2d6 -q": ["text"],  # silenced
         "/d20 -q": ["text"],
         "/r 1d20+1d13": ["text"],  # a d13 has no stickers: just the line
     }
 
 
-async def test_d03b_the_limit_is_configurable(make):
+async def test_d03b_the_limit_counts_stickers_and_is_configurable(make):
     h = await make({"dice": {**DICE["dice"], "max_stickers": 1}})
-    await ready_packs(h)
-    for text in ("/2d6", "/2d6 -s"):
+    for text, kinds in (("/2d6", ["sticker", "text"]), ("/4d6 -s", ["text"]), ("/d6", ["sticker"])):
         mark = h.mark()
         await h.say(ALICE, text)
-        assert [m.kind for m in h.public_since(mark)] == ["text"]
-    mark = h.mark()
-    await h.say(ALICE, "/d6")
-    assert [m.kind for m in h.public_since(mark)] == ["sticker"]
+        assert [m.kind for m in h.public_since(mark)] == kinds, text
 
 
 async def test_d04_percentile_and_odd_dice(make):
     h = await make(DICE)
-    await ready_packs(h)
     mark = h.mark()
     await h.say(ALICE, "/d100")
     assert clips(h.public_since(mark))[0].startswith("d100_")
-    for sides, even in ((3, "d4_"), (5, "d6_"), (7, "d8_"), (9, "d10_"), (11, "d12")):
+    for sides, even in ((3, "d3_"), (5, "d6_"), (7, "d8_"), (9, "d10_"), (11, "d12_")):
         mark = h.mark()
         await h.say(ALICE, f"/d{sides}")
         assert clips(h.public_since(mark))[0].startswith(even), sides
     mark = h.mark()
     await h.say(ALICE, "/d2")
     assert clips(h.public_since(mark))[0].startswith("d2_")  # the coin
-
-
-async def test_d05_no_packs_named_no_stickers(make):
-    h = await make({"dice": {"stickers": True}})
-    assert h.tbot.module("dice")._packs is not None
-    await h.tbot.module("dice")._packs
     mark = h.mark()
+    await h.say(ALICE, "/2d10")
+    assert clips(h.public_since(mark))[0].startswith("d100")  # two d10 are a tens die and a ones die
+
+
+async def test_d05_stickers_are_off_by_default(make):
+    h = await make({"dice": {}})
     await h.say(ALICE, "/d20")
-    assert [m.kind for m in h.public_since(mark)] == ["text"]
+    assert h.last_public().kind == "text" and not h.fake.uploads
 
 
 async def test_d06_which_stickers_a_roll_gets(make):
     h = await make(DICE)
-    module = await ready_packs(h)
+    module = h.tbot.module("dice")
     out = lambda *dice: Outcome("x", tuple(dice))  # noqa: E731
     assert module.pick(Roll("d20+d4", None, "x"), out((20, 7), (4, 1))) == [
         "d20_7",
         "d4n_1",
     ]  # no crit for an addition
     assert module.pick(Roll("d4", None, "x"), out((4, 1))) == ["d4_1"]
-    assert module.pick(Roll("d20", "adv", "x"), out((20, 3), (20, 15))) == ["d20_3", "d20a_15"]
-    assert module.pick(Roll("d20", "dis", "x"), out((20, 3), (20, 15))) == ["d20d_3", "d20_15"]
-    assert module.pick(Roll("2d12", None, "x"), out((12, 9), (12, 4))) == ["d12ba_9", "d12r_4"]  # duality, blue larger
-    # Daggerheart's usual roll, a d6 on top: three dice, so only when asked for
-    assert module.pick(Roll("2d12+d6", None, "x"), out((12, 4), (12, 9), (6, 6))) is None
-    assert module.pick(Roll("2d12+d6", None, "x", True), out((12, 4), (12, 9), (6, 6))) == [
-        "d12b_4",
-        "d12rd_9",
-        "d6n_6",
-    ]
+    assert module.pick(Roll("d20", "adv", "x"), out((20, 15), (20, 3))) == ["2d20a_3_15"]
+    assert module.pick(Roll("d20", "dis", "x"), out((20, 3), (20, 15))) == ["2d20d_3_15"]
+    assert module.pick(Roll("3d6", None, "x"), out((6, 5), (6, 1), (6, 5))) == ["3d6_1_5_5"]
+    assert module.pick(Roll("2d12", None, "x"), out((12, 9), (12, 4))) == ["2d12_9_4"]  # duality: blue, red
+    # Daggerheart's usual roll, a d6 on top: two stickers, so on their own
+    assert module.pick(Roll("2d12+d6", None, "x"), out((12, 4), (12, 9), (6, 6))) == ["2d12_4_9", "d6n_6"]
     assert module.pick(Roll("d20", None, "x", False), out((20, 7))) is None
 
 
-async def test_d07_a_pack_put_out_of_order_is_not_used_and_the_script_needs_replace(make):
+def stranger_sticker(unique_id):
+    return {"file_id": "FWD", "file_unique_id": unique_id, "type": "regular", "width": 512, "height": 512,
+            "is_animated": False, "is_video": True}  # fmt: skip
+
+
+async def test_d07_a_roll_sticker_sent_by_a_person_is_a_forward_and_gets_a_warning(make, monkeypatch):
+    fixed(monkeypatch, (20, 17))
     h = await make(DICE)
-    module = await ready_packs(h)
-    for sticker in h.fake.sticker_sets["dice1_by_writers_test_bot"]:
-        sticker["emoji"] = "🎲"  # not the die markers the manifest has, as if the owner had shuffled the pack
-    await module.load_packs()
-    assert "d20_1" not in module.stickers and "d100_1" in module.stickers  # pack 1 left out, pack 2 read
-    with pytest.raises(RuntimeError, match="--replace"):
-        await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
-    await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice", replace=True)
-    assert h.calls("deleteStickerSet")[-1]["name"] == "dice1_by_writers_test_bot"
+    await h.say(ALICE, "/d20")  # the bot learns what its stickers look like
+    mark = h.mark()
+    await h.say(BOB, "", sticker=stranger_sticker("u-d20_17"))  # BOB forwarded ALICE's roll
+    text = h.public_since(mark)[-1]
+    assert "стікер із кидка" in text.text and f"tg://user?id={BOB.id}" in text.text
+    mark = h.mark()
+    await h.say(BOB, "", sticker=stranger_sticker("somebody-elses"))  # any other sticker is none of its business
+    await h.say(BOB, "", BOB.id, sticker=stranger_sticker("u-d20_17"))  # nor is the private chat
+    assert not h.public_since(mark)
 
 
-async def test_d08_the_script_leaves_complete_packs_alone_and_the_bot_skips_a_broken_one(make):
+async def test_d07b_the_forward_setting_off_and_delete(make, monkeypatch):
+    fixed(monkeypatch, (20, 17))
     h = await make(DICE)
-    module = await ready_packs(h)
-    before = len(h.calls("createNewStickerSet"))
-    await uploader().upload(h.tbot.app.bot, ADMIN.id, "dice")
-    assert len(h.calls("createNewStickerSet")) == before
-    h.fake.sticker_sets["dice2_by_writers_test_bot"].pop()  # a broken upload
-    await module.load_packs()
-    assert "d20_1" in module.stickers and "d100_1" not in module.stickers
-
-
-async def test_d09b_the_script_finishes_a_short_pack_and_uploads_get_long_timeouts(make):
-    h = await make(DICE)
-    script = uploader()
-    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
-    uploads = [t for t in h.fake.timeouts if t[0] in ("createNewStickerSet", "addStickerToSet")]
-    assert uploads and all(read >= 300 and write >= 300 for _, read, write in uploads)
-    name = "dice2_by_writers_test_bot"
-    del h.fake.sticker_sets[name][80:]  # an interrupted upload, as live: 80 of 120
-    created, deleted = len(h.calls("createNewStickerSet")), len(h.calls("deleteStickerSet"))
-    adds = len(h.calls("addStickerToSet"))
-    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
-    assert len(h.calls("createNewStickerSet")) == created and len(h.calls("deleteStickerSet")) == deleted
-    assert len(h.calls("addStickerToSet")) - adds == 40 and len(h.fake.sticker_sets[name]) == 120
-
-
-async def test_d09c_an_upload_that_times_out_but_went_through_is_not_repeated(make, monkeypatch):
-    script = uploader()
-    monkeypatch.setattr(script, "SETTLE_DELAY", 0)
-    h = await make(DICE)
-    h.fake.time_out_after = {"createNewStickerSet": 1, "addStickerToSet": 2}  # as live: Telegram keeps going
-    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
-    name = "dice1_by_writers_test_bot"
-    assert len(h.fake.sticker_sets[name]) == len(manifest()["pack1"])
-    assert [s["file_id"] for s in h.fake.sticker_sets[name]] == [
-        f"{name}#{i}" for i in range(1, len(manifest()["pack1"]) + 1)
-    ]  # each sticker once, in order
-
-
-async def test_d09d_an_upload_that_was_lost_stops_and_running_again_finishes(make, monkeypatch):
-    script = uploader()
-    monkeypatch.setattr(script, "SETTLE_DELAY", 0)
-    h = await make(DICE)
-    h.fake.time_out_before = {"addStickerToSet": 1}  # the 51st sticker never arrives
-    with pytest.raises(TimedOut):
-        await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
-    assert len(h.fake.sticker_sets["dice1_by_writers_test_bot"]) == 50
-    await script.upload(h.tbot.app.bot, ADMIN.id, "dice")
-    assert all(
-        len(h.fake.sticker_sets[n]) == len(manifest()[f"pack{n[4]}"])
-        for n in h.fake.sticker_sets
-        if n.startswith("dice")
-    )
-    assert not h.calls("deleteStickerSet")
+    await h.say(ALICE, "/d20")
+    settings = h.tbot.services.shared.extra["settings"]
+    await settings.set("telegram", str(GROUP), "dice.forwards", "off")
+    mark = h.mark()
+    await h.say(BOB, "", sticker=stranger_sticker("u-d20_17"))
+    assert not h.public_since(mark)
+    await settings.set("telegram", str(GROUP), "dice.forwards", "delete")
+    copy = await h.say(BOB, "", sticker=stranger_sticker("u-d20_17"))
+    assert copy.deleted and "видалено" in h.last_public().text
+    h.fake.chats[GROUP].bot_can_delete = False  # no right to delete: the warning instead
+    copy = await h.say(BOB, "", sticker=stranger_sticker("u-d20_17"))
+    assert not copy.deleted and "стікер із кидка" in h.last_public().text
 
 
 async def test_d12_true_random_dice_draw_from_random_org(make, monkeypatch):
@@ -772,7 +726,7 @@ async def test_h08_every_die_is_a_command_in_the_menu_and_works_as_a_ukrainian_w
     h = await make(ALL)
     private = next(c for c in h.calls("setMyCommands") if c["scope"]["type"] == "all_private_chats")
     menu = {c["command"]: c["description"] for c in private["commands"]}
-    assert {f"d{n}" for n in (2, 4, 6, 8, 10, 12, 20, 100)} <= set(menu) and menu["d12"] == "Кинути d12"
+    assert {f"d{n}" for n in (2, 3, 4, 6, 8, 10, 12, 20, 100)} <= set(menu) and menu["d12"] == "Кинути d12"
     for text in ("!к12", "/к12", "!к20+5 Атака", "!2к6"):
         await h.say(ALICE, text)
         assert "Результат" in h.last_public().text or "Атака" in h.last_public().text, text

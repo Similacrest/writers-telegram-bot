@@ -528,24 +528,40 @@ The bot is built from modules that can be served as one bot or as several, set i
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
   features it lacks are called directly and kept in one module, so they can be dropped when it catches up.
 
-## Done in v4.2.6
-- **Dice stickers**: every d100 re-rendered with the two dice close together (a 0.1-unit gap instead of 0.35); every d4
-  slightly turned, so one face shows more; each die type has a colour of its own (d4 purple, d6 red, d8 grey, d10 green,
-  d12 blue with a red 1, d20 orange, d100 a pink tens die and a green d10, the coin silver); the 0 of a d10 and the "00" of
-  the tens die were upside down (a symmetric numeral hid it from the calibration) and are turned the right way.
-- **d12**: blue by default, a 1 stays red (lone: the red disadvantage 1, the blue advantage 12 for crits).
-- **The bot no longer uploads the dice packs.** `scripts/upload_dice_packs.py` makes them once (with the token of a bot of
-  their own); every bot names the same two packs in `dice = { packs = [...] }` (or `DICE_PACKS`). The names have no
-  version (Telegram forces `_by_<bot>` on a bot-made pack, so a separate bot owns them). A pack that is missing, broken or
-  out of order is left out with a warning.
-- **Achievements**: a sticker sent to the bot in private no longer starts "new achievement" (v4.2.5 asked for a name for
+## Done in v4.2.6 and v4.2.7 (small fixes)
+- v4.2.6: the dice sticker uploads got 300 s timeouts and wait for Telegram after a timeout, a short pack is finished instead of
+  remade (live Telegram answered after python-telegram-bot's 5 s default and left the packs at 50 and 80 of 120).
+- v4.2.7: Telegram Login on the website uses the widget's redirect flow (`data-auth-url`), because the `data-onauth` callback is
+  compiled with eval and the page's CSP forbids it; the page posts the fields from the query string to `/api/session` and
+  removes them from the URL.
+
+## Done in v4.3.0
+- **Dice stickers, rebuilt**: 866 stickers in 8 packs (`scripts/dice_render/clips.py` has the names and the layout). Dice of a
+  kind share stickers: two or three d4 / d6 and two d8 are one sticker with the dice side by side, unordered (8d6 is three
+  stickers); two d10 are a d100 picture (a tens die and a ones die); Daggerheart's duality dice are one ordered sticker
+  (`2d12_9_4`) with the halos of their rules and no crit effects; two d20 with advantage or disadvantage are one sticker with the
+  die that counts haloed (`2d20a_5_17`), the ties plain. A group has the crit effects of the clip (highest of any die, else a 1;
+  the die that counts with advantage); a single die with others is crit-less (`d20n_20`). The d3 is a new model (a ball with
+  three flats); every die type has its own colour (d3 grey, d4 purple, d6 yellow, d8 black, d10 green, d12 blue, red for its 1 and
+  the duality's second die, d20 orange, the d100's tens die pink). The d100's dice are close together, the d4 is tilted, and the
+  0 of the d10 and 00 of the tens die, which were upside down, are turned the right way.
+- **The limits count stickers, not dice**: one or two on their own, up to `max_stickers` (4) with `-s`.
+- **d12**: blue by default, a 1 stays red.
+- **No sticker packs.** The bot uploads a clip with `sendSticker` the first time a roll needs it and keeps the `file_id` in a cache
+  file (`core/dicecache.py`; copyable for the same bot; unique ids are shared by all bots). A refused id is uploaded again. A person's
+  message with one of the roll stickers (found by `file_unique_id`) is a forward: the chat setting `dice.forwards` warns (default),
+  deletes or ignores. `protect_content` was rejected. Telegram forces `_by_<bot>` on a bot-made pack, which is what made packs a
+  nuisance (a bot just for them, an upload script, 866 uploads); the clips stay in `assets/dice_packs` and the manifest keeps their order.
+- **Achievements**: a bare sticker sent to the bot in private no longer starts "new achievement" (v4.2.5 asked for a name for
   every sticker); `/newachievement` in private starts the steps (picture, name, chat). The picture can be a sticker (in a
   pack or not), a photo or an image file, in a group (reply to it) and in private.
 - **`/help`** is generated entirely from the commands (`Command.description`, `usage`, `uk`, `module`, `scope`) with a button
   and a page per module (plus your data, the chat's settings, the bot's admin tools); no hand-written help line per command.
-  The menu flag `menu=False` keeps a command out of Telegram's menu but not out of /help.
+  The menu flag `menu=False` keeps a command out of Telegram's menu but not out of /help. A bot without `PREVIEW_FEATURES` keeps
+  one flat page.
 - **Ukrainian commands** start with `!` (`!промпт`, `!к12`; `/промпт` works too) and /help shows them next to every command.
-- **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `2d20kh1` / `2d20kl1` (with an
-  optional flat bonus) are `adv` / `dis`; the die that counts comes first (in the stickers too).
+- **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `adv` / `dis` show the two rolls
+  sorted (the lower first) and put the die that counts first in the stickers; `kh1` / `kl1` stay the d20 library's own keep (the
+  dice as rolled).
 - **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
   operating system's generator when the pool is empty.

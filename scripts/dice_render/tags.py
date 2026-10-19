@@ -4,7 +4,7 @@ Telegram suggests a pack's stickers when someone types an emoji that is on a sti
 finds them in the sticker search by their keywords (up to 20, 64 characters in all). The bot can read back only the
 first emoji of a sticker (``Sticker.emoji``), so that one is the die's marker, and the exact value is in the keywords.
 
-    die         the marker of the die, first: 🪙 d2, 🔺 d4, 🎲 d6, 🔷 d8, 🔟 d10, 🕛 d12, 🧊 d20, 💯 d100
+    die         the marker of the die, first: 🪙 d2, 🔶 d3, 🔺 d4, 🎲 d6, 🔷 d8, 🔟 d10, 🕛 d12, 🧊 d20, 💯 d100
     colour      🔴 / 🔵 for the red / blue d12
     property    🌟 crit, 💀 fumble, 🟢 advantage, 🟣 disadvantage (the colours of their halos), ➖ crit-less
     end         ⬆️ the highest roll, ⬇️ the lowest
@@ -13,9 +13,9 @@ first emoji of a sticker (``Sticker.emoji``), so that one is the die's marker, a
 Keywords: ``d20``, the value, the property in words (crit, fumble, adv, dis, nocrit), red or blue, and a Ukrainian "кубик".
 """
 
-import render
+import clips
 
-DIE = {2: "🪙", 4: "🔺", 6: "🎲", 8: "🔷", 10: "🔟", 12: "🕛", 20: "🧊", 100: "💯"}
+DIE = {2: "🪙", 3: "🔶", 4: "🔺", 6: "🎲", 8: "🔷", 10: "🔟", 12: "🕛", 20: "🧊", 100: "💯"}
 COLOUR = {"r": "🔴", "b": "🔵"}
 PROPERTY = {"crit": "🌟", "fumble": "💀", "adv": "🟢", "dis": "🟣", "critless": "➖"}
 HIGHEST, LOWEST = "⬆️", "⬇️"
@@ -26,16 +26,18 @@ MAX_EMOJI, MAX_KEYWORDS, MAX_KEYWORD_CHARS = 20, 20, 64
 
 
 def tags(name: str) -> tuple[list[str], list[str]]:
-    """The emoji list and the keywords of a clip, e.g. ``d12ba_12``."""
-    _, sides, value, variant = render.job(name)
-    effect = render.effect_of(sides, value, variant)
-    critless = variant == "n" or (sides == 12 and variant in ("r", "b") and value in (1, 12))
-    prop = "critless" if critless else effect
+    """The emoji list and the keywords of a clip, e.g. ``d12_12``, ``3d6_1_4_4`` or ``2d20a_5_17``."""
+    clip = clips.parse(name)
+    if clip.kind != "single":
+        return _group(clip)
+    sides, (value,) = clip.sides, clip.values
+    prop = "critless" if clip.critless else clip.effect
     emoji = [DIE[sides]]
-    words = [f"d{sides}" if sides != 100 else "d100", str(value)]
+    words = [f"d{sides}", str(value)]
     if sides == 12:
-        emoji.append(COLOUR[variant[0]])
-        words.append("red" if variant[0] == "r" else "blue")
+        colour = clip.pieces[0].colour
+        emoji.append(COLOUR[colour])
+        words.append("red" if colour == "r" else "blue")
     if prop:
         emoji.append(PROPERTY[prop])
         words.append(WORDS[prop])
@@ -52,6 +54,25 @@ def tags(name: str) -> tuple[list[str], list[str]]:
             words.append("min")
         words.append("кубик")
     emoji += [KEYCAP[digit] for digit in dict.fromkeys(str(value))]
+    return list(dict.fromkeys(emoji)), words
+
+
+def _group(clip: clips.Clip) -> tuple[list[str], list[str]]:
+    """Two or three dice in one sticker: the die's marker first, the count, the property, the digits of the values."""
+    count = len(clip.pieces)
+    emoji = [DIE[clip.sides], KEYCAP[str(count)]]
+    words = [f"{count}d{clip.sides}", *dict.fromkeys(str(v) for v in clip.values)]
+    if clip.variant in ("a", "d"):
+        emoji.append(PROPERTY["adv" if clip.variant == "a" else "dis"])
+        words.append("adv" if clip.variant == "a" else "dis")
+    if clip.kind == "duality":
+        emoji += [COLOUR["b"], COLOUR["r"]]
+        words.append("duality")
+    if clip.effect:
+        emoji.append(PROPERTY[clip.effect])
+        words.append(WORDS[clip.effect])
+    words.append("кубики")
+    emoji += [KEYCAP[digit] for digit in dict.fromkeys("".join(map(str, clip.values)))]
     return list(dict.fromkeys(emoji)), words
 
 

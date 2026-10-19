@@ -1,10 +1,10 @@
-"""Check the rendered clips against Telegram's limits and put the two packs into the bot's assets.
+"""Check the rendered clips against Telegram's limits and put the packs into the bot's assets.
 
     uv run --group render python scripts/dice_render/packs.py
 
-Writes ``src/writers_bot/assets/dice_packs/pack1`` and ``pack2`` (120 stickers each, Telegram's limit for a pack) and
-``manifest.json``: for every sticker its file, die, variant, value and effect (crit, fumble, adv, dis or none), its emoji
-and its search keywords (see ``tags.py``).
+Writes ``src/writers_bot/assets/dice_packs/pack1`` ... ``pack8`` (at most 120 stickers each, Telegram's limit for a pack;
+the layout is in ``clips.py``) and ``manifest.json``: for every sticker its file, die, variant, value (a list for dice in a
+group) and effect (crit, fumble or none), its emoji and its search keywords (see ``tags.py``).
 Nothing is written unless every clip passes: WEBM with VP9, 512 px, 2.9 s, at most 256 KB.
 """
 
@@ -14,13 +14,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+import clips
 import imageio_ffmpeg
 import render
 import tags
 from PIL import Image, ImageDraw
 
 DEST = Path(__file__).resolve().parents[2] / "src" / "writers_bot" / "assets" / "dice_packs"
-PACK_SIZE = 120
+PACK_SIZE = clips.PACK_SIZE
 
 
 def check(clip: Path) -> str | None:
@@ -50,8 +51,8 @@ def contact_sheet(names: list[str], path: Path) -> None:
 def main() -> None:
     problems = []
     for key, names in render.PACKS.items():
-        if len(names) != PACK_SIZE or len(set(names)) != len(names):
-            problems.append(f"{key}: {len(names)} names ({len(set(names))} different), expected {PACK_SIZE}")
+        if not 0 < len(names) <= PACK_SIZE or len(set(names)) != len(names):
+            problems.append(f"{key}: {len(names)} names ({len(set(names))} different), at most {PACK_SIZE}")
         problems += [f"{n}: {why}" for n in names if (why := check(render.OUT / f"{n}.webm"))]
     if problems:
         sys.exit("not written:\n" + "\n".join(problems))
@@ -63,17 +64,17 @@ def main() -> None:
         rows = []
         for name in names:
             shutil.copy(render.OUT / f"{name}.webm", DEST / key / f"{name}.webm")
-            _, sides, value, variant = render.job(name)
+            clip = clips.parse(name)
             emoji, keywords = tags.tags(name)
             if why := tags.check(name, emoji, keywords):
                 sys.exit(f"{name}: {why}")
             rows.append(
                 {
                     "file": f"{key}/{name}.webm",
-                    "die": f"d{sides}",
-                    "variant": variant,
-                    "value": value,
-                    "effect": render.effect_of(sides, value, variant),
+                    "die": f"d{clip.sides}" if clip.kind == "single" else f"{len(clip.pieces)}d{clip.sides}",
+                    "variant": clip.variant,
+                    "value": clip.values[0] if clip.kind == "single" else list(clip.values),
+                    "effect": clip.effect,
                     "emoji": emoji,
                     "keywords": keywords,
                 }

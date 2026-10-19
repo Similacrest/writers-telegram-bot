@@ -22,8 +22,6 @@ _PREFIX = re.compile(r"^[/!](?:r(?:oll)?)?(?:@\w+)?\s*", re.IGNORECASE)  # i18n:
 _MENTION = re.compile(r"^(\S*?)@\w+")
 _MODE = re.compile(r"(?<=\d)(adv|dis)\b", re.IGNORECASE)  # i18n: input syntax
 _FLAGS = {"-s": True, "-q": False}  # i18n: input syntax; -s: stickers even for 3 or 4 dice, -q: no stickers
-# 2d20kh1 / 2d20kl1 (keep the highest / lowest of two), alone or with a flat bonus: the same as d20adv / d20dis
-_KEEP_ONE = re.compile(r"2d(\d+|%)k([hl])1([+-]\d+)?", re.IGNORECASE)  # i18n: input syntax
 _LEGACY_BONUS = re.compile(r"(?<=\d)([bm])(\d+)")
 _ROLL20_DROP = re.compile(r"(?<=\d)d([hl]\d+)", re.IGNORECASE)  # 4d6dl1 (Roll20) is d20's 4d6pl1
 MAX_DICE = 500
@@ -97,13 +95,11 @@ def parse_roll(text: str) -> Roll | None:
         candidate = _normalise(" ".join(tokens[:n]))
         found = _MODE.search(candidate)
         expression = _MODE.sub("", candidate) if found else candidate
-        if keep := _KEEP_ONE.fullmatch(expression):
-            found, expression = keep, f"d{keep[1]}{keep[3] or ''}"
         try:
             d20.parse(expression)
         except d20.RollSyntaxError:
             continue
-        mode = ("adv" if found[2].lower() == "h" else "dis") if keep else found[1].lower() if found else None
+        mode = found[1].lower() if found else None
         caption = " ".join(tokens[n:]) or t("dice.result")
         return Roll(expression, mode, caption, stickers)
     return Roll("", None, "")
@@ -169,8 +165,10 @@ def _throw(f: Formatter, roll: Roll) -> Outcome:
         return Outcome(caption + first.result, tuple(_dice(first)), bare)
     better = first.total >= second.total if roll.mode == "adv" else first.total <= second.total
     kept, dropped = (first, second) if better else (second, first)
-    html = f"{caption}\n{f.bold(int(kept.total))}\n{kept.result}\n<s>{dropped.result}</s>"
-    return Outcome(html, (*_dice(kept), *_dice(dropped)))  # the die that counts first
+    # the two rolls sorted, the lower first, the one dropped struck out (kh1 / kl1 are the library's own: the dice as rolled)
+    lines = [r.result if r is kept else f"<s>{r.result}</s>" for r in sorted((first, second), key=lambda r: r.total)]
+    html = f"{caption}\n{f.bold(int(kept.total))}\n" + "\n".join(lines)
+    return Outcome(html, (*_dice(kept), *_dice(dropped)))  # for the stickers: the die that counts first
 
 
 def roll_html(f: Formatter, roll: Roll) -> str:

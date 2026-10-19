@@ -142,5 +142,5 @@ def test_every_help_group_has_a_title_and_every_die_a_ukrainian_name():
 
     for name in (*MODULES, *HELP_GROUPS):
         assert t(f"help.group_{name}"), name
-    for sides in (2, 4, 6, 8, 10, 12, 20, 100):
+    for sides in (2, 3, 4, 6, 8, 10, 12, 20, 100):
         assert t(f"aliases.d{sides}") == f"к{sides}"

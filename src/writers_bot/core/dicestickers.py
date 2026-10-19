@@ -1,90 +1,95 @@
-"""Which sticker each die of a roll gets. The stickers are named as in ``assets/dice_packs/manifest.json``
-(``d20_17``, ``d12ba_5``, ``d4n_1``; ``scripts/dice_render`` makes them).
+"""Which stickers a roll gets. The stickers are named as in ``assets/dice_packs/manifest.json`` (``d20_17``, ``3d6_1_4_4``,
+``2d20a_5_17``; ``scripts/dice_render/clips.py`` has the grammar and makes them).
 
-- A die with an odd number of sides takes the sticker of the next even one (d3 is a d4, d11 a d12); d2 is the coin.
-- The highest and lowest rolls of a d4, d6, d10, d12 and d20 have crit effects (the d8 and d100 always do). A d4, d6 or
-  d10 rolled together with dice of another kind has the crit-less version of its lowest and highest; so has a d12 that
-  is not alone.
-- A d20 or d12 rolled with advantage (``adv``) or disadvantage (``dis``): the die that counts has its own look
-  (the larger one of an advantage, the smaller one of a disadvantage); the other die and a tie are plain.
-- Two d12 are Daggerheart's duality dice: the first is blue, the second red. The blue one is larger: it is from the
-  blue advantage set. The red one is larger: it is from the red disadvantage set. A tie: both are. A die showing
-  1 or 12 is crit-less. Crits work differently there, so the crit effects stay off.
-- A d12 is blue (each die type has its own colour) except for its red 1; on its own the 1 is the red disadvantage 1 and its 12 the blue
-  advantage 12, for the crit effects.
+One sticker per die, except that dice of the same kind share stickers:
+
+- **Pools.** A roll of d4s or d6s (up to three dice per sticker) or d8s (two): ``3d6_1_4_4``, the values ascending. Bigger
+  rolls are split into the fewest groups, as even as can be: 8d6 is 3 + 3 + 2, so three stickers; 7d6 is 3 + 2 + 2.
+- **d10s** go in twos on the d100 stickers: a pair (a, b) shows a tens die (a, 10 being 00) and a ones die (b, 10 being 0),
+  so ``d100_{tens * 10 + ones}``; the 1 and 100 of it are crit-less (``d100n``). A d10 left over is a single.
+- **Two d12** (also among other dice) are Daggerheart's duality dice, ordered: ``2d12_9_4`` is the blue 9 and the red 4. The larger die has its
+  advantage / disadvantage halo (blue / red) unless it shows 1 or 12; a tie has both. They have no crit effects. With
+  advantage or disadvantage (``adv``, ``dis``) the die that counts is the blue one.
+- **Two d20 with advantage or disadvantage**: ``2d20a_5_17`` (the higher die counts, with a quiet green halo) and
+  ``2d20d_5_17`` (the lower one, magenta), the dice ascending; two alike are ``2d20t_9``.
+
+Every other die is a single sticker: a die with an odd number of sides takes the sticker of the next even one (d5 is a d6,
+d11 a d12; the d3 has its own, and the d2 is the coin). A group of dice has the crit effects of the clip (the highest roll
+of any die is golden, otherwise the lowest is red; with advantage, the die that counts decides). A single die alone has
+them on its lowest and highest roll; with other dice not grouped with it, it has the crit-less version (``d6n_6``,
+``d20n_1``; the d3 and the coin never have effects, a d12's 1 is its red fumble).
 """
 
 from collections.abc import Sequence
 
-NEXT_EVEN = {3: 4, 5: 6, 7: 8, 9: 10, 11: 12}
-SUPPORTED = frozenset({2, 4, 6, 8, 10, 12, 20, 100, *NEXT_EVEN})
+NEXT_EVEN = {5: 6, 7: 8, 9: 10, 11: 12}
+SUPPORTED = frozenset({2, 3, 4, 6, 8, 10, 12, 20, 100, *NEXT_EVEN})
+POOL_SIZE = {4: 3, 6: 3, 8: 2}  # the most dice of a kind in one sticker
+MOST_PER_STICKER = max(POOL_SIZE.values())
 
 
-def plain_d12(value: int) -> str:
-    """A d12 without crit effects: blue, except for the red 1."""
-    return "d12r_1" if value == 1 else f"d12b_{value}"
-
-
-def lone_d12(value: int) -> str:
-    """A d12 on its own: the crit effects come from the disadvantage 1 (red) and the advantage 12 (blue); the rest is blue."""
-    if value == 1:
-        return "d12rd_1"
-    if value == 12:
-        return "d12ba_12"
-    return plain_d12(value)
-
-
-def duality(blue: int, red: int) -> tuple[str, str]:
-    """Daggerheart's two d12: the sticker of the blue die and of the red one."""
-    if blue in (1, 12):
-        first = f"d12b_{blue}"
-    else:
-        first = f"d12ba_{blue}" if blue >= red else f"d12b_{blue}"
-    if red in (1, 12):
-        second = f"d12r_{red}"
-    else:
-        second = f"d12rd_{red}" if red >= blue else f"d12r_{red}"
-    return first, second
-
-
-def _one(sides: int, value: int, *, alone: bool, mixed: bool) -> str:
+def single(sides: int, value: int, *, alone: bool) -> str:
+    """The sticker of one die; with the crit-less look for its lowest and highest unless it is rolled alone."""
     sides = NEXT_EVEN.get(sides, sides)
-    if sides in (4, 6, 10) and mixed and value in (1, sides):
+    if sides in (2, 3):
+        return f"d{sides}_{value}"
+    if not alone and value in (1, sides):
         return f"d{sides}n_{value}"
-    if sides == 12:
-        return lone_d12(value) if alone else plain_d12(value)
     return f"d{sides}_{value}"
 
 
-def _with_mode(sides: int, values: tuple[int, int], mode: str) -> list[str]:
-    """Two d20 or d12 rolled for the better (``adv``) or worse (``dis``) one."""
-    if values[0] == values[1]:
-        return [_one(sides, v, alone=True, mixed=False) for v in values]
-    counted = max(values) if mode == "adv" else min(values)
-    names = []
-    for v in values:
-        if v != counted:
-            names.append(_one(sides, v, alone=True, mixed=False))
-        elif sides == 20:
-            own = "a" if mode == "adv" else "d"
-            names.append(f"d20{own}_{v}" if 2 <= v <= 19 else f"d20_{v}")  # a 1 or a 20 is the plain d20's crit
-        else:
-            names.append(f"d12{'ba' if mode == 'adv' else 'rd'}_{v}")
-    return names
+def split(count: int, size: int) -> list[int]:
+    """The sizes of the fewest groups of at most ``size`` dice for ``count`` dice, as even as can be, the larger first."""
+    groups = -(-count // size)
+    return [count // groups + (1 if i < count % groups else 0) for i in range(groups)]
+
+
+def d100(first: int, second: int) -> str:
+    """Two d10 as a d100: a tens die and a ones die (10 is 00 and 0), crit-less at the ends."""
+    value = (first % 10) * 10 + second % 10 or 100
+    return f"d100n_{value}" if value in (1, 100) else f"d100_{value}"
+
+
+def duality(blue: int, red: int) -> str:
+    return f"2d12_{blue}_{red}"
 
 
 def choose(dice: Sequence[tuple[int, int]], mode: str | None = None) -> list[str] | None:
-    """The stickers for the dice of a roll, as (sides, value) in the order thrown; None when a die has none."""
+    """The stickers for the dice of a roll, as (sides, value) in the order thrown (with advantage or disadvantage the die
+    that counts first); None when a die has none."""
     if not dice or any(sides not in SUPPORTED for sides, _ in dice):
         return None
-    if mode in ("adv", "dis") and len(dice) == 2 and dice[0][0] == dice[1][0] in (12, 20):
-        return _with_mode(dice[0][0], (dice[0][1], dice[1][1]), mode)
-    mixed = len({sides for sides, _ in dice}) > 1
-    names: list[str | None] = [None] * len(dice)
-    twelves = [i for i, (sides, _) in enumerate(dice) if sides == 12]
-    if len(twelves) == 2:
-        names[twelves[0]], names[twelves[1]] = duality(dice[twelves[0]][1], dice[twelves[1]][1])
-    return [
-        name or _one(sides, value, alone=len(dice) == 1, mixed=mixed)
-        for name, (sides, value) in zip(names, dice, strict=True)
-    ]
+    sides_of = {NEXT_EVEN.get(sides, sides) for sides, _ in dice}
+    if len(dice) == 1:
+        return [single(*dice[0], alone=True)]
+    if len(sides_of) > 1:  # different dice: each on its own, crit-less; two d12 among them are still the duality dice
+        twelves = [i for i, (sides, _) in enumerate(dice) if NEXT_EVEN.get(sides, sides) == 12]
+        pair = (twelves[0], twelves[1]) if len(twelves) == 2 else None
+        out = []
+        for i, (sides, value) in enumerate(dice):
+            if pair and i == pair[0]:
+                out.append(duality(value, dice[pair[1]][1]))
+            elif not pair or i != pair[1]:
+                out.append(single(sides, value, alone=False))
+        return out
+    (sides,) = sides_of
+    values = [value for _, value in dice]
+    if mode in ("adv", "dis") and len(dice) == 2 and sides == 20:
+        lo, hi = sorted(values)
+        return [f"2d20t_{lo}" if lo == hi else f"2d20{'a' if mode == 'adv' else 'd'}_{lo}_{hi}"]
+    if sides == 12 and len(dice) == 2:  # also adv / dis: the die that counts first, so the blue one
+        return [duality(*values)]
+    if sides == 10:  # in twos on the d100 stickers
+        out = [d100(values[i], values[i + 1]) for i in range(0, len(values) - 1, 2)]
+        return out + ([single(10, values[-1], alone=False)] if len(values) % 2 else [])
+    if sides in POOL_SIZE:
+        out, start = [], 0
+        for size in split(len(values), POOL_SIZE[sides]):
+            group = sorted(values[start : start + size])
+            # a lone die is left over only from an odd number of d8s
+            out.append(
+                f"{size}d{sides}_" + "_".join(map(str, group)) if size > 1 else single(sides, group[0], alone=False)
+            )
+            start += size
+        return out
+    return [single(sides, value, alone=False) for value in values]  # d3, d12 (not two), d20, d100, the coin

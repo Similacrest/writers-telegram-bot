@@ -84,6 +84,7 @@ SETTINGS: list[SettingDef] = [
     SettingDef("replies.defaults", "bool", True),
     SettingDef("prompts.use_shared", "bool", True, needs_option="db"),
     SettingDef("achievements.enabled", "bool", True),
+    SettingDef("dice.forwards", "enum", "warn", choices=("off", "warn", "delete"), needs_option="stickers"),
 ]
 BY_KEY = {s.key: s for s in SETTINGS}
 
