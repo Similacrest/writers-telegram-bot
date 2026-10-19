@@ -150,3 +150,32 @@ def test_every_sticker_it_can_choose_is_in_the_packs_and_every_sticker_in_the_pa
     assert chosen <= names, sorted(chosen - names)
     assert names - chosen == set(), sorted(names - chosen)  # no sticker in the packs that no roll gets
     assert all(NEXT_EVEN[n] % 2 == 0 for n in NEXT_EVEN)
+
+
+def test_stitched_stickers_hold_up_to_six_dice_shared_out_evenly():
+    from writers_bot.core.dicestickers import dice_in, grouped
+
+    assert (
+        dice_in("d20_17") == 1 and dice_in("3d6_1_4_4") == 3 and dice_in("2d20a_5_17") == 2 and dice_in("d100_73") == 2
+    )
+    assert grouped([(6, 3), (6, 1), (6, 6)]) == [["3d6_1_3_6"]]  # three dice: the clip itself
+    assert grouped([(6, v) for v in (3, 1, 6, 2, 2, 5)]) == [
+        ["3d6_1_3_6", "3d6_2_2_5"]
+    ]  # six dice: one sticker of two clips
+    # more than six dice of a kind: the dice are shared out evenly, then each share is made into clips
+    eight = grouped([(6, v) for v in (3, 1, 6, 2, 2, 5, 4, 4)])
+    assert eight == [["2d6_1_3", "2d6_2_6"], ["2d6_2_5", "2d6_4_4"]]  # 4 + 4, not 6 + 2
+    assert [sum(dice_in(n) for n in part) for part in grouped([(6, 1)] * 7)] == [4, 3]
+    assert [sum(dice_in(n) for n in part) for part in grouped([(6, 1)] * 13)] == [5, 4, 4]
+    assert [sum(dice_in(n) for n in part) for part in grouped([(8, 2)] * 9)] == [5, 4]
+    assert grouped([(10, v) for v in range(1, 9)]) == [
+        ["d100_12", "d100_34"],
+        ["d100_56", "d100_78"],
+    ]  # d10s as d100s, 4 + 4
+    # mixed dice and singles are shared out evenly too
+    assert [len(part) for part in grouped([(20, v) for v in range(1, 10)])] == [5, 4]
+    assert [len(part) for part in grouped([(20, v) for v in range(1, 8)])] == [4, 3]
+    assert grouped([(20, 7), (4, 2), (6, 6), (10, 3)]) == [["d20_7", "d4_2", "d6n_6", "d10_3"]]
+    assert grouped([(12, 4), (12, 9), (6, 6)]) == [["2d12_4_9", "d6n_6"]]
+    assert grouped([(20, 17), (20, 5)], "adv") == [["2d20a_5_17"]]
+    assert grouped([(13, 5)]) is None

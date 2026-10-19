@@ -7,7 +7,8 @@ them (``/d20 -q``); more than ``max_stickers`` (4) stickers, or a die without st
 Dice of a kind share stickers (8d6 is three), so the limits count stickers, not dice.
 
 The clips are not in a sticker pack. The bot uploads a clip with ``sendSticker`` the first time a roll needs it and keeps
-the ``file_id`` in a cache file (``core.dicecache``), so later rolls send by id. Because the stickers are in no pack,
+the ``file_id`` in a cache file (``core.dicecache``), so later rolls send by id. With ``stitch = true`` a roll that needs several
+stickers gets one instead, made on the spot from its clips with ffmpeg (``core.stitch``) and kept the same way. Because the stickers are in no pack,
 people cannot send them from the keyboard: a message from a person with one of them is a forward or a copy of a roll, and
 the bot says so (the chat setting ``dice.forwards``: off, warn, delete). A bare ``/d20`` is just the sticker; with a bonus
 or a caption the usual line follows.
@@ -18,6 +19,7 @@ import csv
 import io
 import json
 import logging
+import tempfile
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
 
@@ -26,7 +28,7 @@ from telegram.constants import ChatAction, ChatType
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import MessageHandler, filters
 
-from ...core import dicestickers, dicevars, extras, randomness
+from ...core import dicestickers, dicevars, extras, randomness, stitch
 from ...core.dicecache import StickerCache
 from ...telegram_bot.app import display_name
 from ...telegram_bot.base import Command, TelegramModule
@@ -61,6 +63,7 @@ class Module(TelegramModule):
         self.cache = StickerCache(self._cache_path(options))
         # roll variables (/dicevar, /$name) need the database; a bot without one has none
         self.vars = Variables(self) if options.get("variables") and bot.storage is not None else None
+        self.stitcher = self._make_stitcher(options) if options.get("stitch") else None
 
     def commands(self) -> list[Command]:
         """Each die is a command of its own (/d20 ... in the menu and /help), also as !к20; the rest of the notation
@@ -87,6 +90,17 @@ class Module(TelegramModule):
         if self.stickers_on:  # its own group: looking at stickers never stops another handler
             handlers.append((MessageHandler(filters.Sticker.ALL & filters.ChatType.GROUPS, self.on_sticker), 7))
         return handlers
+
+    def _make_stitcher(self, options: dict) -> stitch.Stitcher | None:
+        ffmpeg = stitch.ffmpeg_path(str(options.get("ffmpeg") or ""))
+        if ffmpeg is None:
+            logger.warning("dice stitching is on but there is no ffmpeg: a roll of many dice gets stickers as before")
+            return None
+        if options.get("stitch_folder"):
+            return stitch.Stitcher(ffmpeg, Path(options["stitch_folder"]))
+        if self.cache.path is not None:
+            return stitch.Stitcher(ffmpeg, self.cache.path.parent / "dice_stitched")
+        return stitch.Stitcher(ffmpeg, Path(tempfile.gettempdir()) / "writers_dice_stitched", keep=100)
 
     def _cache_path(self, options: dict) -> Path | None:
         """Where the file ids are kept: ``cache_file``, else next to the database, else nowhere (until the bot stops)."""
@@ -138,34 +152,57 @@ class Module(TelegramModule):
     # --- the stickers ------------------------------------------------------------------------------
 
     async def send_clip(self, message, name: str) -> bool:
-        """Send one clip as a sticker in reply to the roll: by its cached file id, else upload it and keep the id."""
+        """Send one clip as a sticker in reply to the roll."""
+
+        async def load() -> tuple[str, bytes]:
+            path = self.files[name]
+            return PurePosixPath(path).name, files("writers_bot.assets.dice_clips").joinpath(path).read_bytes()
+
+        return await self._send(message, name, load)
+
+    async def send_stitched(self, message, names: list[str]) -> bool:
+        """Send several clips as one sticker, stitched together (made the first time, then sent by its id)."""
+        key = stitch.key_of(names)
+
+        async def load() -> tuple[str, bytes]:
+            folder = files("writers_bot.assets.dice_clips")
+            inputs = [Path(str(folder.joinpath(self.files[name]))) for name in names]
+            path = await self.stitcher.make(key, inputs)
+            return path.name, path.read_bytes()
+
+        return await self._send(message, key, load)
+
+    async def _send(self, message, key: str, load) -> bool:
+        """Send a sticker by its cached file id, else upload it (``load`` gives its file name and bytes) and keep the id."""
         bot = self.bot.app.bot
         where = {
             "message_thread_id": message.message_thread_id if message.is_topic_message else None,
             "reply_parameters": ReplyParameters(message.message_id, allow_sending_without_reply=True),
         }
-        cached = self.cache.file_id(name)
+        cached = self.cache.file_id(key)
         if cached is not None:
             try:
                 await bot.send_sticker(message.chat_id, cached, **where)
                 return True
             except BadRequest as e:  # the id is no good any more (a lost file, a changed bot): upload again
-                logger.info("the cached dice sticker %s was refused (%s): uploading it again", name, e)
-                self.cache.forget(name)
+                logger.info("the cached dice sticker %s was refused (%s): uploading it again", key, e)
+                self.cache.forget(key)
             except TelegramError as e:
                 logger.info("dice sticker failed: %s", e)
                 return False
         try:
-            path = self.files[name]
-            upload = InputFile(
-                files("writers_bot.assets.dice_clips").joinpath(path).read_bytes(), filename=PurePosixPath(path).name
+            filename, data = await load()
+            sent = await bot.send_sticker(
+                message.chat_id, InputFile(data, filename=filename), **where, **UPLOAD_TIMEOUTS
             )
-            sent = await bot.send_sticker(message.chat_id, upload, **where, **UPLOAD_TIMEOUTS)
+        except stitch.StitchError as e:
+            logger.warning("could not stitch the dice sticker %s: %s", key, e)
+            return False
         except TelegramError as e:
-            logger.warning("could not upload the dice sticker %s: %s", name, e)
+            logger.warning("could not upload the dice sticker %s: %s", key, e)
             return False
         if sent.sticker is not None:
-            self.cache.put(name, sent.sticker.file_id, sent.sticker.file_unique_id)
+            self.cache.put(key, sent.sticker.file_id, sent.sticker.file_unique_id)
         return True
 
     async def on_sticker(self, update: Update, _context) -> None:
@@ -195,19 +232,30 @@ class Module(TelegramModule):
 
     # --- rolling ---------------------------------------------------------------------------------
 
-    def pick(self, roll: extras.Roll, outcome: extras.Outcome) -> list[str] | None:
-        """The stickers for a roll, or None for just the line: stickers are off or silenced (-q), there are more
-        stickers than allowed (three or more need -s, and no more than ``max_stickers``: dice of a kind share stickers,
-        up to three to one) or a die has no sticker."""
+    def plan(self, roll: extras.Roll, outcome: extras.Outcome) -> list[list[str]] | None:
+        """The stickers for a roll, each a list of clips (one clip: that clip; more: stitched into one), or None for just the
+        line: stickers are off or silenced (-q), there are more stickers than allowed (three or more need -s, and no more than
+        ``max_stickers``) or a die has no sticker. Dice of a kind share clips (8d6 is three), and with stitching up to six
+        dice share a sticker, shared out evenly (8d6 is two stickers of four)."""
         if not self.stickers_on or roll.stickers is False:
             return None
         allowed = self.max_stickers if roll.stickers else min(AUTO_STICKERS, self.max_stickers)
-        if len(outcome.dice) > allowed * dicestickers.MOST_PER_STICKER:
+        per = dicestickers.STITCHED_DICE if self.stitcher is not None else dicestickers.MOST_PER_STICKER
+        if len(outcome.dice) > allowed * per:
             return None
-        names = dicestickers.choose(outcome.dice, roll.mode)
-        if not names or len(names) > allowed or not all(name in self.files for name in names):
+        if self.stitcher is not None:
+            stickers = dicestickers.grouped(outcome.dice, roll.mode)
+        else:
+            names = dicestickers.choose(outcome.dice, roll.mode)
+            stickers = [[name] for name in names] if names else None
+        if not stickers or len(stickers) > allowed or not all(n in self.files for part in stickers for n in part):
             return None
-        return names
+        return stickers
+
+    def pick(self, roll: extras.Roll, outcome: extras.Outcome) -> list[str] | None:
+        """The clips of the stickers of ``plan``, in order."""
+        stickers = self.plan(roll, outcome)
+        return [name for part in stickers for name in part] if stickers else None
 
     async def roll(self, update: Update, _context) -> None:
         message = update.effective_message
@@ -233,26 +281,35 @@ class Module(TelegramModule):
         if any(roll.private for roll in rolls) and message.chat.type != ChatType.PRIVATE:
             await self.bot.asks.respond(message, html, delete_command=True)
             return
-        names: list[str] = []
+        parts: list[list[str]] = []  # the stickers, each the clips it is made of
         for roll, outcome in zip(rolls, outcomes, strict=True):
             if len(rolls) > 1 and not roll.stickers:  # a series has stickers only when asked for (-s)
                 continue
-            picked = self.pick(roll, outcome)
-            if picked and len(names) + len(picked) <= self.max_stickers:
-                names += picked
-        if names:
-            if any(self.cache.file_id(name) is None for name in names):  # an upload takes a moment
-                with contextlib.suppress(TelegramError):
+            planned = self.plan(roll, outcome)
+            if planned and len(parts) + len(planned) <= self.max_stickers:
+                parts += planned
+        if parts:
+            names = [name for part in parts for name in part]
+            if any(self.cache.file_id(stitch.key_of(part) if len(part) > 1 else part[0]) is None for part in parts):
+                with contextlib.suppress(TelegramError):  # an upload (and stitching) takes a moment
                     await self.bot.app.bot.send_chat_action(
                         message.chat_id,
                         ChatAction.CHOOSE_STICKER,
                         message_thread_id=message.message_thread_id if message.is_topic_message else None,
                     )
             sent = 0
-            for name in names:  # in the order thrown
-                if not await self.send_clip(message, name):
+            for part in parts:  # in the order thrown
+                if not await (
+                    self.send_stitched(message, part) if len(part) > 1 else self.send_clip(message, part[0])
+                ):
                     break
                 sent += 1
-            if sent == len(names) and len(rolls) == 1 and outcomes[0].only_die:
+            if sent == 0 and any(len(part) > 1 for part in parts) and len(names) <= self.max_stickers:
+                for name in names:  # ffmpeg failed: the clips one by one
+                    if not await self.send_clip(message, name):
+                        break
+                    sent += 1
+                parts = [[name] for name in names]
+            if sent == len(parts) and len(rolls) == 1 and outcomes[0].only_die:
                 return
         await message.reply_html(html)

@@ -20,7 +20,7 @@ a comment saying where it appears; edit them there.
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice), `variables` (roll variables, below; needs storage) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
+| `dice` | `stickers`, `max_stickers`, `cache_file`, `stitch`, `ffmpeg`, `stitch_folder` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice), `variables` (roll variables, below; needs storage) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
 | `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
@@ -184,6 +184,16 @@ series of up to 8 rolls, kept per person per chat (the private chat with the bot
 A variable is only ever a whole series: it is not substituted into a bigger roll and a step cannot name a variable. A series has stickers
 only with `-s` (up to `max_stickers` in all). `/$name` is not a command to Telegram, so in a group it reaches the bot only where the bot sees
 all messages; `/r $name` always works. Variables are personal data: `/export` includes them and `/forgetme` deletes them.
+
+**Stitched stickers** (`dice = { stickers = true, stitch = true }`). With stitching, the clips of a roll that needs several stickers
+are put together with ffmpeg into one sticker, on the spot: `d20+d4+d6`, a Daggerheart roll, six different dice, 8d6. A sticker holds
+up to six dice on a grid (3 × 2), each clip landing a few frames after the one before, so the dice never land together; a clip is
+scaled down and its edges feathered so a crit's glow does not show a square. More dice make more stickers, with the dice shared out
+evenly (8d6 is two stickers of four dice, 7d6 four and three, 13d6 five, four and four), and the sticker limits count stickers
+(`max_stickers`, and up to two come without `-s`). The stitched sticker is made the first time a roll needs it (a few seconds of one
+core, 45–160 KB, shown as "choosing a sticker…") and then sent by its `file_id` like any other; the files are kept next to the cache
+(the newest 400), and if ffmpeg fails the clips go one by one. ffmpeg is the `imageio-ffmpeg` package's static build (it decodes VP9
+with alpha), or the one in `ffmpeg = "/path"`.
 
 **True randomness** (`dice = { randomness = "random.org", random_org_key = "env:RANDOM_ORG_KEY" }`; in the environment
 `DICE_RANDOMNESS=random.org` and `RANDOM_ORG_KEY`). The dice then come from [random.org](https://www.random.org/)'s

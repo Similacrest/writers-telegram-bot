@@ -15,6 +15,7 @@ dependencies = [
     "aiohttp>=3.12",
     "pillow>=11",
     "d20>=1.1.2",
+    "imageio-ffmpeg>=0.6.0",  # core/stitch.py: dice stickers stitched with ffmpeg
 ]
 
 [project.optional-dependencies]

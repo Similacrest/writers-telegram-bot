@@ -9,6 +9,7 @@ from fake_telegram import Chat
 from harness import ADMIN, ALICE, BOB, CAROL, DAN, GROUP, Harness
 
 from writers_bot.core import extras
+from writers_bot.core import stitch as stitch_core
 from writers_bot.core.extras import Outcome, Roll
 
 FULL = {"sprints": {"reports": True, "works": True, "percent": True}}
@@ -572,6 +573,62 @@ async def test_d07b_the_forward_setting_off_and_delete(make, monkeypatch):
     h.fake.chats[GROUP].bot_can_delete = False  # no right to delete: the warning instead
     copy = await h.say(BOB, "", sticker=stranger_sticker("u-d20_17"))
     assert not copy.deleted and "стікер із кидка" in h.last_public().text
+
+
+def stitching(tmp_path, **options):
+    """A dice module that stitches, into a folder of this test (never one a test before left files in)."""
+    return {"dice": {"stickers": True, "stitch": True, "stitch_folder": str(tmp_path / "stitched"), **options}}
+
+
+needs_ffmpeg = pytest.mark.skipif(stitch_core.ffmpeg_path() is None, reason="no ffmpeg")
+
+
+@needs_ffmpeg
+async def test_d20_a_roll_of_several_clips_is_one_stitched_sticker_made_once(make, monkeypatch, tmp_path):
+    fixed(monkeypatch, (20, 17), (4, 1), bare=False)
+    h = await make(stitching(tmp_path))
+    mark = h.mark()
+    await h.say(ALICE, "/d20+d4")
+    assert [m.kind for m in h.public_since(mark)] == ["sticker", "text"]  # one sticker, not two
+    assert h.fake.uploads == ["d20_17+d4n_1.webm"]
+    await h.say(BOB, "/d20+d4")
+    assert h.fake.uploads == ["d20_17+d4n_1.webm"]  # by the file id now
+    stitched = next((h.tbot.module("dice").stitcher.folder).glob("*.webm"))
+    assert 0 < stitched.stat().st_size <= 256 * 1024
+
+
+@needs_ffmpeg
+async def test_d21_eight_d6_are_two_stickers_of_four_dice(make, monkeypatch, tmp_path):
+    fixed(monkeypatch, *[(6, v) for v in (3, 1, 6, 2, 2, 5, 4, 4)], bare=False)
+    h = await make(stitching(tmp_path))
+    mark = h.mark()
+    await h.say(ALICE, "/8d6")
+    assert [m.kind for m in h.public_since(mark)] == [
+        "sticker",
+        "sticker",
+        "text",
+    ]  # no -s: two stickers come on their own
+    assert h.fake.uploads == ["2d6_1_3+2d6_2_6.webm", "2d6_2_5+2d6_4_4.webm"]
+
+
+async def test_d22_one_clip_alone_is_not_stitched_and_stitching_is_off_by_default(make, monkeypatch, tmp_path):
+    fixed(monkeypatch, (6, 5), (6, 2))
+    h = await make(stitching(tmp_path))
+    await h.say(ALICE, "/2d6")
+    assert h.fake.uploads == ["2d6_2_5.webm"]  # a pair is one clip: sent as it is
+    fixed(monkeypatch, (20, 17), (4, 1), bare=False)
+    off = await make(DICE)
+    await off.say(ALICE, "/d20+d4")
+    assert off.fake.uploads == ["d20_17.webm", "d4n_1.webm"]  # two stickers, as before
+
+
+async def test_d23_when_ffmpeg_fails_the_clips_go_one_by_one(make, monkeypatch, tmp_path):
+    fixed(monkeypatch, (20, 17), (4, 1), bare=False)
+    h = await make(stitching(tmp_path, ffmpeg="/nonexistent/ffmpeg"))
+    mark = h.mark()
+    await h.say(ALICE, "/d20+d4")
+    assert [m.kind for m in h.public_since(mark)] == ["sticker", "sticker", "text"]
+    assert h.fake.uploads == ["d20_17.webm", "d4n_1.webm"]
 
 
 async def test_d12_true_random_dice_draw_from_random_org(make, monkeypatch):
