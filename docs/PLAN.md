@@ -579,3 +579,10 @@ The bot is built from modules that can be served as one bot or as several, set i
   value and effect (no more emoji and search keywords, no pack order, no 120-per-pack layout); `packs.py` is now `assets.py`, `tags.py` is
   deleted, and `render.py --all` replaces `--pack N`. Kept on purpose: the sorted pool clips, the odd dice taking the next even die's
   clips, the pre-rendered pairs (2d12 duality, 2d20 advantage / disadvantage) and `max_stickers`.
+
+## Done in v4.5.0 (also the work planned as v4.4.0, not released on its own)
+- **Roll variables** (`dice.variables`, needs storage): `/dicevar`, `/$name`, `=$name`, `import` between chats; a variable is a series of up to 8 rolls, per person
+  per chat; personal data (export, forgetme). New table `dice_vars` (the dice module's schema; additive).
+- **Private rolls**: `-p` answers the roller alone (ephemeral where allowed) and deletes the request.
+- **Stitched stickers** (`dice.stitch`, `dice.ffmpeg`, `dice.stitch_folder`): a roll that needs several stickers gets stickers of up to six dice made on the spot from the
+  clips with ffmpeg (`core/stitch.py`), the dice shared out evenly (8d6 is 4 + 4); sent by `file_id` after the first time. New dependency `imageio-ffmpeg`.
