@@ -20,7 +20,7 @@ a comment saying where it appears; edit them there.
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
+| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice), `variables` (roll variables, below; needs storage) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
 | `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
@@ -164,6 +164,26 @@ is a forward or a copy of a roll (the bot knows its stickers' `file_unique_id`s 
 (in `/settings` → Кубики) says what to do about it: `warn` (the default) replies "this is a roll sticker, don't forward them", `delete`
 removes it (when the bot may delete messages here, else it warns), `off` leaves it. It only sees stickers where the bot sees all
 messages (privacy mode off, or the bot is an admin). `protect_content` is not used.
+
+**Private rolls.** `-p` after a roll (`/d20+5 -p Потайний`, `/$атака -p`) answers only to the roller, as an ephemeral message where
+Telegram allows (else a reply that goes away), and deletes the roll request where the bot may. A private roll has no stickers.
+In the private chat with the bot `-p` changes nothing.
+
+**Roll variables** (`dice = { variables = true }`, on with `PREVIEW_FEATURES`; needs the bot with storage). A variable is a name for a
+series of up to 8 rolls, kept per person per chat (the private chat with the bot is a chat too), rolled as a whole:
+
+| | |
+|---|---|
+| `/dicevar $атака d20+5 Атака; 2d6+3 Шкода` | keep (or change) a variable: rolls separated by `;`; `6x 4d6dl1` is six rolls (for a new character); at most 8 in all |
+| `/d20+4 Сила =$сила` | roll it and keep it as `$сила` (one roll; use `/dicevar` for a series) |
+| `/$атака`, `/r $атака`, `!$атака` | roll the series, one message with a line for each roll (a step with no caption is named by the variable); `-p`, `-s`, `-q` after it work on the whole |
+| `/dicevar`, `/dicevar $атака` | list yours here, show one |
+| `/dicevar unset $атака`, `/dicevar unset all` | delete |
+| `/dicevar import` | copy variables from another of your chats (the private one too): pick the chat, and for every name both have, keep yours or replace it (or answer for all at once) |
+
+A variable is only ever a whole series: it is not substituted into a bigger roll and a step cannot name a variable. A series has stickers
+only with `-s` (up to `max_stickers` in all). `/$name` is not a command to Telegram, so in a group it reaches the bot only where the bot sees
+all messages; `/r $name` always works. Variables are personal data: `/export` includes them and `/forgetme` deletes them.
 
 **True randomness** (`dice = { randomness = "random.org", random_org_key = "env:RANDOM_ORG_KEY" }`; in the environment
 `DICE_RANDOMNESS=random.org` and `RANDOM_ORG_KEY`). The dice then come from [random.org](https://www.random.org/)'s

@@ -14,20 +14,23 @@ or a caption the usual line follows.
 """
 
 import contextlib
+import csv
+import io
 import json
 import logging
 from importlib.resources import files
 from pathlib import Path, PurePosixPath
 
 from telegram import InputFile, ReplyParameters, Update
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ChatType
 from telegram.error import BadRequest, TelegramError
 from telegram.ext import MessageHandler, filters
 
-from ...core import dicestickers, extras, randomness
+from ...core import dicestickers, dicevars, extras, randomness
 from ...core.dicecache import StickerCache
 from ...telegram_bot.app import display_name
 from ...telegram_bot.base import Command, TelegramModule
+from .variables import Variables
 
 logger = logging.getLogger(__name__)
 
@@ -56,13 +59,16 @@ class Module(TelegramModule):
             self.rng = randomness.TrueRandom(lambda n: randomness.random_org(key, n))
         self.files = {name: f"{name}.webm" for name in manifest()}  # clip -> its file
         self.cache = StickerCache(self._cache_path(options))
+        # roll variables (/dicevar, /$name) need the database; a bot without one has none
+        self.vars = Variables(self) if options.get("variables") and bot.storage is not None else None
 
     def commands(self) -> list[Command]:
         """Each die is a command of its own (/d20 ... in the menu and /help), also as !к20; the rest of the notation
         (/2d6+3, /r 4d6kh3) is read by ``handlers``."""
 
-        if not self.options.get("commands", True):  # a v2 bot's menu has none; the rolls themselves work
-            return []
+        extra = self.vars.commands() if self.vars is not None else []
+        if not self.options.get("commands", True):  # a v2 bot's menu has no die commands; the rolls themselves work
+            return extra
 
         async def values(_ctx, sides=0):
             return {"sides": sides}
@@ -73,7 +79,7 @@ class Module(TelegramModule):
                 values=lambda ctx, sides=sides: values(ctx, sides),
             )
             for sides in DICE
-        ]  # fmt: skip
+        ] + extra  # fmt: skip
 
     def handlers(self):
         # Not only command entities: whether Telegram marks "/2d6" (a digit first) as a command is unclear
@@ -93,6 +99,29 @@ class Module(TelegramModule):
 
     async def help_lines(self, ctx) -> list[tuple[str, str, dict]]:
         return [("dice", "help.dice", {})]
+
+    @property
+    def personal_data(self) -> bool:
+        return self.vars is not None  # the variables are kept about people: /export and /forgetme take them
+
+    def asks(self) -> dict:
+        return self.vars.asks() if self.vars is not None else {}
+
+    async def export_files(self, person_id: int) -> dict[str, bytes]:
+        if self.vars is None:
+            return {}
+        rows = await self.vars.export_rows(await self.bot.people.accounts(person_id))
+        if not rows:
+            return {}
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["chat_id", "variable", "rolls"])
+        writer.writerows(rows)
+        return {"dice-variables.csv": buf.getvalue().encode("utf-8-sig")}
+
+    async def forget(self, platform: str, user_id: str) -> None:
+        if self.vars is not None:
+            await self.vars.forget(platform, user_id)
 
     async def post_init(self) -> None:
         if self.rng is not None:
@@ -182,11 +211,35 @@ class Module(TelegramModule):
 
     async def roll(self, update: Update, _context) -> None:
         message = update.effective_message
-        roll = extras.parse_roll(message.text or message.caption or "")
+        text = message.text or message.caption or ""
+        if ref := dicevars.reference(text):  # /$hit: a variable of the sender's
+            if self.vars is None:
+                await message.reply_html(self.bot.fmt.t("dice.var_off"))
+            else:
+                await self.vars.roll_reference(message, ref)
+            return
+        roll = extras.parse_roll(text)
         if roll is None:
             return
-        outcome = extras.throw(self.bot.fmt, roll, self.rng)
-        names = self.pick(roll, outcome)
+        if roll.save_as and self.vars is not None:  # /d20+4 =$strcheck keeps the roll, then rolls it
+            await self.vars.save_from_roll(message, roll)
+        await self.deliver(message, [roll])
+
+    async def deliver(self, message, rolls: list[extras.Roll]) -> None:
+        """Roll and answer: the stickers (one roll only, or more with -s, up to ``max_stickers`` in all), then the lines in one
+        message. A private roll (-p) is answered to the roller alone, as text, and its request is deleted."""
+        outcomes = [extras.throw(self.bot.fmt, roll, self.rng) for roll in rolls]
+        html = "\n\n".join(str(outcome.html) for outcome in outcomes)
+        if any(roll.private for roll in rolls) and message.chat.type != ChatType.PRIVATE:
+            await self.bot.asks.respond(message, html, delete_command=True)
+            return
+        names: list[str] = []
+        for roll, outcome in zip(rolls, outcomes, strict=True):
+            if len(rolls) > 1 and not roll.stickers:  # a series has stickers only when asked for (-s)
+                continue
+            picked = self.pick(roll, outcome)
+            if picked and len(names) + len(picked) <= self.max_stickers:
+                names += picked
         if names:
             if any(self.cache.file_id(name) is None for name in names):  # an upload takes a moment
                 with contextlib.suppress(TelegramError):
@@ -200,6 +253,6 @@ class Module(TelegramModule):
                 if not await self.send_clip(message, name):
                     break
                 sent += 1
-            if sent == len(names) and outcome.only_die:
+            if sent == len(names) and len(rolls) == 1 and outcomes[0].only_die:
                 return
-        await message.reply_html(outcome.html)
+        await message.reply_html(html)

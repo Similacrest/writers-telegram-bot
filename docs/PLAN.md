@@ -563,6 +563,7 @@ The bot is built from modules that can be served as one bot or as several, set i
 - **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `adv` / `dis` show the two rolls
   sorted (the lower first) and put the die that counts first in the stickers; `kh1` / `kl1` stay the d20 library's own keep (the
   dice as rolled).
+- **Roll variables and private rolls** (branch work after v4.3.0): `/dicevar`, `/$name`, `=$name`, `-p`; see the README ("Roll variables").
 - **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
   operating system's generator when the pool is empty.
 

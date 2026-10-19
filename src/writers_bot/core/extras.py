@@ -17,11 +17,13 @@ from .i18n import t
 # notation is the d20 library's (keep/drop, exploding, rerolls, arithmetic), plus the v2 forms: the Cyrillic
 # letter ka for d, "adv"/"dis" for the better/worse of two throws, b5/m3 for +5/-3. (i18n: input syntax)
 _DIE = r"\d*[dDкК][\d%]"  # i18n: input syntax; d% is the percentile die
-ROLL_RE = re.compile(rf"^[/!](?:r(?:oll)?(?:@\w+)?(?:\s+\S|\s*\()|(?:r(?:oll)?(?:@\w+)?)?{_DIE})", re.IGNORECASE)
+ROLL_RE = re.compile(rf"^[/!](?:\$\w|r(?:oll)?(?:@\w+)?(?:\s+\S|\s*\()|(?:r(?:oll)?(?:@\w+)?)?{_DIE})", re.IGNORECASE)
 _PREFIX = re.compile(r"^[/!](?:r(?:oll)?)?(?:@\w+)?\s*", re.IGNORECASE)  # i18n: input syntax
 _MENTION = re.compile(r"^(\S*?)@\w+")
 _MODE = re.compile(r"(?<=\d)(adv|dis)\b", re.IGNORECASE)  # i18n: input syntax
 _FLAGS = {"-s": True, "-q": False}  # i18n: input syntax; -s: stickers even for 3 or 4 dice, -q: no stickers
+_PRIVATE = "-p"  # i18n: input syntax; answer only to the roller, and delete the request
+_SAVE = re.compile(r"=\$\w+")  # i18n: input syntax; /d20+4 =$strcheck keeps the roll as a variable
 _LEGACY_BONUS = re.compile(r"(?<=\d)([bm])(\d+)")
 _ROLL20_DROP = re.compile(r"(?<=\d)d([hl]\d+)", re.IGNORECASE)  # 4d6dl1 (Roll20) is d20's 4d6pl1
 MAX_DICE = 500
@@ -67,6 +69,8 @@ class Roll:
     mode: str | None  # "adv", "dis" or None
     caption: str
     stickers: bool | None = None  # -s: True, -q: False (wins when both are given), nothing: None
+    private: bool = False  # -p: the answer is for the roller alone
+    save_as: str | None = None  # =$name: keep this roll as a variable (see core.dicevars)
 
 
 def _normalise(text: str) -> str:
@@ -85,9 +89,15 @@ def parse_roll(text: str) -> Roll | None:
     rest = _MENTION.sub(r"\1", rest, count=1)  # /d20@writers_bot
     tokens = []
     stickers = None
+    private = False
+    save_as = None
     for word in rest.split():
         if word.lower() in _FLAGS:  # a flag takes no part in the roll or the caption
             stickers = _FLAGS[word.lower()] if stickers is None or word.lower() == "-q" else stickers
+        elif word.lower() == _PRIVATE:
+            private = True
+        elif _SAVE.fullmatch(word):
+            save_as = word[2:]
         else:
             tokens.append(word)
     mode = None
@@ -101,8 +111,8 @@ def parse_roll(text: str) -> Roll | None:
             continue
         mode = found[1].lower() if found else None
         caption = " ".join(tokens[n:]) or t("dice.result")
-        return Roll(expression, mode, caption, stickers)
-    return Roll("", None, "")
+        return Roll(expression, mode, caption, stickers, private, save_as)
+    return Roll("", None, "", None, private, save_as)
 
 
 @dataclass(frozen=True, slots=True)

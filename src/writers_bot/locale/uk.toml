@@ -497,6 +497,7 @@ addimage = "Додати картинку до набору чату"
 unaward = "Забрати досягнення"
 # Every die has its own command (/d20): the menu text
 die = "Кинути d{sides}"
+dicevar = "Змінні кидків: набір кидків під назвою"
 replies = "Відповіді бота в цьому чаті"
 chats = "Адмін: усі чати з ботом"
 broadcast = "Адмін: розсилка"
@@ -533,6 +534,8 @@ d10 = "к10"
 d12 = "к12"
 d20 = "к20"
 d100 = "к100"
+# The dice variables command: !змінна
+dicevar = "змінна"
 
 # ------------------------------------------------------------------------------------------------
 [help]
@@ -572,6 +575,7 @@ usage_award = "[назва]"
 usage_newachievement = "Назва — опис"
 usage_achievements = "[ім'я чи @username]"
 usage_broadcast = "groups|private|all"
+usage_dicevar = "[$назва кидки | unset $назва | import]"
 # {categories} when the chat has none yet
 no_categories = "поки немає"
 # {here}: the chat's own default length where it has chat settings, else nothing
@@ -805,6 +809,44 @@ error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Ата
 forward_warning = "{who}, це стікер із кидка бота: пересилати чи копіювати їх не можна. Киньте кубики самі."
 # The same when the bot deletes it (chat setting "delete", the bot may delete messages here)
 forward_deleted = "{who}, стікер кидка видалено: пересилати чи копіювати їх не можна. Киньте кубики самі."
+# Roll variables (/dicevar, /$назва): a name for a series of up to 8 rolls, per person per chat
+var_off = "Змінні кидків тут вимкнені."
+var_usage = "/dicevar — ваші змінні; /dicevar $атака d20+5 Атака; 2d6+3 Шкода — створити чи змінити (6x 4d6dl1 — шість кидків); /dicevar $атака — показати; /dicevar unset $атака або unset all — видалити; /dicevar import — перенести з іншого чату. Кинути: /$атака."
+var_bad_name = "Назва змінної: літери, цифри й підкреслення, до {max} знаків, спершу літера: $сила."
+var_bad_step = "Не зрозумів кидок «{step}». Приклад: d20+5 Атака (без змінних усередині)."
+var_bad_repeat = "Повтор пишуть так: 6x 4d6dl1 (від 1)."
+var_step_too_long = "Кидок задовгий: до {max} знаків."
+var_too_many_steps = "У змінній до {max} кидків разом з повторами."
+var_empty = "Порожня змінна. Приклад: /dicevar $атака d20+5 Атака; 2d6+3 Шкода."
+var_too_many = "У цьому чаті у вас уже {max} змінних."
+# {steps}: "d20+5 Атака; 2d6+3 Шкода" (a run of the same roll as "6x 4d6dl1")
+var_saved = "Збережено ${name}: {steps}. Кинути: /${name}"
+var_updated = "Змінено ${name}: {steps}."
+var_show = "${name}: {steps}"
+var_list_title = "Ваші змінні тут:"
+var_none = "Тут у вас немає змінних. Створіть: /dicevar $атака d20+5 Атака; 2d6+3 Шкода, або /d20+4 =$сила."
+var_unknown = "У вас тут немає змінної ${name}.{known}"
+var_known = "Є: {names}."
+var_unset = "Видалено ${name}."
+var_unset_all = "Видалено змінних: {count}."
+var_unset_usage = "/dicevar unset $назва або /dicevar unset all."
+# Words after /dicevar (lower case): delete, "all", move from another chat
+var_unset_words = ["unset", "видалити", "скинути"]
+var_all_words = ["all", "усі", "всі"]
+var_import_words = ["import", "імпорт", "перенести"]
+# Moving variables here from another chat (the private chat with the bot counts)
+var_import_none = "В інших чатах у вас немає змінних, які можна перенести сюди."
+var_import_pick = "Звідки перенести змінні в цей чат?"
+var_import_source = "{title} ({count})"
+var_private_title = "Особисті з ботом"
+var_chat_unknown = "Чат {id}"
+# A name both chats have, with different rolls ({left}: how many more like it)
+var_conflict = "${name} тут уже є.\nТут: {here}\nТам: {there}\nЩе таких: {left}"
+var_keep_here = "Залишити тут"
+var_replace = "Замінити"
+var_keep_all = "Усі: залишити тут"
+var_replace_all = "Усі: замінити"
+var_import_done = "Готово: перенесено {copied}, залишено тутешніх {kept}."
 # Too many dice in one roll
 too_many = "Забагато кубиків: до {max} за раз."
 
