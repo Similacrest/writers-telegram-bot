@@ -565,3 +565,10 @@ The bot is built from modules that can be served as one bot or as several, set i
   dice as rolled).
 - **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
   operating system's generator when the pool is empty.
+
+## Done in v4.3.0: no more PREVIEW_FEATURES
+- `PREVIEW_FEATURES` is gone. The environment without a config file still describes one v2 bot (`EXTRAS` adds the extended-branch
+  modules); everything newer is chosen by the modules' options in a config file (`sprints = { reports = true, works = true }`,
+  `dice = { stickers = true }`, the bot's `admin` and `chat_settings` flags, the `[web]` table). The Discord bot and the web app
+  no longer need a switch (a token and `WEB_APP_URL` are the choice), `EPHEMERAL_REPLIES` is off in the environment (on by default
+  in a file), and /help always has its module submenus. Dice options (`stickers`, `variables`) default off, `commands` on.

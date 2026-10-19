@@ -62,7 +62,6 @@ Same as on Render, except:
 | `HOSTNAME` | not used | v2 used it for the webhook URL and the "Як прогрес?" keep-awake posts; both are gone |
 | `ALLOWED_CHATS` | the group ids v2 had `welcome_message` rows for | v2 `extended` only answered in those groups and in private chats |
 | `EXTRAS` | `1` | Dice, `/smash`, `/imafan`, welcome messages, slogans and open private chats, as in v2 `extended`. Leave unset for the plain `main` behaviour |
-| `PREVIEW_FEATURES` | unset | The bot then behaves like v2. Everything newer (word reports, `/join`, sprint links, percent sprints, stats, goals, broadcasts, Discord…) is still being designed; turn it on only in a test deployment |
 | `GOOGLE_TOKEN_FILE` | default `/app/data/token.json` | Replaces `token.pickle.b64` |
 | `DB_PATH` | default `/app/data/bot.sqlite3` | |
 

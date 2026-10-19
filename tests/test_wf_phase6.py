@@ -741,11 +741,11 @@ async def test_h09_ukrainian_commands_start_with_an_exclamation_mark_or_a_slash(
     assert "Бот для письменників" in h.last_private(ALICE).text
 
 
-async def test_h10_a_v2_bot_keeps_one_flat_help_and_no_die_commands_in_its_menu(make):
+async def test_h10_the_dice_commands_option_leaves_the_die_commands_out_of_the_menu(make):
     h = await make({"prompts": {}, "sprints": {}, "dice": {"commands": False}}, admin=False)
     await h.say(ALICE, "/help")
-    card = h.last_public()
-    assert card.buttons() == [] and "/sprint" in card.text and "Для адмінів" not in card.text
+    card = h.last_public()  # a bot without the admin tools answers /help in public, as v2 did
+    assert "Промпти" in card.buttons() and "/sprint" in card.text and "Для адмінів" not in card.text
     assert all("d20" not in {x["command"] for x in c["commands"]} for c in h.calls("setMyCommands"))
     await h.say(ALICE, "/d20")  # the roll itself works
     assert "Результат" in h.last_public().text

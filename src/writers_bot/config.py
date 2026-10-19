@@ -78,8 +78,6 @@ class CommonSettings:
     health_host: str = "127.0.0.1"
     health_port: int = 0  # 0 = no health endpoint
     error_alerts: bool = True  # send ERROR log records to the super-admins
-    # everything added since v2 that users see, still being designed (see PREVIEW_FEATURES in the README)
-    preview_features: bool = False
 
     @classmethod
     def from_env(cls) -> "CommonSettings":
@@ -93,7 +91,6 @@ class CommonSettings:
             health_host=os.environ.get("HEALTH_HOST", "127.0.0.1").strip() or "127.0.0.1",
             health_port=_int("HEALTH_PORT", 0),
             error_alerts=_flag("ERROR_ALERTS", default=True),
-            preview_features=_flag("PREVIEW_FEATURES"),
         )
 
 
@@ -149,7 +146,7 @@ class TelegramSettings:
             extras=extras,
             allow_private=_flag("ALLOW_PRIVATE_CHATS", default=extras),
             slogan_replies=_flag("SLOGAN_REPLIES", default=extras),
-            ephemeral_replies=_flag("EPHEMERAL_REPLIES", default=common.preview_features),
+            ephemeral_replies=_flag("EPHEMERAL_REPLIES"),
             ephemeral_commands=_flag("EPHEMERAL_COMMANDS"),
             common=common,
         )
@@ -168,8 +165,6 @@ class DiscordSettings:
         if not token:
             raise ConfigError("DISCORD_TOKEN is not set")
         common = CommonSettings.from_env()
-        if not common.preview_features:
-            raise ConfigError("the Discord bot is a preview feature: set PREVIEW_FEATURES=1 to run it")
         allowed = _ids(os.environ.get("DISCORD_ALLOWED_GUILDS"))
         return cls(
             token=token,

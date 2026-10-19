@@ -5,8 +5,8 @@ A bot for writing communities on Telegram (and Discord), with prompts, a word co
 A bot is a set of **modules** (prompts, word counter, sprints, greeter, dice, smash, replies,
 achievements) served on Telegram and/or Discord, described by a config file. Without a config file the
 environment describes one bot with the v2 modules, so by default the bot does what the v2 bot did. The
-redesigned sprints (works, goals, streaks, the web app) are switched on per bot in the config file, or with
-`PREVIEW_FEATURES=1`. See [the plan](docs/PLAN.md) for the design and
+redesigned sprints (works, goals, streaks, the web app) and every newer feature are switched on per bot by the modules'
+options in the config file (there is no preview switch any more). See [the plan](docs/PLAN.md) for the design and
 [the workflow review](docs/WORKFLOW-REVIEW.md) for what modelled use turned up.
 
 All user-facing texts are in [`src/writers_bot/locale/uk.toml`](src/writers_bot/locale/uk.toml), each with
@@ -20,7 +20,7 @@ a comment saying where it appears; edit them there.
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
-| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on; off in the environment without `PREVIEW_FEATURES`); `randomness`, `random_org_key` (true random dice) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
+| `dice` | `stickers`, `max_stickers`, `cache_file` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
 | `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
 | `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
@@ -72,8 +72,7 @@ settings, the bot's admin tools) with their commands' names and a button for eac
 command in full: its name and arguments, its Ukrainian name, what it does, and for whom (chat admins, bot admins). Only
 what is on there is listed (a chat with `/top` or achievements off doesn't list them), with the chat's values (its
 default sprint length, its prompt categories), the chat admins' commands only for chat admins and the bot's admin
-commands only for super-admins in the private chat. In a group it is a private answer. (A bot without the redesign, as in the environment without `PREVIEW_FEATURES`, keeps
-one flat page without buttons, still generated.) The **command menus** follow
+commands only for super-admins in the private chat. In a group it is a private answer. The **command menus** follow
 the same rules: one for private chats, one for group members, one for chat admins (`all_chat_administrators`), one for
 super-admins, and per chat where its settings change them (refreshed when a setting changes).
 
@@ -125,7 +124,7 @@ exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 | Not a valid roll | rolled defaults anyway | "Не зрозумів кидок…" with examples |
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
-**Dice stickers** (`dice = { stickers = true }`, on with `PREVIEW_FEATURES`): the dice of a roll also land as animated
+**Dice stickers** (`dice = { stickers = true }`): the dice of a roll also land as animated
 stickers on their results. They are eight packs of video stickers (866 in all, `src/writers_bot/assets/dice_packs`, made by
 `scripts/dice_render`, see its README): the highest roll of a die has golden rays, the lowest a red halo, a dull die and
 dust. Dice of a kind share stickers, so a big roll is a few stickers. Which stickers a roll gets (`core/dicestickers.py`):
@@ -278,11 +277,10 @@ its own container from the same image if you like.
 | `EXTRAS` | off | Adds the `dice`, `smash`, `greeter` (from the sheet) and `replies` (legacy) modules |
 | `DICE_RANDOMNESS`, `RANDOM_ORG_KEY` | `pseudo` | `random.org` and a key: true random dice |
 | `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set |
-| `PREVIEW_FEATURES` | off | The redesigned sprints (reports, works, %), the admin tools, the web app, and the Discord bot |
-| `WEB_APP_URL`, `WEB_APP_SECRET`, `WEB_APP_LISTEN` | off | The web app, with `PREVIEW_FEATURES` |
-| `EPHEMERAL_REPLIES` | follows `PREVIEW_FEATURES` | Private answers in groups as ephemeral messages |
+| `WEB_APP_URL`, `WEB_APP_SECRET`, `WEB_APP_LISTEN` | off | The web app |
+| `EPHEMERAL_REPLIES` | off | Private answers in groups as ephemeral messages (on by default in a config file) |
 | `EPHEMERAL_COMMANDS` | off | Mark personal commands as ephemeral in the group menu |
-| `DISCORD_TOKEN`, `DISCORD_GUILD_IDS`, `DISCORD_ALLOWED_GUILDS` | | Discord (`writers-bot-discord`, needs `PREVIEW_FEATURES`) |
+| `DISCORD_TOKEN`, `DISCORD_GUILD_IDS`, `DISCORD_ALLOWED_GUILDS` | | Discord (`writers-bot-discord`) |
 | `DB_PATH` | `data/bot.sqlite3` | SQLite database; back it up with `scripts/backup_db.py` |
 | `BOT_TIMEZONE` | `Europe/Kyiv` | Fallback time zone for times in messages |
 | `SPRINT_REPORT_WINDOW` | `30` | Minutes before a v2-style sprint closes (the redesign keeps late reports for 12 h) |

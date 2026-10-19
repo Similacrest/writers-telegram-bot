@@ -327,17 +327,11 @@ class TelegramBot:
         return {name: lines for name, lines in groups.items() if lines}
 
     async def help_text(self, ctx: HelpContext, group: str | None = None) -> str:
-        """/help: the groups with their commands' names, or one group (a module's submenu) with each command in full.
-        A bot without the redesign (v2) has no submenus: one page with every command in full."""
+        """/help: the groups with their commands' names, or one group (a module's submenu) with each command in full."""
         if override := self._help_override():
             return override
         f = self.fmt
         groups = await self.help_groups(ctx)
-        if not self.config.admin:
-            lines = [f.bold(t("help.title"))]
-            for name, entries in groups.items():
-                lines += ["", f.bold(t(f"help.group_{name}")), *(line for _, line in entries)]
-            return "\n".join(lines)
         if group in groups:
             return "\n".join([f.bold(t(f"help.group_{group}")), "", *(line for _, line in groups[group])])
         lines = [f.bold(t("help.title")), t("help.intro")]
@@ -352,7 +346,7 @@ class TelegramBot:
         self, ctx: HelpContext, user_id: int, group: str | None = None
     ) -> InlineKeyboardMarkup | None:
         """The submenu buttons: one per group on the first page, a way back on a group's page."""
-        if self._help_override() or not self.config.admin:
+        if self._help_override():
             return None
         if group is not None:
             return InlineKeyboardMarkup([[button(t("common.back"), user_id, "hp:all")]])

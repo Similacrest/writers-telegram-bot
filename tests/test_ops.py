@@ -3,8 +3,6 @@ import json
 import logging
 import sys
 
-import pytest
-
 from writers_bot.core.ops import AlertHandler, HealthServer, JsonFormatter
 
 
@@ -81,14 +79,24 @@ async def test_health_server():
 
 
 def test_discord_command_tree_builds(monkeypatch, tmp_path):
-    from writers_bot.botconfig import from_env
+    from writers_bot.botconfig import from_file
     from writers_bot.discord_bot.app import DiscordBot
     from writers_bot.services import Services
 
     monkeypatch.setenv("DISCORD_TOKEN", "x")
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "d.sqlite3"))
-    monkeypatch.setenv("PREVIEW_FEATURES", "1")
-    config = from_env("discord")
+    path = tmp_path / "bots.toml"
+    path.write_text(
+        f"""
+[common]
+db = "{tmp_path / "d.sqlite3"}"
+
+[bots.main]
+modules = ["prompts", "wordcount", "sprints"]
+sprints = {{ reports = true, works = true }}
+discord = {{ token = "x" }}
+"""
+    )
+    config = from_file(path)
     services = Services.build(config)
     bot = DiscordBot(config.bots["main"], services.for_bot(config.bots["main"]))
     names = {c.name for c in bot.tree.get_commands()}
@@ -98,10 +106,9 @@ def test_discord_command_tree_builds(monkeypatch, tmp_path):
     assert sprint_opts["duration"]["max_value"] == 120
 
 
-def test_discord_needs_preview_features(monkeypatch):
-    from writers_bot.config import ConfigError, DiscordSettings
+def test_discord_from_the_environment_needs_no_switch(monkeypatch):
+    from writers_bot.config import DiscordSettings
 
     monkeypatch.setenv("DISCORD_TOKEN", "x")
-    monkeypatch.delenv("PREVIEW_FEATURES", raising=False)
-    with pytest.raises(ConfigError, match="PREVIEW_FEATURES"):
-        DiscordSettings.from_env()
+    monkeypatch.delenv("PREVIEW_FEATURES", raising=False)  # the flag is gone: the token is the choice
+    assert DiscordSettings.from_env().token == "x"

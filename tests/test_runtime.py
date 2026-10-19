@@ -19,7 +19,6 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setenv("DB_PATH", str(tmp_path / "bot.sqlite3"))
     for name in (
         "EXTRAS",
-        "PREVIEW_FEATURES",
         "ALLOWED_CHATS",
         "BOT_SUPERADMINS",
         "ALLOW_PRIVATE_CHATS",
@@ -55,14 +54,27 @@ def test_v2_by_default(env):
     assert [m.name for m in tbot.modules] == ["prompts", "wordcount", "sprints"]
     group, private, admin, chat_admins = menu_names(tbot)
     assert group == private == {"help", "prompt", "image", "count", "sprint"}
-    assert admin == group == chat_admins  # no admin tools without the preview
+    assert admin == group == chat_admins  # no admin tools in the environment: a file turns them on
     assert not tbot.profile_enabled and tbot.data is None
 
 
-def test_preview_features(env):
-    env.setenv("PREVIEW_FEATURES", "1")
-    env.setenv("BOT_SUPERADMINS", "42")
-    tbot = tbot_from_env()
+def test_the_redesign_is_chosen_by_the_modules_of_a_config_file(env, tmp_path):
+    env.setenv("TG_MAIN", "1:main")
+    path = tmp_path / "bots.toml"
+    path.write_text(
+        f"""
+[common]
+db = "{tmp_path / "x.sqlite3"}"
+
+[bots.main]
+modules = ["prompts", "wordcount", "sprints"]
+sprints = {{ reports = true, works = true }}
+telegram = {{ token = "env:TG_MAIN", super_admins = [42] }}
+"""
+    )
+    config = from_file(path)
+    services = Services.build(config)
+    tbot = TelegramBot(config.bots["main"], services.for_bot(config.bots["main"]))
     group, private, admin, chat_admins = menu_names(tbot)
     assert {"progress", "top", "profile"} <= group
     assert "export" in private and "export" not in group and "forgetme" in private

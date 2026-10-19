@@ -21,8 +21,9 @@ From a TOML file (``BOT_CONFIG`` or ``--config``)::
     telegram = { token = "env:TG_GREETER" }
 
 ``"env:NAME"`` takes a value from the environment. Without a file the environment alone describes one bot,
-``main``, with the v2 modules (``EXTRAS`` adds the extended-branch ones, ``PREVIEW_FEATURES`` the
-redesigned sprints), so existing deployments keep working.
+``main``, with the v2 modules (``EXTRAS`` adds the extended-branch ones), so existing deployments keep working; anything
+newer (word reports, works, the admin tools, chat settings, the web app, dice stickers and variables) is chosen by the
+modules' options in a file.
 """
 
 import os
@@ -161,15 +162,11 @@ def _dice_randomness() -> dict:
     return {}
 
 
-def env_modules(extras: bool, preview: bool) -> dict[str, dict]:
-    modules: dict[str, dict] = {
-        "prompts": {"categories": preview},
-        "wordcount": {},
-        "sprints": {"reports": preview, "works": preview, "percent": preview},
-    }
+def env_modules(extras: bool) -> dict[str, dict]:
+    modules: dict[str, dict] = {"prompts": {}, "wordcount": {}, "sprints": {}}
     if extras:
         modules |= {
-            "dice": {"stickers": preview, "commands": preview} | _dice_randomness(),
+            "dice": _dice_randomness(),
             "smash": {},
             "greeter": {"from_sheet": True},
             "replies": {"legacy": True},
@@ -203,11 +200,8 @@ def from_env(platform: str) -> ProcessConfig:
     telegram = TelegramSettings.from_env() if platform == "telegram" else None
     discord = DiscordSettings.from_env() if platform == "discord" else None
     extras = telegram.extras if telegram else False
-    preview = common.preview_features
-    bot = BotConfig(
-        "main", env_modules(extras, preview), telegram=telegram, discord=discord, admin=preview, chat_settings=preview
-    )
-    return _validate(ProcessConfig({"main": bot}, common, web_from_env() if preview else None))
+    bot = BotConfig("main", env_modules(extras), telegram=telegram, discord=discord, admin=False, chat_settings=False)
+    return _validate(ProcessConfig({"main": bot}, common, web_from_env()))
 
 
 # --- from a file ------------------------------------------------------------------------------------
@@ -273,7 +267,6 @@ def from_file(path: str | Path) -> ProcessConfig:
         health_host=c.get("health_host", env_common.health_host),
         health_port=int(c.get("health_port", env_common.health_port)),
         error_alerts=bool(c.get("error_alerts", env_common.error_alerts)),
-        preview_features=True,  # the file chooses the modules; the env switch doesn't apply
     )
     web = None
     if "web" in data:

@@ -35,7 +35,6 @@ def settings(db: Path, **overrides) -> TelegramSettings:
         db_path=db,
         report_window=timedelta(minutes=30),
         google=None,
-        preview_features=True,
     )
     base = TelegramSettings(
         token="123:TEST",
