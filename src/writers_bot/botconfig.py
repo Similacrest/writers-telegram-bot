@@ -29,7 +29,6 @@ modules' options in a file.
 import os
 import tomllib
 from dataclasses import dataclass, replace
-from datetime import timedelta
 from pathlib import Path
 
 from .config import CommonSettings, ConfigError, DiscordSettings, TelegramSettings, _ids
@@ -200,7 +199,11 @@ def from_env(platform: str) -> ProcessConfig:
     telegram = TelegramSettings.from_env() if platform == "telegram" else None
     discord = DiscordSettings.from_env() if platform == "discord" else None
     extras = telegram.extras if telegram else False
-    bot = BotConfig("main", env_modules(extras), telegram=telegram, discord=discord, admin=False, chat_settings=False)
+    if os.environ.get("DICE_RANDOMNESS", "").strip() and not extras:
+        raise ConfigError("DICE_RANDOMNESS needs EXTRAS=1 (the dice are an extended module)")
+    modules = env_modules(extras)
+    _check_modules("main", modules)  # e.g. DICE_RANDOMNESS=random.org without RANDOM_ORG_KEY
+    bot = BotConfig("main", modules, telegram=telegram, discord=discord, admin=False, chat_settings=False)
     return _validate(ProcessConfig({"main": bot}, common, web_from_env()))
 
 
@@ -231,7 +234,6 @@ def _telegram_target(name: str, data: dict, common: CommonSettings) -> TelegramS
         webhook_secret=secret,
         extras=False,
         allow_private=bool(data.get("allow_private", True)),
-        slogan_replies=False,
         ephemeral_replies=bool(data.get("ephemeral_replies", True)),
         ephemeral_commands=bool(data.get("ephemeral_commands", False)),
         common=common,
@@ -262,7 +264,6 @@ def from_file(path: str | Path) -> ProcessConfig:
     common = replace(
         env_common,
         db_path=Path(c.get("db", env_common.db_path)),
-        report_window=timedelta(minutes=int(c["report_window"])) if "report_window" in c else env_common.report_window,
         log_format=c.get("log_format", env_common.log_format),
         health_host=c.get("health_host", env_common.health_host),
         health_port=int(c.get("health_port", env_common.health_port)),

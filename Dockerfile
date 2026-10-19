@@ -33,5 +33,6 @@ HEALTHCHECK --interval=60s --timeout=10s --start-period=60s --retries=3 \
     CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"HEALTH_PORT\"]}/health', timeout=5)"]
 
 EXPOSE 80
-# Telegram by default; run the Discord bot from the same image with `writers-bot-discord`.
-CMD ["writers-bot-telegram"]
+# Every bot of $BOT_CONFIG, Telegram and Discord (without a config file: the environment's one Telegram bot).
+# `writers-bot --bot NAME` runs one bot of the file; `writers-bot-discord` the environment's Discord bot.
+CMD ["writers-bot"]

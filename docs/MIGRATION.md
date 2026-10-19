@@ -59,7 +59,7 @@ Same as on Render, except:
 |---|---|---|
 | `TELEGRAM_POLLING` | `1` | No inbound connection needed |
 | `TELEGRAM_WEBHOOK_TOKEN`, `WEBHOOK_HOST`, `PORT` | unset | Only for webhook mode |
-| `HOSTNAME` | not used | v2 used it for the webhook URL and the "Як прогрес?" keep-awake posts; both are gone |
+| `HOSTNAME` | not needed | v2 used it for the webhook URL and the "Як прогрес?" keep-awake posts. v3 reads it only in webhook mode, as a fallback for `WEBHOOK_HOST`; in Docker it is the container id, so set `WEBHOOK_HOST` for a webhook |
 | `ALLOWED_CHATS` | the group ids v2 had `welcome_message` rows for | v2 `extended` only answered in those groups and in private chats |
 | `EXTRAS` | `1` | Dice, `/smash`, `/imafan`, welcome messages, slogans and open private chats, as in v2 `extended`. Leave unset for the plain `main` behaviour |
 | `GOOGLE_TOKEN_FILE` | default `/app/data/token.json` | Replaces `token.pickle.b64` |

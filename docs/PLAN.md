@@ -62,7 +62,7 @@
     count towards word stats and `/top`. Settings live in a new `chat_settings` table, which phase 4 builds
     on.
 
-## v3.3.3: v2 features by default
+## Done in v3.3.3: v2 features by default (the preview switch is gone since v4.3.0)
 
 Only what the v2 bot (`main` + `extended`) offered is on by default: prompts, images, `/wc` for text and
 Telegraph, sprints with join/leave/repeat buttons, `/stats`, `/reload`, `/debuginfo` and the `EXTRAS`.
@@ -207,12 +207,81 @@ The owner's answers to the open items of `docs/WORKFLOW-REVIEW.md` (rounds 1–3
 - The v4.2.1 per-die packs and their files (`assets/dice`, 19 MB) are gone; `d{N}_v2_by_<bot>` packs left on
   Telegram can be deleted in @Stickers. `scripts/dice_stickers.py` stays: `scripts/dice_render` reuses its effects code.
 
+## Done in v4.2.6 and v4.2.7 (small fixes)
+- v4.2.6: the dice sticker uploads got 300 s timeouts and wait for Telegram after a timeout, a short pack is finished instead of
+  remade (live Telegram answered after python-telegram-bot's 5 s default and left the packs at 50 and 80 of 120).
+- v4.2.7: Telegram Login on the website uses the widget's redirect flow (`data-auth-url`), because the `data-onauth` callback is
+  compiled with eval and the page's CSP forbids it; the page posts the fields from the query string to `/api/session` and
+  removes them from the URL.
+
+## Done in v4.3.0
+- **Dice stickers, rebuilt**: 866 stickers in 8 packs (`scripts/dice_render/clips.py` has the names and the layout). Dice of a
+  kind share stickers: two or three d4 / d6 and two d8 are one sticker with the dice side by side, unordered (8d6 is three
+  stickers); two d10 are a d100 picture (a tens die and a ones die); Daggerheart's duality dice are one ordered sticker
+  (`2d12_9_4`) with the halos of their rules and no crit effects; two d20 with advantage or disadvantage are one sticker with the
+  die that counts haloed (`2d20a_5_17`), the ties plain. A group has the crit effects of the clip (highest of any die, else a 1;
+  the die that counts with advantage); a single die with others is crit-less (`d20n_20`). The d3 is a new model (a ball with
+  three flats); every die type has its own colour (d3 grey, d4 purple, d6 yellow, d8 black, d10 green, d12 blue, red for its 1 and
+  the duality's second die, d20 orange, the d100's tens die pink). The d100's dice are close together, the d4 is tilted, and the
+  0 of the d10 and 00 of the tens die, which were upside down, are turned the right way.
+- **The limits count stickers, not dice**: one or two on their own, up to `max_stickers` (4) with `-s`.
+- **d12**: blue by default, a 1 stays red.
+- **No sticker packs.** The bot uploads a clip with `sendSticker` the first time a roll needs it and keeps the `file_id` in a cache
+  file (`core/dicecache.py`; copyable for the same bot; unique ids are shared by all bots). A refused id is uploaded again. A person's
+  message with one of the roll stickers (found by `file_unique_id`) is a forward: the chat setting `dice.forwards` warns (default),
+  deletes or ignores. `protect_content` was rejected. Telegram forces `_by_<bot>` on a bot-made pack, which is what made packs a
+  nuisance (a bot just for them, an upload script, 866 uploads). The clips stayed in `assets/dice_packs` until v4.3.1.
+- **Achievements**: a bare sticker sent to the bot in private no longer starts "new achievement" (v4.2.5 asked for a name for
+  every sticker); `/newachievement` in private starts the steps (picture, name, chat). The picture can be a sticker (in a
+  pack or not), a photo or an image file, in a group (reply to it) and in private.
+- **`/help`** is generated entirely from the commands (`Command.description`, `usage`, `uk`, `module`, `scope`) with a button
+  and a page per module (plus your data, the chat's settings, the bot's admin tools); no hand-written help line per command.
+  The menu flag `menu=False` keeps a command out of Telegram's menu but not out of /help.
+- **Ukrainian commands** start with `!` (`!промпт`, `!к12`; `/промпт` works too) and /help shows them next to every command.
+- **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `adv` / `dis` show the two rolls
+  sorted (the lower first) and put the die that counts first in the stickers; `kh1` / `kl1` stay the d20 library's own keep (the
+  dice as rolled).
+- **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
+  operating system's generator when the pool is empty.
+
+## Done in v4.3.0: no more PREVIEW_FEATURES
+- `PREVIEW_FEATURES` is gone. The environment without a config file still describes one v2 bot (`EXTRAS` adds the extended-branch
+  modules); everything newer is chosen by the modules' options in a config file (`sprints = { reports = true, works = true }`,
+  `dice = { stickers = true }`, the bot's `admin` and `chat_settings` flags, the `[web]` table). The Discord bot and the web app
+  no longer need a switch (a token and `WEB_APP_URL` are the choice), `EPHEMERAL_REPLIES` is off in the environment (on by default
+  in a file), and /help always has its module submenus. Dice options (`stickers`, `variables`) default off, `commands` on.
+
+## Done in v4.3.1: the pack machinery is gone
+- The clips live flat in `assets/dice_clips` (was `dice_packs/pack1..8`); `manifest.json` is a map from a clip's name to its die, variant,
+  value and effect (no more emoji and search keywords, no pack order, no 120-per-pack layout); `packs.py` is now `assets.py`, `tags.py` is
+  deleted, and `render.py --all` replaces `--pack N`. Kept on purpose: the sorted pool clips, the odd dice taking the next even die's
+  clips, the pre-rendered pairs (2d12 duality, 2d20 advantage / disadvantage) and `max_stickers`.
+
+## Done in v4.5.0 (also the work planned as v4.4.0, not released on its own)
+- **Roll variables** (`dice.variables`, needs storage): `/dicevar`, `/$name`, `=$name`, `import` between chats; a variable is a series of up to 8 rolls, per person
+  per chat; personal data (export, forgetme). New table `dice_vars` (the dice module's schema; additive).
+- **Private rolls**: `-p` answers the roller alone (ephemeral where allowed) and deletes the request.
+- **Stitched stickers** (`dice.stitch`, `dice.ffmpeg`, `dice.stitch_folder`): a roll that needs several stickers gets stickers of up to six dice made on the spot from the
+  clips with ffmpeg (`core/stitch.py`), the dice shared out evenly (8d6 is 4 + 4); sent by `file_id` after the first time. New dependency `imageio-ffmpeg`.
+
+## Done in v4.5.1: the consistency review
+- **Private answers are never public**: a private roll (`-p`) and `/dicevar`'s answers are ephemeral where Telegram allows,
+  else in the private chat with the bot (a private roll with its stickers there), else a short note to start that chat.
+- **A chat can turn the dice stickers off** (`dice.stickers` in `/settings` → Кубики).
+- Fixes: the web app's Chat tab failed with the greeter module; `/progress` outside a sprint takes the chat's default unit and
+  % switch; the Docker image runs `writers-bot` (the Discord targets of a config file were dropped); the config file's reply
+  `entries` follow the file at every start; Discord's `/progress` after you've reported is ordinary progress, as on Telegram;
+  the achievement steps in private take only a picture or a reply to their question; achievements off in a chat means every
+  achievement command there says so; the chat-settings API follows `chat_settings`; `=$name` with variables off says so;
+  `DICE_RANDOMNESS` in the environment needs `EXTRAS` and a key.
+- `prompts.shared` is the default of the chats' "Спільні промпти" switch. Removed: `SPRINT_REPORT_WINDOW` and
+  `[common] report_window` (never used), `SLOGAN_REPLIES`, the `art` dependency group. Texts and docs corrected.
+
 ## Discord: three ways to use it
 
 **E1. A separate Discord server.** Works with v3 as is: the Discord bot is its own process, with its own
-rows in the database (`platform = discord`) and its own boards. Missing: per-server settings, which
-today come from environment variables and the shared Google Sheet. They arrive with the settings store in
-phase 4.
+rows in the database (`platform = discord`) and its own boards. Missing: per-server settings. The settings
+store of phase 4 has them for Telegram chats only; Discord servers get them in phase 6.
 
 **E2. One community on a Telegram group (or several) and a Discord server, with shared boards.**
 - A *community* groups chats across platforms: `communities(id, name)` and
@@ -253,9 +322,14 @@ messages, and an English interface.
 
 Phases are in order of dependency. Each ends in a tagged release.
 
+**Status (v4.5.0):** phases 1–5 are built. Their text below is the design as it was planned, and the code still
+refers to it ("PLAN phase 3"); the "Done in" notes above record what changed while building (works are paused
+instead of "kept for the next sprint", `/settings` is a card in the chat, `PREVIEW_FEATURES` is gone...).
+Phase 6 is the only one still open.
+
 ### Phase 1: run well on the homelab (done in v3.3)
-Health check, error alerts, JSON logs and backups are on. `/export` and `/forgetme` are behind
-`PREVIEW_FEATURES` (off by default since v3.3.2).
+Health check, error alerts, JSON logs and backups are on. `/export` and `/forgetme` were behind
+`PREVIEW_FEATURES` from v3.3.2 to v4.3.0.
 - Cut-over guide from Render ([MIGRATION.md](MIGRATION.md)); the cut-over itself is up to ops.
 - `/health` endpoint with a Docker `HEALTHCHECK`; JSON logs (`LOG_FORMAT=json`).
 - Errors from the log sent to super-admins in private, rate-limited.
@@ -450,7 +524,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   line (`Taras отримує «Нічна сова»`). Earned achievements are listed in `/profile`.
 - Achievements belong to the community where there is one, otherwise to the chat.
 
-### Phase 6: one community across Telegram and Discord, and a Discord pass (v4.3)
+### Phase 6: one community across Telegram and Discord, and a Discord pass (not started)
 - A Discord parity pass once the Telegram sprint redesign has settled, tested in a real server. Discord
   matches or beats Telegram on buttons, menus and ephemeral replies; the differences:
   - **Reporting with modals only**: the Report button opens a modal with a field per work. No replies to
@@ -467,7 +541,7 @@ test deployment (its own bot and database), before it reaches everyone. Before t
   - **Ukrainian names** through slash-command localizations (`uk`), so each user sees one language.
   - Phrase triggers of `replies` and the `greeter` are not on Discord (they need privileged intents);
     command triggers of `replies` work as slash commands.
-- E1 per-server settings come with phase 4.
+- E1: per-server settings (phase 4 built the settings store for Telegram chats only).
 - E2: a Discord server joins a community from phase 4. Linking is done in the web app by someone who is an
   admin on both sides. People link their accounts in the web app too: signing in with both Telegram and
   Discord joins them into one person (no `/link` codes). `/profile`, works, goals and streaks are then per
@@ -499,20 +573,20 @@ The bot is built from modules that can be served as one bot or as several, set i
   `sprints`, `achievements` → storage, settings, people, and the web app when it is configured (they work
   fully in chat without it); `sprints` with works and `wordcount` →
   link counting; `greeter`, `replies` → settings (the config file in a bot without storage); `prompts` →
-  its source (the sheet now, storage from phase 4).
+  its source (the sheet, or storage with `source = "db"`); `dice` with `variables` → storage.
 - Modules don't call each other; they share only the core and the database.
 - **`replies`** replaces `/imafan` and the slogan replies: chat admins set up triggers and answers in
   the web app. A trigger is a command (`/imafan` answers with a random text from its list) or a phrase
   ("Слава Україні" → "Героям слава"). Phrase triggers only work where the bot sees all messages. The
   `imafan_message` texts and the two slogans are imported as entries for the chats that had them.
-- `EXTRAS` goes away: its features are modules now, and the hard-coded "Я переродився" `/start` greeting
-  is dropped.
+- `EXTRAS`'s features are modules now; the variable only survives in the environment (no config file), where it
+  adds the extended modules to the v2 bot. The hard-coded "Я переродився" `/start` greeting is dropped.
 - **Config file** (TOML): each bot names its modules and its targets, Telegram and/or Discord, each with
   its own token:
   ```toml
   [bots.main]
   modules = ["prompts", "wordcount", "sprints", "achievements", "dice"]
-  sprints = { works = true }
+  sprints = { reports = true, works = true }
   telegram = { token = "env:TG_MAIN" }
   discord = { token = "env:DISCORD_MAIN" }
 
@@ -521,68 +595,9 @@ The bot is built from modules that can be served as one bot or as several, set i
   telegram = { token = "env:TG_GREETER" }
   ```
   One process can run several bots, or each bot can run in its own container from the same image
-  (`--bot greeter`); that is up to ops. `PREVIEW_FEATURES` and `EXTRAS` become the choice of modules; the
-  default config is the v2 set of modules, with the redesigned `sprints` (works off) once phase 3 ships.
+  (`--bot greeter`); that is up to ops. Without a file the environment describes one v2 bot (the v2 sprints,
+  `reports` off); everything newer is chosen by the modules' options in a file (`PREVIEW_FEATURES` was removed in v4.3.0).
 
 ### Decisions
 - **Telegram framework: stay on python-telegram-bot** (decided after comparing it with aiogram). Bot API
   features it lacks are called directly and kept in one module, so they can be dropped when it catches up.
-
-## Done in v4.2.6 and v4.2.7 (small fixes)
-- v4.2.6: the dice sticker uploads got 300 s timeouts and wait for Telegram after a timeout, a short pack is finished instead of
-  remade (live Telegram answered after python-telegram-bot's 5 s default and left the packs at 50 and 80 of 120).
-- v4.2.7: Telegram Login on the website uses the widget's redirect flow (`data-auth-url`), because the `data-onauth` callback is
-  compiled with eval and the page's CSP forbids it; the page posts the fields from the query string to `/api/session` and
-  removes them from the URL.
-
-## Done in v4.3.0
-- **Dice stickers, rebuilt**: 866 stickers in 8 packs (`scripts/dice_render/clips.py` has the names and the layout). Dice of a
-  kind share stickers: two or three d4 / d6 and two d8 are one sticker with the dice side by side, unordered (8d6 is three
-  stickers); two d10 are a d100 picture (a tens die and a ones die); Daggerheart's duality dice are one ordered sticker
-  (`2d12_9_4`) with the halos of their rules and no crit effects; two d20 with advantage or disadvantage are one sticker with the
-  die that counts haloed (`2d20a_5_17`), the ties plain. A group has the crit effects of the clip (highest of any die, else a 1;
-  the die that counts with advantage); a single die with others is crit-less (`d20n_20`). The d3 is a new model (a ball with
-  three flats); every die type has its own colour (d3 grey, d4 purple, d6 yellow, d8 black, d10 green, d12 blue, red for its 1 and
-  the duality's second die, d20 orange, the d100's tens die pink). The d100's dice are close together, the d4 is tilted, and the
-  0 of the d10 and 00 of the tens die, which were upside down, are turned the right way.
-- **The limits count stickers, not dice**: one or two on their own, up to `max_stickers` (4) with `-s`.
-- **d12**: blue by default, a 1 stays red.
-- **No sticker packs.** The bot uploads a clip with `sendSticker` the first time a roll needs it and keeps the `file_id` in a cache
-  file (`core/dicecache.py`; copyable for the same bot; unique ids are shared by all bots). A refused id is uploaded again. A person's
-  message with one of the roll stickers (found by `file_unique_id`) is a forward: the chat setting `dice.forwards` warns (default),
-  deletes or ignores. `protect_content` was rejected. Telegram forces `_by_<bot>` on a bot-made pack, which is what made packs a
-  nuisance (a bot just for them, an upload script, 866 uploads); the clips stay in `assets/dice_packs` and the manifest keeps their order.
-- **Achievements**: a bare sticker sent to the bot in private no longer starts "new achievement" (v4.2.5 asked for a name for
-  every sticker); `/newachievement` in private starts the steps (picture, name, chat). The picture can be a sticker (in a
-  pack or not), a photo or an image file, in a group (reply to it) and in private.
-- **`/help`** is generated entirely from the commands (`Command.description`, `usage`, `uk`, `module`, `scope`) with a button
-  and a page per module (plus your data, the chat's settings, the bot's admin tools); no hand-written help line per command.
-  The menu flag `menu=False` keeps a command out of Telegram's menu but not out of /help. A bot without `PREVIEW_FEATURES` keeps
-  one flat page.
-- **Ukrainian commands** start with `!` (`!промпт`, `!к12`; `/промпт` works too) and /help shows them next to every command.
-- **Dice**: each die is a command (`/d2` ... `/d100`, `!к2` ...) in the menu and /help; `adv` / `dis` show the two rolls
-  sorted (the lower first) and put the die that counts first in the stickers; `kh1` / `kl1` stay the d20 library's own keep (the
-  dice as rolled).
-- **Roll variables and private rolls** (branch work after v4.3.0): `/dicevar`, `/$name`, `=$name`, `-p`; see the README ("Roll variables").
-- **True randomness** (`dice.randomness = "random.org"`, `random_org_key`): dice from a pool of random.org bytes, the
-  operating system's generator when the pool is empty.
-
-## Done in v4.3.0: no more PREVIEW_FEATURES
-- `PREVIEW_FEATURES` is gone. The environment without a config file still describes one v2 bot (`EXTRAS` adds the extended-branch
-  modules); everything newer is chosen by the modules' options in a config file (`sprints = { reports = true, works = true }`,
-  `dice = { stickers = true }`, the bot's `admin` and `chat_settings` flags, the `[web]` table). The Discord bot and the web app
-  no longer need a switch (a token and `WEB_APP_URL` are the choice), `EPHEMERAL_REPLIES` is off in the environment (on by default
-  in a file), and /help always has its module submenus. Dice options (`stickers`, `variables`) default off, `commands` on.
-
-## Done in v4.3.1: the pack machinery is gone
-- The clips live flat in `assets/dice_clips` (was `dice_packs/pack1..8`); `manifest.json` is a map from a clip's name to its die, variant,
-  value and effect (no more emoji and search keywords, no pack order, no 120-per-pack layout); `packs.py` is now `assets.py`, `tags.py` is
-  deleted, and `render.py --all` replaces `--pack N`. Kept on purpose: the sorted pool clips, the odd dice taking the next even die's
-  clips, the pre-rendered pairs (2d12 duality, 2d20 advantage / disadvantage) and `max_stickers`.
-
-## Done in v4.5.0 (also the work planned as v4.4.0, not released on its own)
-- **Roll variables** (`dice.variables`, needs storage): `/dicevar`, `/$name`, `=$name`, `import` between chats; a variable is a series of up to 8 rolls, per person
-  per chat; personal data (export, forgetme). New table `dice_vars` (the dice module's schema; additive).
-- **Private rolls**: `-p` answers the roller alone (ephemeral where allowed) and deletes the request.
-- **Stitched stickers** (`dice.stitch`, `dice.ffmpeg`, `dice.stitch_folder`): a roll that needs several stickers gets stickers of up to six dice made on the spot from the
-  clips with ffmpeg (`core/stitch.py`), the dice shared out evenly (8d6 is 4 + 4); sent by `file_id` after the first time. New dependency `imageio-ffmpeg`.

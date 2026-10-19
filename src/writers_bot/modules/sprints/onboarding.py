@@ -129,7 +129,7 @@ class Onboarding:
             return
         step = todo[0]
         number = self.steps.index(step) + 1
-        lines = [f.t("onboarding.intro", steps=len(self.steps))] if intro else []
+        lines = [f.t("onboarding.intro", steps=f.plural(len(self.steps), "steps"))] if intro else []
         rows = []
         if step == "work":
             lines.append(f.t("onboarding.ask_work", n=number, total=len(self.steps)))

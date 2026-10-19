@@ -1,4 +1,4 @@
-# Credits for the dice sticker packs
+# Credits for the dice sticker clips
 
 The stickers are renders (scripts/dice_render) of:
 

@@ -100,7 +100,7 @@ class Module(TelegramModule):
                     "commands.addimage",
                     scope="chat_admin",
                     menu=False,
-                    usage="help.usage_addprompt",
+                    usage="help.usage_addimage",
                 ),
                 Command("review", self.review, "commands.review", scope="admin"),
             ]
@@ -288,7 +288,7 @@ class Module(TelegramModule):
         message = update.effective_message
         target = await self._target_set(message)
         if target is None:
-            await self.bot.asks.respond(message, t("prompts.admins_only"), html=False, delete_command=True, ttl=60)
+            await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
         parsed = self._split(command_args_text(message))
         if parsed is None:
@@ -327,7 +327,7 @@ class Module(TelegramModule):
         message = update.effective_message
         target = await self._target_set(message)
         if target is None:
-            await self.bot.asks.respond(message, t("prompts.admins_only"), html=False, delete_command=True, ttl=60)
+            await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
         photo_message = message if message.photo else message.reply_to_message
         category = command_args_text(message).split(maxsplit=1)
@@ -412,7 +412,7 @@ class Module(TelegramModule):
         if message.chat.type == ChatType.PRIVATE or not await self.bot.is_chat_admin(
             message.chat, message.from_user.id
         ):
-            await self.bot.asks.respond(message, t("prompts.admins_only"), html=False, delete_command=True, ttl=60)
+            await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
         own, _ = await self.sets(message.chat_id)
         text, markup = await self._next(own, SUGGESTED, message.from_user.id, str(message.chat_id))
@@ -438,12 +438,12 @@ class Module(TelegramModule):
             return
         if scope == "shared":
             if query.from_user.id not in self.bot.settings.super_admins:
-                await self.bot.asks.toast(query, "prompts.admins_only")
+                await self.bot.asks.toast(query, "common.admins_only")
                 return
             set_id, status = await self.db.shared(), SUBMITTED
         else:
             if not await self.bot.is_chat_admin(int(scope), query.from_user.id):
-                await self.bot.asks.toast(query, "prompts.admins_only", alert=True)
+                await self.bot.asks.toast(query, "common.admins_only", alert=True)
                 return
             set_id, status = (await self.sets(int(scope)))[0], SUGGESTED
         prompt = await self.db.get(prompt_id)

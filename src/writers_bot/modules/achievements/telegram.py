@@ -3,12 +3,12 @@
 * **Creating**: a chat admin replies to a sticker, a photo or an image file with ``/newachievement Назва — опис``,
   or sends ``/newachievement`` to the bot in private (the bot asks for the image or sticker, the name, and the
   chat if they administer several). A sticker alone, sent to the bot, starts nothing.
-* **Awarding**: reply to a member's message with ``/award`` (alias ``/нагорода``) and pick from buttons,
+* **Awarding**: reply to a member's message with ``/award`` (``!нагорода``) and pick from buttons,
   or ``/award Назва``; ``/unaward`` takes it back. The bot posts one picture, an "achievement unlocked"
   card with the sticker as its icon (:mod:`.render`), with one line as its caption.
 * **Listing**: ``/achievements`` in a group is the community's board (a picture: who has the most) with the
-  list as its caption; ``/achievements мої`` (or as a reply to someone) is a person's collection, the
-  achievements they don't have yet greyed out. In the private chat it is your own collection.
+  list as its caption; ``/myachievements``, ``/achievements <name>`` or the command as a reply to someone is a
+  person's collection, the achievements they don't have yet greyed out. In the private chat it is your own collection.
 * Before awarding, the bot checks the pack (``getStickerSet``) of an achievement made from a pack's sticker; if the
   sticker is gone, the achievement keeps its name (the card gets a drawn medal) and the awarding admin is asked for
   a new picture. An achievement made from a photo or an image file keeps the picture by its ``file_id``.
@@ -64,7 +64,14 @@ class _Waiting(filters.MessageFilter):
         if user is None:
             return False
         if message.chat.type == ChatType.PRIVATE:
-            return user.id in self.module._dm and time.monotonic() - self.module._dm[user.id]["since"] < PENDING_TTL
+            pending = self.module._dm.get(user.id)
+            if pending is None or time.monotonic() - pending["since"] >= PENDING_TTL:
+                return False
+            # a picture any time; text only as a reply to the bot's question, so other private messages pass by
+            replied = message.reply_to_message
+            return self.module._media(message) is not None or (
+                replied is not None and replied.message_id == pending.get("question")
+            )
         replied = message.reply_to_message
         return replied is not None and (message.chat.id, replied.message_id) in self.module._prompts
 
@@ -139,6 +146,13 @@ class Module(TelegramModule):
         settings = self.bot.services.shared.extra.get("settings")
         return await settings.get_bool(PLATFORM, str(chat_id), "achievements.enabled") if settings else True
 
+    async def _enabled_or_say(self, message: Message) -> bool:
+        """Achievements are on in this chat; when they're off (/settings), the sender is told so, privately."""
+        if await self.enabled(message.chat_id):
+            return True
+        await self.bot.asks.respond(message, self.bot.fmt.t("achievements.off"), delete_command=True, ttl=60)
+        return False
+
     async def owner(self, chat_id: int) -> str:
         communities = self.bot.services.shared.extra.get("communities")
         community = await communities.of_chat(PLATFORM, str(chat_id)) if communities else None
@@ -193,6 +207,8 @@ class Module(TelegramModule):
         if not await self.bot.is_chat_admin(message.chat, message.from_user.id):
             await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
+        if not await self._enabled_or_say(message):
+            return
         media = self._media(message.reply_to_message)
         if media is None or not name:
             await self.bot.asks.respond(message, f.t("achievements.new_usage"), delete_command=True)
@@ -213,17 +229,18 @@ class Module(TelegramModule):
     async def _start_private(self, message: Message, name: str = "", description: str | None = None) -> None:
         """/newachievement in private: ask for the picture (and the name, if the command had none)."""
         f = self.bot.fmt
-        chats = await self.bot.admin_chats(message.from_user.id)
+        chats = [c for c in await self.bot.admin_chats(message.from_user.id) if await self.enabled(c["id"])]
         if not chats:
             await message.reply_html(f.t("achievements.no_chats"))
             return
         self._dm[message.from_user.id] = {
             "media": None, "chats": chats, "since": time.monotonic(), "name": name or None, "description": description,
         }  # fmt: skip
-        await message.reply_html(
+        question = await message.reply_html(
             f.t("achievements.dm_how"),
             reply_markup=ForceReply(input_field_placeholder=t("achievements.image_placeholder")),
         )
+        self._dm[message.from_user.id]["question"] = question.message_id
 
     async def _take_image(self, message: Message, media) -> None:
         """A picture sent in private while the bot waits for one: the new picture of an achievement, or the
@@ -241,10 +258,11 @@ class Module(TelegramModule):
         if pending.get("name"):
             await self._choose_chat(message, pending)
             return
-        await message.reply_html(
+        question = await message.reply_html(
             f.t("achievements.ask_name"),
             reply_markup=ForceReply(input_field_placeholder=t("achievements.name_placeholder")),
         )
+        pending["question"] = question.message_id
 
     async def _choose_chat(self, message: Message, pending: dict) -> None:
         """Everything is known but the chat: the only one is taken, else the admin picks."""
@@ -294,7 +312,8 @@ class Module(TelegramModule):
             return
         name, description = self._split(message.text or "")
         if not name:
-            await message.reply_html(f.t("achievements.ask_name"), reply_markup=ForceReply())
+            question = await message.reply_html(f.t("achievements.ask_name"), reply_markup=ForceReply())
+            pending["question"] = question.message_id
             return
         pending["name"], pending["description"] = name, description
         await self._choose_chat(message, pending)
@@ -310,13 +329,13 @@ class Module(TelegramModule):
     async def award_command(self, update: Update, _context) -> None:
         message = update.effective_message
         f = self.bot.fmt
-        if message.chat.type == ChatType.PRIVATE or not await self.bot.is_chat_admin(
-            message.chat, message.from_user.id
-        ):
+        if message.chat.type == ChatType.PRIVATE:  # it is about someone's message in a group
+            await message.reply_html(f.t("achievements.award_usage"))
+            return
+        if not await self.bot.is_chat_admin(message.chat, message.from_user.id):
             await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
             return
-        if not await self.enabled(message.chat_id):
-            await self.bot.asks.respond(message, f.t("achievements.off"), delete_command=True)
+        if not await self._enabled_or_say(message):
             return
         target = await self._target(message)
         if target is None:
@@ -470,7 +489,7 @@ class Module(TelegramModule):
         f = self.bot.fmt
         bot = self.bot.app.bot
         try:
-            await bot.send_message(
+            question = await bot.send_message(
                 admin.id,
                 f.t("achievements.sticker_gone_dm", achievement=achievement.name),
                 reply_markup=ForceReply(input_field_placeholder=t("achievements.sticker_placeholder")),
@@ -493,15 +512,18 @@ class Module(TelegramModule):
             }
             self.bot.asks.expire(Sent(chat_id, admin.id, message_id=question.message_id), PENDING_TTL)
             return
-        self._dm[admin.id] = {"replace": achievement.id, "since": time.monotonic()}
+        self._dm[admin.id] = {"replace": achievement.id, "since": time.monotonic(), "question": question.message_id}
 
     async def unaward_command(self, update: Update, _context) -> None:
         message = update.effective_message
         f = self.bot.fmt
-        if message.chat.type == ChatType.PRIVATE or not await self.bot.is_chat_admin(
-            message.chat, message.from_user.id
-        ):
+        if message.chat.type == ChatType.PRIVATE:
+            await message.reply_html(f.t("achievements.unaward_usage"))
+            return
+        if not await self.bot.is_chat_admin(message.chat, message.from_user.id):
             await self.bot.asks.respond(message, t("common.admins_only"), html=False, delete_command=True, ttl=60)
+            return
+        if not await self._enabled_or_say(message):
             return
         target = await self._target(message)
         if target is None:
@@ -617,6 +639,8 @@ class Module(TelegramModule):
         if message.chat.type == ChatType.PRIVATE:
             await self.post_collection(message.chat_id, None, message.from_user, None)
             return
+        if not await self._enabled_or_say(message):
+            return
         owner = await self.owner(message.chat_id)
         items = await self.store.of_owner(owner)
         if not items:
@@ -643,6 +667,8 @@ class Module(TelegramModule):
         message = update.effective_message
         if message.chat.type == ChatType.PRIVATE:
             await self.post_collection(message.chat_id, None, message.from_user, None)
+            return
+        if not await self._enabled_or_say(message):
             return
         owner = await self.owner(message.chat_id)
         items = await self.store.of_owner(owner)

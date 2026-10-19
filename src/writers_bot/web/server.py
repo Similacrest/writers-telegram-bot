@@ -4,7 +4,8 @@ Only the bot with storage serves it (one domain, one bot token to check ``initDa
 against). Modules add their API routes with a ``web_routes(web)`` hook; the page itself is one static
 app (``static/``) that gets its texts from the locale file through ``/api/texts``.
 
-Without a configured URL (or with the tunnel down) everything works in chat and the web buttons are hidden.
+Without a configured URL everything works in chat and the web buttons are hidden. Nothing checks that the URL is
+reachable: with the tunnel down the buttons stay and open an error page.
 """
 
 import json

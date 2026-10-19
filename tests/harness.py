@@ -9,7 +9,6 @@ await h.reply(ALICE, h.board(), "500")
 
 import asyncio
 from dataclasses import replace
-from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -33,7 +32,6 @@ def settings(db: Path, **overrides) -> TelegramSettings:
     common = CommonSettings(
         timezone=ZoneInfo("Europe/Kyiv"),
         db_path=db,
-        report_window=timedelta(minutes=30),
         google=None,
     )
     base = TelegramSettings(
@@ -48,7 +46,6 @@ def settings(db: Path, **overrides) -> TelegramSettings:
         webhook_secret=None,
         extras=False,
         allow_private=True,
-        slogan_replies=False,
         ephemeral_replies=True,
         ephemeral_commands=False,
         common=common,

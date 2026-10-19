@@ -353,6 +353,54 @@ class Asks:
             self.expire_with(message, ttl)
         return sent
 
+    async def respond_private(
+        self,
+        message: Message,
+        text: str,
+        markup: InlineKeyboardMarkup | None = None,
+        *,
+        dm_head: str | None = None,
+        delete_command: bool = True,
+    ) -> tuple[Sent | None, str]:
+        """Answer only the sender, never in public: ephemeral where Telegram allows, else in the private chat with the
+        bot (``dm_head`` above the text says which chat it is about). Returns where it went: ``"chat"`` (the
+        private chat itself, or an ephemeral message), ``"dm"``, or ``"none"`` (the person never started the bot: a
+        short hint with a link goes in the group instead). The command is deleted where the bot may."""
+        chat, user = message.chat, message.from_user
+        if chat.type == ChatType.PRIVATE or user is None:
+            msg = await message.reply_text(text, parse_mode="HTML", reply_markup=markup)
+            return Sent(chat.id, chat.id, message_id=msg.message_id), "chat"
+        thread = message.message_thread_id if message.is_topic_message else None
+        eph = incoming_ephemeral_id(message)
+        sent = await self.send(chat.id, user.id, text, markup, thread_id=thread, reply_to_ephemeral=eph, public=False)
+        where = "chat"
+        if sent is None:
+            body = f"{dm_head}\n{text}" if dm_head else text
+            try:
+                msg = await self.bot.send_message(
+                    user.id, body, parse_mode="HTML", reply_markup=markup, link_preview_options=NO_PREVIEW
+                )
+                sent, where = Sent(user.id, user.id, message_id=msg.message_id), "dm"
+            except TelegramError:
+                where = "none"
+                await self.dm_hint(message)
+        if delete_command and not eph and (await self.rights(chat.id))[1]:
+            with contextlib.suppress(TelegramError):
+                await message.delete()
+        return sent, where
+
+    async def dm_hint(self, message: Message) -> None:
+        """A short-lived note in the group: the answer is private, so start a private chat with the bot first."""
+        thread = message.message_thread_id if message.is_topic_message else None
+        link = InlineKeyboardMarkup(
+            [[InlineKeyboardButton(t("common.open_dm_button"), url=self.tbot.deep_link("dm"))]]
+        )
+        with contextlib.suppress(TelegramError):
+            note = await self.bot.send_message(
+                message.chat.id, t("common.open_dm"), reply_markup=link, message_thread_id=thread, parse_mode=None
+            )
+            self.expire(Sent(message.chat.id, message.from_user.id, message_id=note.message_id), 60)
+
     def expire_with(self, message: Message, ttl: float) -> None:
         """Delete the user's command together with the bot's fallback reply, if the bot may."""
 

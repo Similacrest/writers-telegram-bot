@@ -28,7 +28,7 @@ SECTIONS = (
     ("privacy", ("sprints.hidden_ok", "sprints.delete_reports")),
     ("prompts", ("prompts.use_shared", "replies.defaults")),
     ("welcome", ("greeter.text", "achievements.enabled")),
-    ("dice", ("dice.forwards",)),
+    ("dice", ("dice.stickers", "dice.forwards")),
 )  # fmt: skip
 
 

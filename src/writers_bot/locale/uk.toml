@@ -26,6 +26,8 @@ days = ["день", "дні", "днів"]
 people = ["людина", "людини", "людей"]
 # number of achievements, on the achievement pictures
 achievements = ["досягнення", "досягнення", "досягнень"]
+# steps of getting started: "3 кроки"
+steps = ["крок", "кроки", "кроків"]
 
 # ------------------------------------------------------------------------------------------------
 [input]
@@ -85,8 +87,6 @@ bar = "{bar} {percent}% · ще {left} хв."
 bar_short = "{bar} ще {left} хв."
 # Heading of the participant list on the sprint message
 participants = "Учасники:"
-# Participant list in the v2 sprint message: "Учасники: Alice, Bob"
-participants_inline = "Учасники: {names}"
 # Starting counts (v3.3 sprints restored from the database): "Старт: Alice — 12000"
 baselines = "Старт: {list}"
 # Hint at the bottom of the sprint message before the start
@@ -297,9 +297,13 @@ cancel = "Скасувати"
 # Reply when a link can't be read; {error} explains why
 link_error = "Не вдалося прочитати посилання: {error}"
 # Reply in chats outside ALLOWED_CHATS
-not_allowed_chat = "Цей бот доступний лише для деяких чатів. Зверніться до автора боту."
+not_allowed_chat = "Цей бот доступний лише для деяких чатів. Зверніться до автора бота."
 # Reply when a chat-admin-only command is used by someone else
 admins_only = "Це можуть лише адміни чату."
+# A private answer could go neither as an ephemeral message nor to the private chat (the person never started the bot):
+# a short note in the group, with a button that opens the private chat
+open_dm = "Відповідь лише для вас: спершу відкрийте особистий чат із ботом (кнопка нижче), тоді повторіть."
+open_dm_button = "Відкрити чат із ботом"
 
 # ------------------------------------------------------------------------------------------------
 [card]
@@ -336,7 +340,7 @@ resumed = "Знову пишете ▶"
 # ------------------------------------------------------------------------------------------------
 [onboarding]
 # Getting started, in the private chat: a few skippable steps; progress is remembered
-intro = "Налаштуймо все за хвилину: {steps} кроки. Будь-який можна пропустити, а змінити потім — у /profile."
+intro = "Налаштуймо все за хвилину: {steps}. Будь-який можна пропустити, а змінити потім — у /profile."
 # Step 1: the first work (the answer is typed)
 ask_work = "{n}/{total}. Над чим пишете? Відповідайте на це повідомлення назвою твору, напр. «Роман». Пишете кілька — інші додасте потім (/works)."
 # Step 2: a goal for that work (typed); the bot tells you here when you reach it
@@ -481,7 +485,7 @@ profile = "Мій профіль: твори, цілі, дні поспіль"
 top = "Хвилини у спринтах за період"
 export = "Мої дані у файлі"
 forgetme = "Видалити мої дані"
-smash = "Keyboard smash"
+smash = "Випадковий «keyboard smash»"
 promptstats = "Кількість промптів"
 reload = "Перезавантажити промпти з таблиці"
 settings = "Налаштування цього чату"
@@ -565,6 +569,8 @@ group_admin = "Для адмінів бота"
 # What follows a command's name in /help (square brackets: optional); {categories} is the list of this chat's prompt categories
 usage_category = "[категорія: {categories}]"
 usage_addprompt = "категорія текст"
+# /addimage: a category, as the caption of a picture (or in reply to one)
+usage_addimage = "категорія (підписом до картинки)"
 # {here}: " (тут за замовчуванням 25 хв)" in a chat with its own settings, else nothing (not in the menu: it would give every chat a menu of its own)
 usage_sprint = "[хвилин] [затримка]{here}"
 # {percent}: ", 40%" where % works are on
@@ -582,7 +588,9 @@ no_categories = "поки немає"
 sprint_here = " (тут за замовчуванням {length} хв)"
 progress_percent = ", 40%"
 # The notation line in the dice group of /help
-dice = "Інші кидки: /2d6+3 Атака, /r 4d6kh3, /d20adv, !2к6+3, !2к20kh1. Кубики з «-s» — до чотирьох стікерів, з «-q» — без."
+dice = "Інші кидки: /2d6+3 Атака, /r 4d6kh3, /d20adv, !2к6+3, !2к20kh1. З «-p» кидок бачите лише ви."
+# The stickers line in the dice group of /help, where the chat has dice stickers; {max} is the most stickers a roll gets
+dice_stickers = "Стікери: один-два приходять самі, до {max} — з «-s», «-q» — без стікерів."
 
 # ------------------------------------------------------------------------------------------------
 [debug]
@@ -595,7 +603,7 @@ you = "Ваш юзер id: {id}{roles}"
 replied = "Відповідаєте юзеру з id: {id}{marks}{roles}"
 this_bot = " (цей бот)"
 other_bot = " (інший бот)"
-bot_admin = " (адмін боту)"
+bot_admin = " (адмін бота)"
 chat_admin = " (адмін чату)"
 version = "Версія: {version}, бот: {bot}"
 
@@ -640,7 +648,6 @@ hide_off_toast = "Ваші числа видно"
 # Unit for new works
 unit_words = "Нові твори: словами"
 unit_percent = "Нові твори: у відсотках"
-unit_chat = "Нові твори: як у чаті"
 
 # ------------------------------------------------------------------------------------------------
 [data]
@@ -769,7 +776,6 @@ reload_admins = "Перезавантажувати можуть лише адм
 reload_failed = "Не вдалося перезавантажити: {error}"
 reloaded = "Перезавантажено!"
 # Prompt databases (prompts with source = "db")
-admins_only = "Це можуть лише адміни чату."
 add_usage = "Використання: /addprompt <категорія> <текст промпту>. Категорія — одне слово, напр. жахи або horror."
 added = "Додано до категорії «{category}»."
 suggest_usage = "Використання: /suggest <категорія> <текст промпту>. Адміни чату розглянуть пропозицію."
@@ -846,7 +852,12 @@ var_keep_here = "Залишити тут"
 var_replace = "Замінити"
 var_keep_all = "Усі: залишити тут"
 var_replace_all = "Усі: замінити"
-var_import_done = "Готово: перенесено {copied}, залишено тутешніх {kept}."
+var_import_done = "Готово: перенесено {copied}, залишено тутешніх {kept}.{full}"
+# After that, when some could not be copied because this chat already has the most variables allowed
+var_import_full = " Не вмістилося (тут до {max}): {count}."
+# Above a private roll or a /dicevar answer that went to the private chat with the bot (it couldn't be ephemeral)
+private_head = "Потайний кидок у «{chat}»:"
+var_head = "Змінні кидків у «{chat}»:"
 # Too many dice in one roll
 too_many = "Забагато кубиків: до {max} за раз."
 
@@ -979,10 +990,6 @@ recent_sprints = "Останні спринти"
 when = "Коли"
 minutes = "Хвилин"
 result = "Результат"
-# A dice command the bot can't read
-error = "Не зрозумів кидок. Приклади: /d20, /2d6+3 Атака, /r 4d6kh3, /d20adv."
-# Too many dice in one roll
-too_many = "Забагато кубиків: до {max} за раз."
 # Settings
 hide_numbers = "Приховувати мої числа"
 hide_numbers_hint = "Числа рахуються у вашій статистиці, але на дошці замість них ✓, і вас немає в /top."
@@ -1076,7 +1083,7 @@ sprints_works_help = "Вимкнено: звіти йдуть без творі�
 sprints_percent = "Звіти у відсотках"
 sprints_percent_help = "Твори, які рахуються відсотком від плану на спринт."
 sprints_default_unit = "Типова одиниця"
-sprints_default_unit_help = "Для нових творів і для звітів без творів."
+sprints_default_unit_help = "Для звітів без творів, у спринтах і в /progress."
 sprints_default_unit_words = "слова"
 sprints_default_unit_percent = "відсотки"
 sprints_hidden_ok = "Приховані числа (✓ на дошці)"
@@ -1088,13 +1095,15 @@ sprints_top_help = "Хвилини у спринтах за період."
 sprints_delete_reports = "Прибирати звіти"
 sprints_delete_reports_help = "Видаляти відповіді-звіти, щойно записано (потрібні права адміна)."
 greeter_text = "Привітання"
-greeter_text_help = "Повідомлення новим учасникам; {name} — їхні імена."
+greeter_text_help = "Повідомлення новим учасникам; {{name}} — їхні імена."
 replies_defaults = "Відповіді бота за замовчуванням"
 replies_defaults_help = "Спільні відповіді на фрази й команди, задані для всіх чатів."
 prompts_use_shared = "Спільні промпти"
 prompts_use_shared_help = "Брати промпти й зі спільного набору, не лише з набору чату."
 achievements_enabled = "Досягнення"
 achievements_enabled_help = "Нагороди-картинки від адмінів."
+dice_stickers = "Стікери кидків"
+dice_stickers_help = "Вимкнено: кидки в цьому чаті лише текстом."
 dice_forwards = "Пересланий стікер кидка"
 dice_forwards_help = "Стікери кидків бот надсилає сам, їх немає в наборах, тож чужий стікер у чаті — пересилання. Бот може лише помітити його або видалити (потрібне право видаляти)."
 dice_forwards_off = "не чіпати"

@@ -165,11 +165,9 @@ async def test_presenter_failure_does_not_stop_sprint(storage, clock):
 
 
 async def test_chat_setting_roundtrip(storage):
-    from writers_bot.core.models import SprintUnit
-
-    assert await storage.sprint_unit("test", "-1") == SprintUnit.WORDS
-    await storage.set_chat_setting("test", "-1", "sprint_unit", "percent")
-    assert await storage.sprint_unit("test", "-1") == SprintUnit.PERCENT
+    assert await storage.get_chat_setting("test", "-1", "sprints.default_unit") is None
+    await storage.set_chat_setting("test", "-1", "sprints.default_unit", "percent")
+    assert await storage.chat_settings("test", "-1") == {"sprints.default_unit": "percent"}
 
 
 async def test_without_reports_a_sprint_closes_when_it_ends(storage, clock):

@@ -5,12 +5,13 @@ A trigger is a command (``/imafan`` answers with a random text from its list) or
 ``{name}`` becomes the sender's first name.
 
 Where the bot has storage, entries live in the database: each chat's own, plus bot-wide defaults (the
-``entries`` from the config file and, with ``legacy = true``, the v2 ``/imafan`` texts and the two
-slogans, imported once). A chat can turn the defaults off (the ``replies.defaults`` setting). Without
+``entries`` from the config file, kept in step with it at every start, and, with ``legacy = true``, the v2
+``/imafan`` texts from the sheet, imported once). A chat can turn the defaults off (the ``replies.defaults`` setting). Without
 storage, the config file's entries and the legacy ones are used as they are.
 """
 
 import contextlib
+import json
 import random
 import re
 
@@ -60,14 +61,26 @@ class Module(TelegramModule):
     async def post_init(self) -> None:
         if self.store is None:
             return
-        # Bot-wide defaults go into the database once, so chat admins see them and chats can turn them off.
-        if not await self.store.imported("config"):
-            for e in self.static:
-                kind, trigger = ("command", e.command) if e.command else ("phrase", e.phrase)
-                for answer in e.answers:
-                    with contextlib.suppress(ValueError):
-                        await self.store.add(PLATFORM, e.chat_id or ALL, kind, trigger, answer, None)
-            await self.store.mark_imported("config")
+        # The config file's entries are kept in the database, so chat admins see them and chats can turn them off.
+        # They follow the file: what the file gained since the last start is added, what it lost is taken out.
+        wanted = [
+            [e.chat_id or ALL, *(("command", e.command) if e.command else ("phrase", e.phrase)), answer]
+            for e in self.static
+            for answer in e.answers
+        ]
+        kept = await self.store.meta("config_entries")
+        if kept is None and await self.store.imported("config"):
+            kept = json.dumps(wanted)  # imported before the file was followed: take it as it stands
+        before = json.loads(kept) if kept else []
+        for chat, kind, trigger, answer in before:
+            if [chat, kind, trigger, answer] not in wanted:
+                await self.store.remove_answer(PLATFORM, chat, kind, trigger, answer)
+        for chat, kind, trigger, answer in wanted:
+            if [chat, kind, trigger, answer] not in before:
+                with contextlib.suppress(ValueError):
+                    await self.store.add(PLATFORM, chat, kind, trigger, answer, None)
+        await self.store.set_meta("config_entries", json.dumps(wanted, ensure_ascii=False))
+        await self.store.mark_imported("config")
         sheet = self.bot.services.sheet
         if self.options.get("legacy") and sheet is not None and not await self.store.imported("imafan"):
             texts = list(sheet.config_texts("imafan_message").values())

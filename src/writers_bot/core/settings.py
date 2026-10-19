@@ -27,6 +27,7 @@ class SettingDef:
     maximum: int | None = None
     needs_option: str | None = None  # a module option that must be on (e.g. sprints works)
     max_length: int = 2000
+    default_option: str | None = None  # a module option that, when set, is the default (prompts.shared)
 
     @property
     def module(self) -> str:
@@ -82,8 +83,9 @@ SETTINGS: list[SettingDef] = [
     SettingDef("sprints.delete_reports", "bool", True, needs_option="reports"),
     SettingDef("greeter.text", "text", ""),
     SettingDef("replies.defaults", "bool", True),
-    SettingDef("prompts.use_shared", "bool", True, needs_option="db"),
+    SettingDef("prompts.use_shared", "bool", True, needs_option="db", default_option="shared"),
     SettingDef("achievements.enabled", "bool", True),
+    SettingDef("dice.stickers", "bool", True, needs_option="stickers"),
     SettingDef("dice.forwards", "enum", "warn", choices=("off", "warn", "delete"), needs_option="stickers"),
 ]
 BY_KEY = {s.key: s for s in SETTINGS}
@@ -126,6 +128,14 @@ class SettingsStore:
             out.append(s)
         return out
 
+    def default(self, s: SettingDef) -> Any:
+        """The setting's default in this bot: its module option where it names one, else the built-in one."""
+        if s.default_option is not None:
+            value = self.modules.get(s.module, {}).get(s.default_option)
+            if value is not None:
+                return s.parse(value)
+        return s.default
+
     def known(self, key: str) -> SettingDef:
         definition = next((s for s in self.defs() if s.key == key), None)
         if definition is None:
@@ -149,7 +159,7 @@ class SettingsStore:
                     except ValueError:
                         continue
             else:
-                out[s.key] = (s.default, "default")
+                out[s.key] = (self.default(s), "default")
         return out
 
     async def get(self, platform: str, chat_id: str, key: str) -> Any:

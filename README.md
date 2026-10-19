@@ -16,14 +16,14 @@ a comment saying where it appears; edit them there.
 
 | Module | Options (config file) | Needs | |
 |---|---|---|---|
-| `prompts` | `source` (`sheet` or `db`), `categories` (allow `/prompt <category>` with the sheet) | the Google Sheet; storage with `db` | `/prompt`, `/image`, `/image_<category>`, `/promptstats`; `/reload` with the sheet; with `db`: `/addprompt`, `/addimage`, `/suggest`, `/suggestions`, `/review` |
+| `prompts` | `source` (`sheet` or `db`), `categories` (allow `/prompt <category>` with the sheet), `shared` (with `db`: chats also use the shared set unless they turn it off; `false` makes that off by default) | the Google Sheet; storage with `db` | `/prompt`, `/image`, `/image_<category>`, `/promptstats`; `/reload` with the sheet; with `db`: `/addprompt`, `/addimage`, `/suggest`, `/suggestions`, `/review` |
 | `wordcount` | | link counting | `/count` (hidden alias `/wc`): text, a reply, or a link (Telegraph, WriteFreely/Write.as, Ellipsus Reader, Google Docs shared by link) |
 | `sprints` | `reports`, `works`, `percent`, `web` | storage; link counting with works | `/sprint`; with `reports`: `/progress`, `/top`, `/profile`; with `works`: `/works` (`/твори`) |
 | `greeter` | `texts = {"<chat id>" = "Вітаємо, {name}!"}`, `from_sheet` | | Welcome messages for new members |
 | `dice` | `stickers`, `max_stickers`, `cache_file`, `stitch`, `ffmpeg`, `stitch_folder` (animated dice stickers, see below), `commands` (a command per die in the menu, default on); `randomness`, `random_org_key` (true random dice), `variables` (roll variables, below; needs storage) | nothing for `stickers` (the bot uploads each clip once and keeps the id); a random.org API key for `randomness` | a command for each die (`/d2` ... `/d100`, also `!к12`), `/2d6+3 Атака`, `/r 4d6kh3`, `/d20adv`: [notation](#dice) |
 | `smash` | | | `/smash` |
 | `achievements` | | storage | Achievements made from a sticker, a photo or an image file: `/newachievement` (reply to the picture, or in private: the bot asks for it), `/award` (`!нагорода`), `/unaward`, `/achievements`; posted as [pictures](#achievements) |
-| `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app) |
+| `replies` | `entries = [{command = "imafan", answers = […]}, {phrase = "…", answers = […]}]`, `legacy` | | Answers to commands and phrases (`legacy`: `/imafan` from the sheet and the two slogans); with storage, chat admins manage them (`/replies`, the web app), and the file's `entries` are kept in the database in step with the file (what it gains or loses shows at the next start) |
 
 At most one bot has storage (the sprints and anything that keeps data about people); the chat registry,
 super-admin tools, your-data commands and the web app live in that bot. Other bots run without a database.
@@ -62,9 +62,9 @@ super-admin tools, your-data commands and the web app live in that bot. Other bo
   days can be marked), completed sprints and minutes, and settings: "hide my numbers", the unit for new works,
   My data (export as a ZIP of CSV files, delete everything). `/export` and `/forgetme` stay as commands.
 - **`/top [days]`**: minutes of completed sprints in this chat; people who hide their numbers aren't on it.
-- **Ukrainian command names** are written with an exclamation mark, `!спринт`, `!прогрес`, `!профіль`, `!промпт`,
-  `!картинка`, `!підрахуй`, `!топ`, `!допомога`, `!експорт`, `!забудьмене`, `!к12` (`/спринт` works too, but `!` is what
-  /help shows and encourages). They work where the bot sees all messages (Telegram doesn't treat Cyrillic as commands).
+- **Ukrainian command names** are written with an exclamation mark, `!спринт`, `!прогрес`, `!твори`, `!профіль`, `!промпт`,
+  `!картинка`, `!підрахуй`, `!запропонуй`, `!топ`, `!допомога`, `!експорт`, `!забудьмене`, `!нагорода`, `!змінна`, `!к12` (`/спринт`
+  works too, but `!` is what /help shows and encourages). They work where the bot sees all messages (Telegram doesn't treat Cyrillic as commands).
 
 **`/help`** is generated from the commands the bot has, for the person and the chat, so a new command or module shows up
 without anyone writing help text. The first page lists the groups (one per module, then "Ваші дані", the chat's
@@ -72,7 +72,8 @@ settings, the bot's admin tools) with their commands' names and a button for eac
 command in full: its name and arguments, its Ukrainian name, what it does, and for whom (chat admins, bot admins). Only
 what is on there is listed (a chat with `/top` or achievements off doesn't list them), with the chat's values (its
 default sprint length, its prompt categories), the chat admins' commands only for chat admins and the bot's admin
-commands only for super-admins in the private chat. In a group it is a private answer. The **command menus** follow
+commands only for super-admins in the private chat. In a group it is a private answer (a v2 bot from the environment, with
+`admin` off, keeps the public reply). The **command menus** follow
 the same rules: one for private chats, one for group members, one for chat admins (`all_chat_administrators`), one for
 super-admins, and per chat where its settings change them (refreshed when a setting changes).
 
@@ -163,11 +164,14 @@ Because the stickers are in no pack, people cannot send them from the keyboard: 
 is a forward or a copy of a roll (the bot knows its stickers' `file_unique_id`s from what it has sent). The chat setting `dice.forwards`
 (in `/settings` → Кубики) says what to do about it: `warn` (the default) replies "this is a roll sticker, don't forward them", `delete`
 removes it (when the bot may delete messages here, else it warns), `off` leaves it. It only sees stickers where the bot sees all
-messages (privacy mode off, or the bot is an admin). `protect_content` is not used.
+messages (privacy mode off, or the bot is an admin). `protect_content` is not used. The chat setting `dice.stickers` (also in
+`/settings` → Кубики) turns the stickers off in one chat: its rolls are only the line.
 
-**Private rolls.** `-p` after a roll (`/d20+5 -p Потайний`, `/$атака -p`) answers only to the roller, as an ephemeral message where
-Telegram allows (else a reply that goes away), and deletes the roll request where the bot may. A private roll has no stickers.
-In the private chat with the bot `-p` changes nothing.
+**Private rolls.** `-p` after a roll (`/d20+5 -p Потайний`, `/$атака -p`) answers only to the roller, never in public: as an ephemeral
+message where Telegram allows (the line only), else in the roller's private chat with the bot, stickers and all, under a line saying
+which chat it is from. Someone who never started the bot gets a short note in the group with a button to do it, and the roll stays
+unseen. The roll request is deleted where the bot may. `/dicevar` answers the same way. In the private chat with the bot `-p`
+changes nothing.
 
 **Roll variables** (`dice = { variables = true }`; needs the bot with storage). A variable is a name for a
 series of up to 8 rolls, kept per person per chat (the private chat with the bot is a chat too), rolled as a whole:
@@ -207,8 +211,9 @@ uses the operating system's cryptographic generator and the log says so once. Th
 Chat admins change their chat's settings with **`/settings`**: a short private card with four sections
 (Спринти · Звіти й приватність · Промпти й відповіді · Привітання й досягнення, each saying how many it has
 changed), each opened in place, and a button to the web app's Chat tab. The settings: the default sprint
-length, works and % on or off, the default unit, hidden ✓ reports, work names on the sprint message, `/top`,
-deleting report messages, the welcome text, the bot's default replies, the shared prompts, achievements.
+length, works and % on or off, the default unit (for reports without works, in sprints and in `/progress`), hidden ✓ reports,
+work names on the sprint message, `/top`, deleting report messages, the welcome text, the bot's default replies, the shared
+prompts, achievements, and the dice stickers and what to do with a forwarded one.
 Changes apply from the next sprint. The **welcome text** is typed in the private chat: its button is a link
 there that carries the chat, so nothing is typed into the group.
 
@@ -238,8 +243,8 @@ only in case goes into the existing category.
 The bot with storage can serve a web app, opened as a Telegram Mini App (from the Панель button on sprint
 messages) or as a website with Telegram Login or Discord: the sprint panel (a field per work), your works,
 progress (charts, the last 30 days with missed days to mark, your latest sprints), settings with export and
-deletion; for chat admins the chat's settings, replies and prompts. Without `web.url` (or with the tunnel
-down) everything works in chat and the buttons are hidden.
+deletion; for chat admins the chat's settings, replies and prompts. Without `web.url` everything works in chat and the
+buttons are hidden. Nothing checks that the URL is reachable: with the tunnel down the buttons stay and open an error page.
 
 Setup (ops): public HTTPS to the web app's port, the bot's Main Mini App set to the URL in @BotFather
 (Mini App methods only work on that domain since Bot API 10.2), and the domain set with `/setdomain` for
@@ -305,7 +310,7 @@ its own container from the same image if you like.
 | `BOT_SUPERADMINS` | empty | Comma-separated user ids with admin rights everywhere |
 | `ALLOWED_CHATS` | empty = all chats | Comma-separated group/channel ids the bot answers in |
 | `EXTRAS` | off | Adds the `dice`, `smash`, `greeter` (from the sheet) and `replies` (legacy) modules |
-| `DICE_RANDOMNESS`, `RANDOM_ORG_KEY` | `pseudo` | `random.org` and a key: true random dice |
+| `DICE_RANDOMNESS`, `RANDOM_ORG_KEY` | `pseudo` | `random.org` and a key: true random dice (with `EXTRAS`, which brings the dice) |
 | `ALLOW_PRIVATE_CHATS` | follows `EXTRAS` | Private chats work even when `ALLOWED_CHATS` is set |
 | `WEB_APP_URL`, `WEB_APP_SECRET`, `WEB_APP_LISTEN` | off | The web app |
 | `EPHEMERAL_REPLIES` | off | Private answers in groups as ephemeral messages (on by default in a config file) |
@@ -313,7 +318,6 @@ its own container from the same image if you like.
 | `DISCORD_TOKEN`, `DISCORD_GUILD_IDS`, `DISCORD_ALLOWED_GUILDS` | | Discord (`writers-bot-discord`) |
 | `DB_PATH` | `data/bot.sqlite3` | SQLite database; back it up with `scripts/backup_db.py` |
 | `BOT_TIMEZONE` | `Europe/Kyiv` | Fallback time zone for times in messages |
-| `SPRINT_REPORT_WINDOW` | `30` | Minutes before a v2-style sprint closes (the redesign keeps late reports for 12 h) |
 | `HEALTH_PORT` / `HEALTH_HOST` | off (`8080` in the image) / `127.0.0.1` | `GET /health`: JSON with `ok`, version, uptime and each bot's state |
 | `LOG_FORMAT` | `text` | `json` for one JSON object per line |
 | `ERROR_ALERTS` | on | Errors from the log go to the super-admins in private (rate-limited) |
@@ -329,8 +333,10 @@ TELEGRAM_TOKEN=… TEST_ENV=1 uv run writers-bot-telegram
 BOT_CONFIG=bots.toml uv run writers-bot
 ```
 
-Docker: the image runs `writers-bot-telegram` as a non-root user; mount a volume at `/app/data` (database
-and `token.json`). With a config file, mount it and set `BOT_CONFIG` (or run `writers-bot --config …`).
+Docker: the image runs `writers-bot` as a non-root user: every bot of `BOT_CONFIG`, on Telegram and Discord, or without
+a file the environment's Telegram bot. Mount a volume at `/app/data` (database and `token.json`), and the config file if
+there is one. The image's health check asks the port in `HEALTH_PORT` (8080), so set the port there rather than as
+`health_port` in the file.
 
 ## Development
 

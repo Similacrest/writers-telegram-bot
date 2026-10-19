@@ -101,7 +101,6 @@ class Module(TelegramModule):
             bot.storage,
             self.presenter,
             platform=PLATFORM,
-            report_window=sp.LATE_REPORTS if self.reports else bot.settings.common.report_window,
             reports=self.reports,
             now=bot.now,
             sleep=bot.sleep,
@@ -267,8 +266,7 @@ class Module(TelegramModule):
         settings = self.bot.services.shared.extra.get("settings")
         if settings is not None:
             return await settings.sprint_options(key, works=self.works_on, percent=self.percent_on)
-        unit = await self.bot.storage.sprint_unit(PLATFORM, key.chat_id) if self.percent_on else Unit.WORDS
-        return ChatOptions(works=self.works_on, percent=self.percent_on, default_unit=unit)
+        return ChatOptions(works=self.works_on, percent=self.percent_on)
 
     async def default_length(self, chat_id: int) -> int:
         settings = self.bot.services.shared.extra.get("settings")
@@ -864,11 +862,13 @@ class Module(TelegramModule):
         if sprint is not None:
             result = await self.rep.report(sprint, user_ref(user), parsed)
         else:
-            unit = (
-                await self.bot.storage.sprint_unit(PLATFORM, str(message.chat_id)) if self.percent_on else Unit.WORDS
-            )
+            opts = await self.chat_options(chat_key(message))  # the chat's default unit and % switch (/settings)
             result = await self.rep.progress(
-                user_ref(user), parsed, chat_id=str(message.chat_id), default_unit=unit, percent=self.percent_on
+                user_ref(user),
+                parsed,
+                chat_id=str(message.chat_id),
+                default_unit=opts.default_unit,
+                percent=opts.percent,
             )
         if result.status == Status.PICK_SPRINT:
             await self.ask_sprint(message, result, parsed)
@@ -1099,8 +1099,7 @@ class Module(TelegramModule):
         lines = ["", f.t("settings.hide_explained")]
         rows = [[button(t("settings.hide_on" if hides else "settings.hide_off"), user.id, "st:hide")]]
         if self.percent_on:
-            unit = settings.get("new_work_unit")
-            key = {"words": "settings.unit_words", "percent": "settings.unit_percent"}.get(unit, "settings.unit_chat")
+            key = "settings.unit_percent" if settings.get("new_work_unit") == "percent" else "settings.unit_words"
             rows.append([button(t(key), user.id, "st:unit")])
         return lines, rows
 
@@ -1115,10 +1114,7 @@ class Module(TelegramModule):
             await self.bot.asks.toast(query, "settings.hide_on_toast" if hides else "settings.hide_off_toast")
         elif action == "unit":
             current = (await self.bot.people.settings(person)).get("new_work_unit")
-            nxt = {None: "words", "words": "percent", "percent": None}[
-                current if current in ("words", "percent") else None
-            ]
-            await self.bot.people.set(person, "new_work_unit", nxt)
+            await self.bot.people.set(person, "new_work_unit", None if current == "percent" else "percent")
             await query.answer()
         else:
             await self.bot.asks.toast(query, "common.stale")

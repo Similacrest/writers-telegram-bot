@@ -32,6 +32,7 @@ from ...core import dicestickers, dicevars, extras, randomness, stitch
 from ...core.dicecache import StickerCache
 from ...telegram_bot.app import display_name
 from ...telegram_bot.base import Command, TelegramModule
+from ...telegram_bot.ephemeral import incoming_ephemeral_id
 from .variables import Variables
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,20 @@ DICE = (2, 3, 4, 6, 8, 10, 12, 20, 100)  # the dice with a command of their own
 AUTO_STICKERS = 2  # a roll of more stickers than this gets them only when asked for (-s)
 UPLOAD_TIMEOUTS = {"read_timeout": 60, "write_timeout": 60}  # Telegram answers an upload slower than the 5 s default
 CACHE_FILE = "dice_stickers.json"  # next to the database
+
+
+class _InPrivate:
+    """Where a private roll goes when it can't be ephemeral: the roller's private chat with the bot (no message to reply to)."""
+
+    is_topic_message = False
+    message_thread_id = None
+    message_id = None
+
+    def __init__(self, bot, user_id: int):
+        self.bot, self.chat_id = bot, user_id
+
+    async def reply_html(self, text: str):
+        return await self.bot.send_message(self.chat_id, text, parse_mode="HTML")
 
 
 def manifest() -> dict[str, dict]:
@@ -70,7 +85,9 @@ class Module(TelegramModule):
         (/2d6+3, /r 4d6kh3) is read by ``handlers``."""
 
         extra = self.vars.commands() if self.vars is not None else []
-        if not self.options.get("commands", True):  # a v2 bot's menu has no die commands; the rolls themselves work
+        if not self.options.get(
+            "commands", True
+        ):  # commands = false: no die commands in the menu; the rolls still work
             return extra
 
         async def values(_ctx, sides=0):
@@ -112,7 +129,10 @@ class Module(TelegramModule):
         )
 
     async def help_lines(self, ctx) -> list[tuple[str, str, dict]]:
-        return [("dice", "help.dice", {})]
+        lines = [("dice", "help.dice", {})]
+        if self.stickers_on and (ctx.private or await ctx.setting("dice.stickers")):
+            lines.append(("dice", "help.dice_stickers", {"max": self.max_stickers}))
+        return lines
 
     @property
     def personal_data(self) -> bool:
@@ -177,7 +197,9 @@ class Module(TelegramModule):
         bot = self.bot.app.bot
         where = {
             "message_thread_id": message.message_thread_id if message.is_topic_message else None,
-            "reply_parameters": ReplyParameters(message.message_id, allow_sending_without_reply=True),
+            "reply_parameters": ReplyParameters(message.message_id, allow_sending_without_reply=True)
+            if message.message_id
+            else None,
         }
         cached = self.cache.file_id(key)
         if cached is not None:
@@ -271,6 +293,8 @@ class Module(TelegramModule):
             return
         if roll.save_as and self.vars is not None:  # /d20+4 =$strcheck keeps the roll, then rolls it
             await self.vars.save_from_roll(message, roll)
+        elif roll.save_as:  # say so rather than drop the =$name quietly; the roll itself still happens
+            await self.bot.asks.respond(message, self.bot.fmt.t("dice.var_off"), ttl=60)
         await self.deliver(message, [roll])
 
     async def deliver(self, message, rolls: list[extras.Roll]) -> None:
@@ -279,8 +303,45 @@ class Module(TelegramModule):
         outcomes = [extras.throw(self.bot.fmt, roll, self.rng) for roll in rolls]
         html = "\n\n".join(str(outcome.html) for outcome in outcomes)
         if any(roll.private for roll in rolls) and message.chat.type != ChatType.PRIVATE:
-            await self.bot.asks.respond(message, html, delete_command=True)
+            await self._private(message, rolls, outcomes, html)
             return
+        if not await self.stickers_here(message.chat_id):
+            await message.reply_html(html)
+            return
+        await self._send_roll(message, rolls, outcomes, html)
+
+    async def _private(self, message, rolls, outcomes, html: str) -> None:
+        """A private roll in a group: an ephemeral message where Telegram allows (text only), else the private chat
+        with the bot (stickers and all), else a hint to start that chat. The request goes where the bot may delete it."""
+        asks, user = self.bot.asks, message.from_user
+        thread = message.message_thread_id if message.is_topic_message else None
+        sent = await asks.send(
+            message.chat_id, user.id, html, thread_id=thread,
+            reply_to_ephemeral=incoming_ephemeral_id(message), public=False,
+        )  # fmt: skip
+        if sent is None:
+            head = self.bot.fmt.t("dice.private_head", chat=message.chat.title or str(message.chat_id))
+            try:
+                await self.bot.app.bot.send_message(user.id, head, parse_mode="HTML")
+            except TelegramError:
+                await asks.dm_hint(message)  # the roll stays unseen
+                return
+            if self.stickers_on:
+                await self._send_roll(_InPrivate(self.bot.app.bot, user.id), rolls, outcomes, html)
+            else:
+                await self.bot.app.bot.send_message(user.id, html, parse_mode="HTML")
+        if not incoming_ephemeral_id(message) and (await asks.rights(message.chat_id))[1]:
+            with contextlib.suppress(TelegramError):
+                await message.delete()
+
+    async def stickers_here(self, chat_id: int) -> bool:
+        """The chat setting ``dice.stickers``: a chat can turn the roll stickers off."""
+        if not self.stickers_on or chat_id > 0:
+            return self.stickers_on
+        settings = self.bot.services.shared.extra.get("settings")
+        return await settings.get_bool("telegram", str(chat_id), "dice.stickers") if settings else True
+
+    async def _send_roll(self, message, rolls, outcomes, html) -> None:
         parts: list[list[str]] = []  # the stickers, each the clips it is made of
         for roll, outcome in zip(rolls, outcomes, strict=True):
             if len(rolls) > 1 and not roll.stickers:  # a series has stickers only when asked for (-s)

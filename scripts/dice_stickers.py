@@ -1,4 +1,4 @@
-"""Superseded by scripts/dice_render (the bot now uses its packs); kept because dice_render reuses the effects code here.
+"""Superseded by scripts/dice_render (the bot now sends its clips); kept because dice_render reuses the effects code here.
 
 Make the dice sticker animations: one short video per result of d4, d6, d8, d10, d12, d20 and d100.
 
@@ -11,12 +11,12 @@ a tens d10 (00-90) and a ones d10 (0-9), 00 and 0 being 100; its two d10s are pl
 ``scripts/dice_render`` replaced them.
 
 Telegram's rules for video stickers: WEBM with VP9, 512 px, at most 3 s and 30 fps, at most 256 KB, no
-sound. Needs ffmpeg with libvpx-vp9 (the ``art`` dependency group brings one):
+sound. Needs ffmpeg with libvpx-vp9 (the ``imageio-ffmpeg`` dependency brings one):
 
-    uv run --group art python scripts/dice_stickers.py            # all that are missing (--force: all)
-    uv run --group art python scripts/dice_stickers.py 20 7       # just d20 showing 7
-    uv run --group art python scripts/dice_stickers.py 100        # all the d100 ones
-    uv run --group art python scripts/dice_stickers.py --preview  # a PNG contact sheet of last frames
+    uv run python scripts/dice_stickers.py            # all that are missing (--force: all)
+    uv run python scripts/dice_stickers.py 20 7       # just d20 showing 7
+    uv run python scripts/dice_stickers.py 100        # all the d100 ones
+    uv run python scripts/dice_stickers.py --preview  # a PNG contact sheet of last frames
 """
 
 import argparse
@@ -487,7 +487,7 @@ def ffmpeg() -> str:
     except ImportError:
         found = shutil.which("ffmpeg")
         if not found:
-            sys.exit("ffmpeg not found: run with `uv run --group art`")
+            sys.exit("ffmpeg not found: run `uv sync` (imageio-ffmpeg brings one)")
         return found
 
 

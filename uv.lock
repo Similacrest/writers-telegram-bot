@@ -1751,7 +1751,7 @@ wheels = [
 
 [[package]]
 name = "writers-bot"
-version = "4.5.0"
+version = "4.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1775,9 +1775,6 @@ google-auth-setup = [
 ]
 
 [package.dev-dependencies]
-art = [
-    { name = "imageio-ffmpeg" },
-]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1809,7 +1806,6 @@ requires-dist = [
 provides-extras = ["discord", "google-auth-setup"]
 
 [package.metadata.requires-dev]
-art = [{ name = "imageio-ffmpeg", specifier = ">=0.6.0" }]
 dev = [
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },

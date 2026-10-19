@@ -14,7 +14,7 @@ stop with a small hop, 0.8 s, then the die lies still; the effects around it run
 |---|---|
 | `fetch_assets.py` | downloads Babylon.js, the theme and the coin scan (pinned SHA-256) into `build/dice_render/web`, then runs `prep_atlas` |
 | `prep_atlas.py` | splits the theme's texture into the marble and crisp white numerals (the original's 25 px numerals turn chalky) |
-| `clips.py` | what the clips are: the name grammar, each clip's dice, looks and effect, and the layout of the packs |
+| `clips.py` | what the clips are: the name grammar, each clip's dice, looks and effect |
 | `render.py` | draws and encodes the clips into `build/dice_render/out` (the dice's positions and colours are here) |
 | `assets.py` | checks every clip against the limits for a video sticker, then writes them and `manifest.json` into the bot's assets |
 | `calibrate.py` | finds the turn that puts each face's numeral upright (`roll_offsets.json`); only needed for other dice or a new texture |

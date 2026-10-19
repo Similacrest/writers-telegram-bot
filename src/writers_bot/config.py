@@ -3,7 +3,6 @@
 import logging
 import os
 from dataclasses import dataclass
-from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -72,7 +71,6 @@ def google_settings() -> GoogleSettings | None:
 class CommonSettings:
     timezone: ZoneInfo
     db_path: Path
-    report_window: timedelta
     google: GoogleSettings | None
     log_format: str = "text"  # text | json
     health_host: str = "127.0.0.1"
@@ -85,7 +83,6 @@ class CommonSettings:
         return cls(
             timezone=ZoneInfo(tz_name),
             db_path=Path(os.environ.get("DB_PATH", "data/bot.sqlite3")),
-            report_window=timedelta(minutes=_int("SPRINT_REPORT_WINDOW", 30)),
             google=google_settings(),
             log_format=os.environ.get("LOG_FORMAT", "text").strip().lower() or "text",
             health_host=os.environ.get("HEALTH_HOST", "127.0.0.1").strip() or "127.0.0.1",
@@ -107,7 +104,6 @@ class TelegramSettings:
     webhook_secret: str | None
     extras: bool  # the community extras from the v2 "extended" branch (see EXTRAS in the README)
     allow_private: bool  # private chats work even when ALLOWED_CHATS is set
-    slogan_replies: bool
     ephemeral_replies: bool  # Bot API 10.2 ephemeral messages for personal replies in groups
     ephemeral_commands: bool  # mark personal commands as ephemeral in the command menu
     common: CommonSettings
@@ -145,7 +141,6 @@ class TelegramSettings:
             webhook_secret=secret,
             extras=extras,
             allow_private=_flag("ALLOW_PRIVATE_CHATS", default=extras),
-            slogan_replies=_flag("SLOGAN_REPLIES", default=extras),
             ephemeral_replies=_flag("EPHEMERAL_REPLIES"),
             ephemeral_commands=_flag("EPHEMERAL_COMMANDS"),
             common=common,

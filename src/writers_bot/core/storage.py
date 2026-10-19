@@ -540,10 +540,6 @@ class Storage:
                     (platform, chat_id, key, value),
                 )
 
-    async def sprint_unit(self, platform: str, chat_id: str) -> Unit:
-        value = await self.get_chat_setting(platform, chat_id, "sprint_unit")
-        return Unit(value) if value in Unit._value2member_map_ else Unit.WORDS
-
     # --- chats the bot is in ---------------------------------------------------------------------
 
     async def upsert_chat(self, chat: ChatRecord, *, only_new: bool = False) -> None:

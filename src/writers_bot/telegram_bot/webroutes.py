@@ -191,8 +191,9 @@ def routes(tbot: "TelegramBot", app: WebApp) -> None:
 
     app.add("GET", "/api/launch", launch)
     app.add("GET", "/api/chats", chats)
-    app.add("GET", r"/api/chat/{chat:-?\d+}/settings", chat_settings)
-    app.add("PATCH", r"/api/chat/{chat:-?\d+}/settings", update_settings)
+    if tbot.chat_settings is not None:  # chat_settings = false: no Chat tab, and no way around it
+        app.add("GET", r"/api/chat/{chat:-?\d+}/settings", chat_settings)
+        app.add("PATCH", r"/api/chat/{chat:-?\d+}/settings", update_settings)
     app.add("GET", "/api/export", export)
     app.add("POST", "/api/export/send", send_export)
     app.add("DELETE", "/api/me", forget)

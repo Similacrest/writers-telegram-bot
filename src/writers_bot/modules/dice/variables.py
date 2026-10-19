@@ -18,7 +18,7 @@ from dataclasses import replace
 from telegram import InlineKeyboardMarkup, Message
 
 from ...core import dicevars, extras
-from ...core.dicevars import VarError
+from ...core.dicevars import MAX_PER_SCOPE, VarError
 from ...core.i18n import raw, t
 from ...telegram_bot.app import command_args_text
 from ...telegram_bot.base import Command, Sent, button
@@ -50,9 +50,16 @@ class Variables:
     def scope(message: Message) -> tuple[str, str, str]:
         return PLATFORM, str(message.chat_id), str(message.from_user.id)
 
-    async def answer(self, message: Message, text: str, markup: InlineKeyboardMarkup | None = None) -> Sent | None:
-        """A private answer to the sender, and the command is deleted where the bot may."""
-        return await self.bot.asks.respond(message, text, markup, delete_command=True)
+    async def answer(
+        self, message: Message, text: str, markup: InlineKeyboardMarkup | None = None, *, delete_command: bool = True
+    ) -> Sent | None:
+        """A private answer to the sender (ephemeral, else in the private chat with the bot, never in public), and the
+        command is deleted where the bot may."""
+        head = self.bot.fmt.t("dice.var_head", chat=message.chat.title or str(message.chat_id))
+        sent, _where = await self.bot.asks.respond_private(
+            message, text, markup, dm_head=head, delete_command=delete_command
+        )
+        return sent
 
     # --- /dicevar ---------------------------------------------------------------------------------------
 
@@ -137,10 +144,10 @@ class Variables:
             steps = dicevars.parse_steps(step)
             new = await self.store.set(*self.scope(message), name, steps)
         except VarError as e:
-            await self.bot.asks.respond(message, f.t(e.key, **e.values))
+            await self.answer(message, f.t(e.key, **e.values), delete_command=False)  # the roll still replies to it
             return
         key = "dice.var_saved" if new else "dice.var_updated"
-        await self.bot.asks.respond(message, f.t(key, name=name, steps=dicevars.compact(steps)))
+        await self.answer(message, f.t(key, name=name, steps=dicevars.compact(steps)), delete_command=False)
 
     # --- rolling a variable (/$hit) -----------------------------------------------------------------------
 
@@ -221,7 +228,7 @@ class Variables:
                 await self.bot.asks.toast(query, "common.stale")
                 return
             theirs, mine = await self.store.all(PLATFORM, source, uid), await self.store.all(PLATFORM, target, uid)
-            state.update(copied=0, kept=0, queue=[])
+            state.update(copied=0, kept=0, full=0, queue=[])
             for name, steps in theirs.items():
                 if name not in mine:
                     await self._copy(state, name, steps)
@@ -236,7 +243,7 @@ class Variables:
             await self.store.set(PLATFORM, state["target"], state["user"], name, steps)
             state["copied"] += 1
         except VarError:  # too many variables here: the rest stays where it is
-            state["kept"] += 1
+            state["full"] += 1
 
     async def _resolve(self, state: dict, action: str) -> None:
         """Answer the first conflict (or all of them) with their variable: keep the one here, or replace it."""
@@ -254,7 +261,10 @@ class Variables:
         uid = state["user"]
         if not state["queue"]:
             self._flows.pop(token, None)
-            await self.bot.asks.edit(sent, f.t("dice.var_import_done", copied=state["copied"], kept=state["kept"]))
+            full = f.t("dice.var_import_full", max=MAX_PER_SCOPE, count=state["full"]) if state["full"] else ""
+            await self.bot.asks.edit(
+                sent, f.t("dice.var_import_done", copied=state["copied"], kept=state["kept"], full=full)
+            )
             return
         name, theirs, mine = state["queue"][0]
         text = f.t(

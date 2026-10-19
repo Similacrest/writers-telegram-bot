@@ -98,6 +98,34 @@ class ReplyStore:
         )
         return self._entry(row)
 
+    async def remove_answer(self, platform: str, chat_id: str, kind: str, trigger: str, answer: str) -> None:
+        """Take one answer off a trigger (the trigger goes with its last answer)."""
+        row = await self.storage.fetchone(
+            "SELECT * FROM replies WHERE platform = ? AND chat_id = ? AND kind = ? AND trigger = ?",
+            (platform, chat_id, kind, trigger),
+        )
+        if row is None:
+            return
+        answers = json.loads(row["answers"])
+        if answer not in answers:
+            return
+        answers.remove(answer)
+        async with self.storage.tx() as db:
+            if answers:
+                await db.execute(
+                    "UPDATE replies SET answers = ? WHERE id = ?", (json.dumps(answers, ensure_ascii=False), row["id"])
+                )
+            else:
+                await db.execute("DELETE FROM replies WHERE id = ?", (row["id"],))
+
+    async def meta(self, key: str) -> str | None:
+        row = await self.storage.fetchone("SELECT value FROM replies_meta WHERE key = ?", (key,))
+        return row["value"] if row else None
+
+    async def set_meta(self, key: str, value: str) -> None:
+        async with self.storage.tx() as db:
+            await db.execute("INSERT OR REPLACE INTO replies_meta (key, value) VALUES (?, ?)", (key, value))
+
     async def delete(self, platform: str, chat_id: str, entry_id: int) -> bool:
         async with self.storage.tx() as db:
             cur = await db.execute(

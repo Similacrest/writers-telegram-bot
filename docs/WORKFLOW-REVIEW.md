@@ -88,8 +88,8 @@ questions.
 2. **The `/sprint` command stays in the chat.** Everything else of a sprint ends up as one board message,
    but the command that started it is the user's own message and isn't deleted (as in v2).
 3. **Creating an achievement in a group** means replying to a sticker with a command
-   (`/newachievement Назва — опис`); the private chat flow (send a sticker, answer with the name) is
-   friendlier, but not discoverable from the group.
+   (`/newachievement Назва — опис`); the private chat flow is friendlier, but not discoverable from the group.
+   (Since v4.3.0 the private flow starts with `/newachievement`, not with a bare sticker.)
 4. **The board's "✓ Bob" for hidden numbers and "✗ Carol"** are on separate lines below the numbers;
    people who prefer not to share are visibly grouped (see round 1, item 7).
 
@@ -155,14 +155,15 @@ Pausing and switching works, the split tip, % corrections, getting started, achi
 2. ~~**A stray message during a typed step becomes the answer.**~~ Fixed in v4.2.1: only a reply to the
    step's message answers it.
 3. **A roll with a bonus or a caption is two messages** (the sticker, then the line); a bare `/d20` is one.
-   Stickers can't have captions. Accepted by the owner; several dice get a sticker each, up to
-   `max_stickers` (4), so a big roll doesn't flood the chat.
+   Stickers can't have captions. Accepted by the owner. (Since v4.3.0 dice of a kind share a sticker and the limits count
+   stickers; since v4.5.0 `stitch = true` puts up to six dice in one sticker.)
 4. **Dice stickers loop.** Telegram plays video stickers in a loop and allows 3 s. Since v4.2.1 the roll
    takes 0.6 s and the result holds still for 2 s, so most of each loop is the result (the owner asked for
    30 s of stillness, which a sticker can't have).
-5. **The dice packs need a super-admin** as their owner (a Telegram rule); without one, rolls are text.
-6. **160 sticker files** (about 30 MB) are in the repository and the image; they are uploaded to Telegram
-   once.
+5. ~~**The dice packs need a super-admin** as their owner.~~ Gone in v4.3.0: there are no packs, each clip is
+   uploaded the first time a roll needs it.
+6. **The sticker files are in the repository and the image**: since v4.3.0 866 clips, about 73 MB, uploaded one by one
+   on first use.
 
 ### v4.2.1 (owner's answers to round 4)
 - `/myachievements` (public) instead of `/achievements мої`; `/achievements <name>` finds people by

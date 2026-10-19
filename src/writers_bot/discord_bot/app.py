@@ -24,7 +24,7 @@ from ..core.export import export_person
 from ..core.fmt import MarkdownFormatter
 from ..core.i18n import t
 from ..core.links import LinkError
-from ..core.models import ChatKey, Outcome, Sprint, SprintStatus, Unit
+from ..core.models import ChatKey, Outcome, Sprint, SprintStatus
 from ..core.prompts import PromptsUnavailableError
 from ..core.render import sprint_text, text_stats_text
 from ..core.reporting import ChatOptions, Reporting, Status
@@ -215,7 +215,6 @@ class DiscordBot:
                 self.storage,
                 DiscordSprintPresenter(self.client, self.fmt, self.reports, sp.utc_now),
                 platform=PLATFORM,
-                report_window=sp.LATE_REPORTS if self.reports else self.settings.common.report_window,
                 reports=self.reports,
             )
             self.rep = Reporting(
@@ -282,8 +281,7 @@ class DiscordBot:
         settings = self.services.shared.extra.get("settings")
         if settings is not None:
             return await settings.sprint_options(key, works=self.works_on, percent=self.percent_on)
-        unit = await self.storage.sprint_unit(PLATFORM, key.chat_id) if self.percent_on else Unit.WORDS
-        return ChatOptions(works=self.works_on, percent=self.percent_on, default_unit=unit)
+        return ChatOptions(works=self.works_on, percent=self.percent_on)
 
     # --- sprints ---------------------------------------------------------------------------------
 
@@ -502,6 +500,14 @@ class DiscordBot:
                 await bot.reply(interaction, t("progress.usage"), ephemeral=True)
                 return
             sprint = None if parsed.day else bot.engine.current_for(user.user_id, chat_key(interaction.channel_id))
+            if (
+                sprint is not None
+                and sprint.status != SprintStatus.RUNNING
+                and sprint.participants[user.user_id].has_report
+            ):
+                sprint = (
+                    None  # after the end, /progress is your late report only until you've reported (as on Telegram)
+                )
             if sprint is not None:
                 result = await bot.rep.report(sprint, user, parsed)
             else:

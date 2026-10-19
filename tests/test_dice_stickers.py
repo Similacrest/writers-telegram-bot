@@ -148,7 +148,7 @@ def test_every_sticker_it_can_choose_is_in_the_packs_and_every_sticker_in_the_pa
         for roll in itertools.combinations_with_replacement(range(1, sides + 1), 3):
             chosen.update(choose([(sides, v) for v in roll]))
     assert chosen <= names, sorted(chosen - names)
-    assert names - chosen == set(), sorted(names - chosen)  # no sticker in the packs that no roll gets
+    assert names - chosen == set(), sorted(names - chosen)  # no clip that no roll gets
     assert all(NEXT_EVEN[n] % 2 == 0 for n in NEXT_EVEN)
 
 
