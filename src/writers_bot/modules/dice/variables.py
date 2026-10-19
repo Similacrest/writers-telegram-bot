@@ -203,7 +203,7 @@ class Variables:
     async def on_button(self, query, args: list[str]) -> None:
         """``dv:src:<token>:<i>`` (a source chat), ``dv:keep|repl|keepall|replall|stop:<token>``."""
         sent = Sent.from_query(query)
-        action, token = (args + ["", ""])[:2]
+        action, token = [*args, "", ""][:2]
         state = self._flows.get(token)
         if state is None or sent is None or str(query.from_user.id) != state["user"]:
             await self.bot.asks.toast(query, "common.stale")

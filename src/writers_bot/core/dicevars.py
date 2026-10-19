@@ -16,7 +16,7 @@ MAX_STEP = 200
 MAX_PER_SCOPE = 50  # variables one person may have in one chat
 
 NAME = re.compile(
-    r"[^\W\d]\w{0,%d}" % (MAX_NAME - 1)
+    rf"[^\W\d]\w{{0,{MAX_NAME - 1}}}"
 )  # a letter or underscore first (Cyrillic too), then word characters
 _REF = re.compile(
     r"^[/!](?:r(?:oll)?(?:@\w+)?\s+)?\$(\w+)(?:@\w+)?(?:\s+(.*))?$", re.IGNORECASE | re.DOTALL
