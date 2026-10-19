@@ -485,7 +485,10 @@ class FakeTelegram(BaseRequest):
             thread_id=p.get("message_thread_id"),
         )
         sticker = p.get("sticker")
-        if isinstance(sticker, str) and sticker.startswith("attach://"):  # an upload: Telegram makes the ids
+        upload = self._request is not None and self._request.multipart_data
+        if upload or (
+            isinstance(sticker, str) and sticker.startswith("attach://")
+        ):  # an upload: Telegram makes the ids
             filename = next(iter(self._request.multipart_data.values()))[0]
             stem = filename.rsplit(".", 1)[0]
             file_id = f"up{next(self._ids)}-{stem}"

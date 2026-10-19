@@ -125,7 +125,7 @@ exclamation mark or the slash: `!к12`, `!2к6+3 Атака`, `!r 4d6kh3`.
 | Output | `2d6+3 9: [1, 5]+3` | `2d6 (1, 5) + 3 = 9`: highest roll bold, ones underlined, dropped dice struck out |
 
 **Dice stickers** (`dice = { stickers = true }`): the dice of a roll also land as animated
-stickers on their results. They are eight packs of video stickers (866 in all, `src/writers_bot/assets/dice_packs`, made by
+stickers on their results. They are 866 video clips (`src/writers_bot/assets/dice_packs`, in eight folders, made by
 `scripts/dice_render`, see its README): the highest roll of a die has golden rays, the lowest a red halo, a dull die and
 dust. Dice of a kind share stickers, so a big roll is a few stickers. Which stickers a roll gets (`core/dicestickers.py`):
 

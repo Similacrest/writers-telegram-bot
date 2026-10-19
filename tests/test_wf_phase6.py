@@ -559,7 +559,7 @@ async def test_d07_a_roll_sticker_sent_by_a_person_is_a_forward_and_gets_a_warni
 
 async def test_d07b_the_forward_setting_off_and_delete(make, monkeypatch):
     fixed(monkeypatch, (20, 17))
-    h = await make(DICE)
+    h = await make({**DICE, **FULL})  # a bot with storage has chat settings
     await h.say(ALICE, "/d20")
     settings = h.tbot.services.shared.extra["settings"]
     await settings.set("telegram", str(GROUP), "dice.forwards", "off")
